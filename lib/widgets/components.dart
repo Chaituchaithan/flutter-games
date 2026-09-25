@@ -1,0 +1,824 @@
+import 'package:flutter/material.dart';
+
+import '../theme.dart';
+import 'aura_widgets.dart';
+
+/// Scaffold + dark background + glows + SafeArea. Use as the root of a screen.
+/// Pass [scroll] true to make the body scrollable.
+class AuraScaffold extends StatelessWidget {
+  const AuraScaffold({
+    super.key,
+    required this.body,
+    this.appBar,
+    this.bottomNav,
+    this.padding = const EdgeInsets.symmetric(horizontal: 20),
+    this.scroll = false,
+    this.glowColor = AuraColors.brandPurple,
+    this.glowAlignment = const Alignment(0, -1.15),
+    this.showGlow = true,
+  });
+
+  final Widget body;
+  final Widget? appBar;
+  final Widget? bottomNav;
+  final EdgeInsets padding;
+  final bool scroll;
+
+  /// Forwarded to [AuraBackground] so screens can place their glow.
+  final Color glowColor;
+  final Alignment glowAlignment;
+  final bool showGlow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AuraColors.bgBase,
+      body: AuraBackground(
+        glowColor: glowColor,
+        glowAlignment: glowAlignment,
+        showGlow: showGlow,
+        child: SafeArea(
+          bottom: bottomNav == null,
+          child: Column(
+            children: [
+              ?appBar,
+              Expanded(
+                child: scroll
+                    ? SingleChildScrollView(padding: padding, child: body)
+                    : Padding(padding: padding, child: body),
+              ),
+              ?bottomNav,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Back chevron + centered title + optional trailing widget.
+class AuraAppBar extends StatelessWidget {
+  const AuraAppBar({
+    super.key,
+    this.title,
+    this.showBack = true,
+    this.onBack,
+    this.trailing,
+  });
+
+  final String? title;
+  final bool showBack;
+  final VoidCallback? onBack;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: SizedBox(
+        height: 48,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (title != null)
+              Text(title!, style: AuraText.appBarTitle),
+            if (showBack)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GlassIconButton(
+                  icon: Icons.chevron_left,
+                  iconSize: 24,
+                  onTap: onBack ?? () => Navigator.of(context).maybePop(),
+                ),
+              ),
+            if (trailing != null)
+              Align(alignment: Alignment.centerRight, child: trailing!),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Rounded-square glass icon button (42×42, radius 14) — the back chevron and
+/// header actions throughout the redesign. Not a circle.
+class GlassIconButton extends StatelessWidget {
+  const GlassIconButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    this.size = 42,
+    this.iconSize = 20,
+    this.gradient,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final double size;
+  final double iconSize;
+
+  /// Optional accent fill (e.g. brand gradient for a "+"/primary action).
+  final Gradient? gradient;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: AuraGlass.decoration(
+        radius: AuraRadii.sm,
+        accentGradient: gradient,
+        border: gradient != null ? Colors.white.withValues(alpha: 0.3) : null,
+        shadow: false,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AuraRadii.sm),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AuraRadii.sm),
+          onTap: onTap,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(icon, color: AuraColors.textPrimary, size: iconSize),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Circular icon button usable as an app-bar trailing action (e.g. settings gear).
+/// Retained name; now renders as the rounded-square glass [GlassIconButton].
+class CircleActionButton extends StatelessWidget {
+  const CircleActionButton({super.key, required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GlassIconButton(icon: icon, onTap: onTap);
+}
+
+enum Currency { gems, gold }
+
+/// The "10,000 +" / "3,000 +" pills seen in headers.
+class CurrencyPill extends StatelessWidget {
+  const CurrencyPill({
+    super.key,
+    required this.kind,
+    required this.amount,
+    this.showPlus = true,
+  });
+
+  final Currency kind;
+  final String amount;
+  final bool showPlus;
+
+  @override
+  Widget build(BuildContext context) {
+    final isGems = kind == Currency.gems;
+    final color = isGems ? AuraColors.gems : AuraColors.gold;
+    return Container(
+      padding: EdgeInsets.fromLTRB(7, 4, showPlus ? 4 : 11, 4),
+      decoration: BoxDecoration(
+        // Tinted gradient (colour @ 0.24 → 0.06) with a coloured stroke.
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withValues(alpha: 0.24), color.withValues(alpha: 0.06)],
+        ),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CurrencyGlyph(kind: kind, size: 15),
+          const SizedBox(width: 6),
+          Text(
+            amount,
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
+              color: Colors.white,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (showPlus) ...[
+            const SizedBox(width: 6),
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, size: 13, color: Colors.white),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A drawn currency glyph: a cyan diamond (gems/tokens) or a layered gold coin.
+class CurrencyGlyph extends StatelessWidget {
+  const CurrencyGlyph({super.key, required this.kind, this.size = 16});
+  final Currency kind;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(painter: _CurrencyPainter(kind)),
+    );
+  }
+}
+
+class _CurrencyPainter extends CustomPainter {
+  _CurrencyPainter(this.kind);
+  final Currency kind;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    if (kind == Currency.gems) {
+      // Diamond path echoing the mockup's M6 3 H18 l4 6 L12 21 gem.
+      final w = size.width, h = size.height;
+      final p = Path()
+        ..moveTo(w * 0.25, h * 0.12)
+        ..lineTo(w * 0.75, h * 0.12)
+        ..lineTo(w * 0.95, h * 0.40)
+        ..lineTo(w * 0.5, h * 0.92)
+        ..lineTo(w * 0.05, h * 0.40)
+        ..close();
+      canvas.drawPath(
+        p,
+        Paint()..shader = AuraGradients.token.createShader(rect),
+      );
+    } else {
+      final c = rect.center;
+      canvas.drawCircle(c, size.width * 0.5, Paint()..color = const Color(0xFFB45309));
+      canvas.drawCircle(
+        c,
+        size.width * 0.42,
+        Paint()..shader = AuraGradients.goldCoin.createShader(rect),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CurrencyPainter old) => old.kind != kind;
+}
+
+/// Glass rounded text input with a leading icon and optional trailing widget.
+/// Shows an accent-glow focus ring when the field is focused.
+class AuraTextField extends StatefulWidget {
+  const AuraTextField({
+    super.key,
+    required this.hint,
+    this.icon,
+    this.obscure = false,
+    this.trailing,
+    this.keyboardType,
+    this.controller,
+    this.maxLines = 1,
+  });
+
+  final String hint;
+  final IconData? icon;
+  final bool obscure;
+  final Widget? trailing;
+  final TextInputType? keyboardType;
+  final TextEditingController? controller;
+  final int maxLines;
+
+  @override
+  State<AuraTextField> createState() => _AuraTextFieldState();
+}
+
+class _AuraTextFieldState extends State<AuraTextField> {
+  final FocusNode _node = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _node.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final focused = _node.hasFocus;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      decoration: BoxDecoration(
+        color: focused ? AuraColors.accentGlow.withValues(alpha: 0.08) : AuraColors.field,
+        borderRadius: BorderRadius.circular(AuraRadii.md),
+        border: Border.all(
+          color: focused ? AuraColors.accentGlow : Colors.white.withValues(alpha: 0.22),
+          width: 1.5,
+        ),
+        boxShadow: focused
+            ? [
+                BoxShadow(
+                  color: AuraColors.accentGlow.withValues(alpha: 0.18),
+                  spreadRadius: 3,
+                  blurRadius: 0,
+                ),
+              ]
+            : const [
+                BoxShadow(
+                  color: Color(0x59000000), // inset-ish depth (0.35 black)
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        crossAxisAlignment: widget.maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        children: [
+          if (widget.icon != null) ...[
+            Padding(
+              padding: EdgeInsets.only(top: widget.maxLines > 1 ? 18 : 0),
+              child: Icon(widget.icon, size: 18, color: AuraColors.textSecondary),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: TextField(
+              focusNode: _node,
+              controller: widget.controller,
+              obscureText: widget.obscure,
+              keyboardType: widget.maxLines > 1 ? TextInputType.multiline : widget.keyboardType,
+              maxLines: widget.maxLines,
+              minLines: widget.maxLines > 1 ? 3 : 1,
+              style: TextStyle(
+                fontFamily: AuraText.bodyFamily,
+                color: AuraColors.textPrimary,
+                fontSize: 15.5,
+              ),
+              cursorColor: AuraColors.accentGlow,
+              decoration: InputDecoration(
+                isCollapsed: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                border: InputBorder.none,
+                hintText: widget.hint,
+                hintStyle: TextStyle(
+                  color: AuraColors.textPrimary.withValues(alpha: 0.34),
+                  fontSize: 15.5,
+                ),
+              ),
+            ),
+          ),
+          ?widget.trailing,
+        ],
+      ),
+    );
+  }
+}
+
+/// Dark outline pill button (secondary action).
+class SecondaryButton extends StatelessWidget {
+  const SecondaryButton({super.key, required this.label, required this.onPressed});
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AuraRadii.md),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AuraRadii.md),
+          onTap: onPressed,
+          child: Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AuraRadii.md),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.24),
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AuraText.bodyFamily,
+                color: AuraColors.textPrimary.withValues(alpha: 0.85),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// White pill button with an optional leading icon (e.g. "Continue with Apple").
+class LightButton extends StatelessWidget {
+  const LightButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.leading,
+    this.dark = false,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final Widget? leading;
+
+  /// When true renders a dark surface (e.g. "Continue with Google").
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    // White (Apple) vs frosted-glass (Google) surface.
+    final fg = dark ? AuraColors.textPrimary : Colors.black;
+    return SizedBox(
+      height: 52,
+      child: Material(
+        color: dark ? Colors.transparent : Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(15),
+          onTap: onPressed,
+          child: Container(
+            alignment: Alignment.center,
+            decoration: dark
+                ? BoxDecoration(
+                    gradient: AuraGradients.glass,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
+                  )
+                : BoxDecoration(borderRadius: BorderRadius.circular(15)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (leading != null) ...[leading!, const SizedBox(width: 10)],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: AuraText.bodyFamily,
+                    color: fg,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small uppercase grey section label.
+class SectionHeader extends StatelessWidget {
+  const SectionHeader(this.text, {super.key, this.padding = EdgeInsets.zero});
+  final String text;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: padding,
+        child: Text(text.toUpperCase(), style: AuraText.section),
+      );
+}
+
+/// Content section header: a 4×16 gradient bar + display-face label (the
+/// "Earn rewards" / "Game stats" style). Distinct from [SectionHeader], which is
+/// the uppercase grey group label used for settings-style groups.
+class SectionBar extends StatelessWidget {
+  const SectionBar(this.text, {super.key, this.trailing});
+  final String text;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 16,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AuraColors.brandPurple, AuraColors.brandPink],
+            ),
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            fontFamily: AuraText.displayFamily,
+            color: AuraColors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (trailing != null) ...[const Spacer(), trailing!],
+      ],
+    );
+  }
+}
+
+/// Rounded badge/pill (SOON, POPULAR, MEGA, +10% …).
+class AuraBadge extends StatelessWidget {
+  const AuraBadge(this.text, {super.key, this.color = AuraColors.badgeCyan, this.filled = true});
+  final String text;
+  final Color color;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: filled ? color.withValues(alpha: 0.18) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+      ),
+    );
+  }
+}
+
+/// Profile stat block: big value + small label.
+class StatTile extends StatelessWidget {
+  const StatTile({super.key, required this.value, required this.label, this.valueColor});
+  final String value;
+  final String label;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+      decoration: AuraGlass.decoration(radius: 18),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
+              color: valueColor ?? AuraColors.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(color: AuraColors.textSecondary, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Gradient iOS-style switch.
+class AuraToggle extends StatelessWidget {
+  const AuraToggle({super.key, required this.value, required this.onChanged});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    // Track is a plain Container (its decoration flips instantly and cleanly —
+    // an AnimatedContainer can't tween a gradient back to null, which would
+    // leave the "on" gradient stuck when toggled off). The knob slide is
+    // animated separately via AnimatedAlign.
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        width: 52,
+        height: 30,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          gradient: value ? AuraGradients.brand : null,
+          color: value ? null : Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: value ? null : Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          boxShadow: value
+              ? [
+                  BoxShadow(
+                    color: AuraColors.brandPink.withValues(alpha: 0.5),
+                    blurRadius: 14,
+                    spreadRadius: -6,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : null,
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: value ? Colors.white : Colors.white.withValues(alpha: 0.75),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Segmented pill tab control (Store categories, etc.).
+class SegmentedTabs extends StatelessWidget {
+  const SegmentedTabs({
+    super.key,
+    required this.labels,
+    required this.index,
+    required this.onChanged,
+  });
+
+  final List<String> labels;
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(AuraRadii.sm),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: List.generate(labels.length, (i) {
+          final active = i == index;
+          return Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onChanged(i),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: active ? AuraGradients.brand : null,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: active
+                      ? [
+                          BoxShadow(
+                            color: AuraColors.brandPink.withValues(alpha: 0.5),
+                            blurRadius: 18,
+                            spreadRadius: -8,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  labels[i],
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
+                    color: active ? Colors.white : AuraColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+/// A generic dark rounded card container.
+class AuraCard extends StatelessWidget {
+  const AuraCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.onTap,
+    this.gradient,
+    this.radius = 20,
+  });
+
+  final Widget child;
+  final EdgeInsets padding;
+  final VoidCallback? onTap;
+  final Gradient? gradient;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final card = Container(
+      padding: padding,
+      decoration: AuraGlass.decoration(
+        radius: radius,
+        accentGradient: gradient,
+        border: gradient != null ? AuraColors.accentGlow.withValues(alpha: 0.45) : null,
+      ),
+      child: child,
+    );
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(borderRadius: BorderRadius.circular(radius), onTap: onTap, child: card),
+    );
+  }
+}
+
+/// Floating bottom navigation bar: Home · Wheel · Store · Profile.
+class AuraBottomNav extends StatelessWidget {
+  const AuraBottomNav({super.key, required this.index, required this.onChanged});
+
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  static const _items = [
+    (Icons.home_rounded, 'Home'),
+    (Icons.track_changes, 'Wheel'),
+    (Icons.storefront_rounded, 'Store'),
+    (Icons.person_rounded, 'Profile'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF1E1634).withValues(alpha: 0.96),
+              const Color(0xFF0C0A16).withValues(alpha: 0.98),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.8),
+              blurRadius: 30,
+              spreadRadius: -12,
+              offset: const Offset(0, -10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: List.generate(_items.length, (i) {
+            final active = i == index;
+            final (icon, label) = _items[i];
+            return Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onChanged(i),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ShaderMask(
+                      shaderCallback: (r) => active
+                          ? AuraGradients.brand.createShader(r)
+                          : const LinearGradient(colors: [AuraColors.textSecondary, AuraColors.textSecondary]).createShader(r),
+                      child: Icon(icon, size: 24, color: Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: active ? AuraColors.textPrimary : AuraColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
