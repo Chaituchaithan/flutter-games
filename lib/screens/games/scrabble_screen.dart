@@ -76,9 +76,11 @@ class ScrabbleScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const GameHeader(title: '🔠 Scrabble', pot: '400'),
-          const SizedBox(height: 10),
-          GameMetaText('Move 1 / 12 · $players players · 30s per move'),
+          GameHeader(
+            title: '🔠 Scrabble',
+            subtitle: 'Move 1 / 12 · $players players · 30s per move',
+            pot: '400',
+          ),
           const SizedBox(height: 16),
           _opponents(),
           const SizedBox(height: 16),

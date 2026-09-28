@@ -16,10 +16,11 @@ class LudoScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1) Header.
-          const GameHeader(title: '🎲 Ludo', pot: '2,000'),
-          const SizedBox(height: 10),
-          // 2) Subtitle.
-          const GameMetaText('Move 1 / 32 · 4 players · 30s per move'),
+          const GameHeader(
+            title: '🎲 Ludo',
+            subtitle: 'Move 1 / 32 · 4 players · 30s per move',
+            pot: '2,000',
+          ),
           const SizedBox(height: 16),
           // 3) Top players.
           IntrinsicHeight(

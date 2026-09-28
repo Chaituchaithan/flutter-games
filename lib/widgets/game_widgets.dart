@@ -16,7 +16,7 @@ import 'components.dart';
 
 // ─────────────────────────── Pot pill ───────────────────────────
 
-/// The dark "POT ♦ N" pill shown in a game header.
+/// The "Pot N" pill shown at the right of a game header (mockup: amber value).
 class GamePotPill extends StatelessWidget {
   const GamePotPill({super.key, required this.amount, this.currency = Currency.gems});
 
@@ -25,45 +25,33 @@ class GamePotPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gold = currency == Currency.gold;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
         color: AuraColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AuraColors.cardBorder),
       ),
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
-            'POT',
+            'Pot',
             style: TextStyle(
               color: AuraColors.textSecondary,
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
             ),
           ),
-          const SizedBox(height: 2),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                gold ? Icons.monetization_on : Icons.diamond,
-                size: 14,
-                color: gold ? AuraColors.gold : AuraColors.gems,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                amount,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+          const SizedBox(width: 7),
+          Text(
+            amount,
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
+              color: AuraColors.amber,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -73,7 +61,7 @@ class GamePotPill extends StatelessWidget {
 
 // ─────────────────────────── Header ───────────────────────────
 
-/// Standard game header: back + title (with optional subtitle) + pause + pot.
+/// Standard game header (mockup): pause (left) · centered title + subtitle · pot (right).
 class GameHeader extends StatelessWidget {
   const GameHeader({
     super.key,
@@ -81,43 +69,42 @@ class GameHeader extends StatelessWidget {
     this.subtitle,
     required this.pot,
     this.currency = Currency.gems,
-    this.showPause = true,
   });
 
   final String title;
   final String? subtitle;
   final String pot;
   final Currency currency;
-  final bool showPause;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        CircleActionButton(
-          icon: Icons.chevron_left,
-          onTap: () => Navigator.of(context).maybePop(),
+        GlassIconButton(
+          icon: Icons.pause_rounded,
+          onTap: () => showGamePaused(context),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 title,
+                textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
-                  fontSize: 20,
+                  fontSize: 19,
                 ),
               ),
               if (subtitle != null) ...[
                 const SizedBox(height: 2),
                 Text(
                   subtitle!,
+                  textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -130,30 +117,9 @@ class GameHeader extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 10),
-        if (showPause) ...[
-          GlassIconButton(
-            icon: Icons.pause_rounded,
-            onTap: () => showGamePaused(context),
-          ),
-          const SizedBox(width: 10),
-        ],
+        const SizedBox(width: 12),
         GamePotPill(amount: pot, currency: currency),
       ],
-    );
-  }
-}
-
-/// Secondary meta line under a header (e.g. "Move 1 / 12 · 2 players · 30s").
-class GameMetaText extends StatelessWidget {
-  const GameMetaText(this.text, {super.key});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(color: AuraColors.textSecondary, fontSize: 13),
     );
   }
 }

@@ -132,6 +132,24 @@ Purchase confirm. Fixes:
 
 Verified via golden render; 46 tests pass.
 
+## B5. Fifth pass — remaining screens double cross-check ✅
+
+Zoom-verified the screens left over from B4 (5 game boards + auth/system). Matched:
+Ludo/Snakes/Scrabble/Othello/Trivia boards, Maintenance, Force update, OTP, Reset,
+Edit profile, Avatars, Play-with-friends. One real fix:
+
+1. **Game header (all 6 boards + Trivia)** — ours was `[back chevron] [left-aligned
+   title] [pause] [pot]` with a separate `GameMetaText` line and a stacked "POT ♦"
+   pill. The mockup is **`[pause] · [centered title + subtitle] · [Pot N]`** with no
+   back chevron and a horizontal amber "Pot" pill. Rewrote `GameHeader` (pause left,
+   centered title+subtitle, no back) and `GamePotPill` (horizontal, amber value);
+   folded each board's meta line into the header subtitle; removed `GameMetaText`.
+
+Also: **Android release label set to `Aura`** (`AndroidManifest.xml`), per request
+(renamed from `snakeladder`).
+
+Verified via golden render; 56 tests pass; analyze clean.
+
 ## C. Notes
 - Items 2 & 3 react to live auth/connectivity, so they stay dormant until the
   backend is on, but the wiring is complete and correct. Item 1 works now. Item 4

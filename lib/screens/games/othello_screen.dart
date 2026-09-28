@@ -33,9 +33,11 @@ class OthelloScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const GameHeader(title: '⚫ Othello', pot: '400'),
-          const SizedBox(height: 10),
-          const GameMetaText('Move 1 / 12 · 2 players · 30s per move'),
+          const GameHeader(
+            title: '⚫ Othello',
+            subtitle: 'Move 1 / 12 · 2 players · 30s per move',
+            pot: '400',
+          ),
           const SizedBox(height: 16),
           const GameOpponentCard(
             name: 'ZeroCool',
