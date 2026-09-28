@@ -49,17 +49,32 @@ class User {
         color: color,
       );
 
-  factory User.fromJson(Map<String, dynamic> json) => User(
-        id: json['id']?.toString() ?? '',
-        displayName: json['displayName'] as String? ?? '',
-        handle: json['handle'] as String? ?? '',
-        bio: json['bio'] as String? ?? '',
-        level: (json['level'] as num?)?.toInt() ?? 1,
-        tier: json['tier'] as String? ?? 'Bronze I',
-        xp: (json['xp'] as num?)?.toInt() ?? 0,
-        xpMax: (json['xpMax'] as num?)?.toInt() ?? 100,
-        color: Friend.colorForName(json['displayName'] as String? ?? ''),
-      );
+  /// First non-null value among [keys] — tolerates snake_case or camelCase
+  /// (the API is Rust/serde snake_case; see docs/INTEGRATION_PLAN.md §7b).
+  static Object? _pick(Map<String, dynamic> j, List<String> keys) {
+    for (final k in keys) {
+      if (j[k] != null) return j[k];
+    }
+    return null;
+  }
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    final name = _pick(json, ['displayName', 'display_name', 'name', 'username']) as String? ?? '';
+    final handle = _pick(json, ['handle', 'username', 'tag']) as String?;
+    return User(
+      id: _pick(json, ['id', 'user_id', 'uuid'])?.toString() ?? '',
+      displayName: name,
+      handle: handle != null
+          ? (handle.startsWith('@') ? handle : '@$handle')
+          : (name.isEmpty ? '' : '@${name.toLowerCase().replaceAll(RegExp(r'\s+'), '_')}'),
+      bio: _pick(json, ['bio', 'about']) as String? ?? '',
+      level: (_pick(json, ['level', 'lvl']) as num?)?.toInt() ?? 1,
+      tier: _pick(json, ['tier', 'rank']) as String? ?? 'Bronze I',
+      xp: (_pick(json, ['xp', 'xp_current', 'experience']) as num?)?.toInt() ?? 0,
+      xpMax: (_pick(json, ['xpMax', 'xp_max', 'xp_to_next', 'xp_next']) as num?)?.toInt() ?? 100,
+      color: Friend.colorForName(name),
+    );
+  }
 
   /// The demo player used in the static (pre-API) phase.
   static const demo = User(

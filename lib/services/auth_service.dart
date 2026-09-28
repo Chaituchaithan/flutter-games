@@ -48,10 +48,16 @@ class RemoteAuthService implements AuthService {
 
   AuthResult _parse(dynamic data) {
     final map = data as Map<String, dynamic>;
-    return AuthResult(
-      User.fromJson(map['user'] as Map<String, dynamic>),
-      map['token'] as String? ?? '',
-    );
+    // Token may be nested/renamed; user may be wrapped or at the root.
+    final token = (map['token'] ??
+            map['access_token'] ??
+            map['accessToken'] ??
+            map['jwt'] ??
+            (map['data'] is Map ? (map['data']['token'] ?? map['data']['access_token']) : null))
+        as String? ??
+        '';
+    final rawUser = map['user'] ?? map['data'] ?? map;
+    return AuthResult(User.fromJson(rawUser as Map<String, dynamic>), token);
   }
 
   @override
