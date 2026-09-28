@@ -309,11 +309,11 @@ class _PowerUp {
 }
 
 const _powerUps = [
-  _PowerUp(icon: Icons.bolt, color: AuraColors.brandPurple, name: 'Double XP', rarity: 'EPIC', desc: '2× experience for your next 3 matches', price: '500', gold: true, owned: 2),
-  _PowerUp(icon: Icons.lightbulb_outline, color: AuraColors.gems, name: 'Hint Pack', rarity: 'COMMON', desc: '5 in-game hints for trivia duels', price: '200', gold: false),
-  _PowerUp(icon: Icons.ac_unit, color: AuraColors.badgeCyan, name: 'Time Freeze', rarity: 'RARE', desc: 'Pause the clock once per match', price: '350', gold: false, owned: 1),
-  _PowerUp(icon: Icons.replay, color: AuraColors.brandOrange, name: 'Second Chance', rarity: 'EPIC', desc: 'Retry a lost round instantly', price: '400', gold: true),
-  _PowerUp(icon: Icons.shield_outlined, color: AuraColors.green, name: 'Streak Shield', rarity: 'RARE', desc: 'Protects your streak on one loss', price: '300', gold: true),
+  _PowerUp(icon: Icons.bolt, color: AuraColors.brandPurple, name: 'Double XP', rarity: 'EPIC', desc: '2× XP for the next hour', price: '500', gold: true, owned: 2),
+  _PowerUp(icon: Icons.autorenew, color: AuraColors.brandPink, name: 'Extra Spins', rarity: 'RARE', desc: '+3 Lucky Wheel spins', price: '300', gold: true),
+  _PowerUp(icon: Icons.shield_outlined, color: AuraColors.storeBlueA, name: 'Streak Shield', rarity: 'LEGENDARY', desc: 'Protect your streak once', price: '1,200', gold: false, owned: 1),
+  _PowerUp(icon: Icons.lightbulb_outline, color: AuraColors.gold, name: 'Hint Boost', rarity: 'RARE', desc: 'Reveal one clue per match', price: '800', gold: false),
+  _PowerUp(icon: Icons.schedule, color: AuraColors.green, name: 'Time Freeze', rarity: 'COMMON', desc: '+15 seconds on the clock', price: '600', gold: false, owned: 3),
 ];
 
 class _PowerUpsTab extends StatelessWidget {
@@ -397,7 +397,7 @@ class _PowerUpRow extends StatelessWidget {
                   children: [
                     Flexible(child: Text(p.name, style: AuraText.cardTitle.copyWith(fontSize: 15))),
                     const SizedBox(width: 7),
-                    _RarityChip(p.rarity),
+                    _RarityChip(p.rarity, color: p.color),
                   ],
                 ),
                 const SizedBox(height: 3),
@@ -453,19 +453,15 @@ class _BuyChip extends StatelessWidget {
 }
 
 class _RarityChip extends StatelessWidget {
-  const _RarityChip(this.rarity);
+  const _RarityChip(this.rarity, {required this.color});
   final String rarity;
 
-  static const _colors = {
-    'COMMON': Color(0xFFCBD5E1),
-    'RARE': Color(0xFF67E8F9),
-    'EPIC': Color(0xFFE9D5FF),
-    'LEGENDARY': AuraColors.goldLight,
-  };
+  /// The chip is tinted to the power-up's own accent colour (mockup).
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final c = _colors[rarity] ?? AuraColors.textSecondary;
+    final c = color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
@@ -493,12 +489,12 @@ class _VipTab extends StatelessWidget {
   const _VipTab();
 
   static const _perks = [
-    '2× daily rewards & wheel spins',
-    'No ads, ever',
-    'Exclusive Gold avatar frame',
-    'Monthly 2,000 Token stipend',
+    'Remove all ads forever',
+    '2× match rewards',
+    'Daily 500 Gold bonus',
+    'Exclusive avatars & frames',
     'Priority matchmaking',
-    'VIP badge on your profile',
+    'Gold VIP badge',
   ];
 
   @override
@@ -508,11 +504,11 @@ class _VipTab extends StatelessWidget {
       children: [
         Row(
           children: const [
-            Expanded(child: _VipTierCard(name: 'Free', price: '\$0', per: 'current', icon: Icons.shield_outlined, tint: Color(0xFF94A3B8))),
+            Expanded(child: _VipTierCard(name: 'Free', price: '\$0', per: 'forever', icon: Icons.shield_outlined, tint: Color(0xFF94A3B8))),
             SizedBox(width: 10),
-            Expanded(child: _VipTierCard(name: 'Silver', price: '\$4.99', per: '/mo', icon: Icons.star, tint: Color(0xFFE2E8F0))),
+            Expanded(child: _VipTierCard(name: 'Silver', price: '\$4.99', per: '/ month', icon: Icons.star, tint: Color(0xFFE2E8F0))),
             SizedBox(width: 10),
-            Expanded(child: _VipTierCard(name: 'Gold', price: '\$9.99', per: '/mo', icon: Icons.workspace_premium, tint: AuraColors.goldLight, selected: true)),
+            Expanded(child: _VipTierCard(name: 'Gold', price: '\$9.99', per: '/ month', icon: Icons.workspace_premium, tint: AuraColors.goldLight, selected: true)),
           ],
         ),
         const SizedBox(height: 16),
@@ -540,7 +536,7 @@ class _VipTab extends StatelessWidget {
                           children: [
                             Text('\$9.99', style: AuraText.numeric.copyWith(fontSize: 30)),
                             const SizedBox(width: 6),
-                            Text('/mo', style: AuraText.cardSub),
+                            Text('/ month', style: AuraText.cardSub),
                           ],
                         ),
                       ],
@@ -581,9 +577,8 @@ class _VipTab extends StatelessWidget {
               ],
               const SizedBox(height: 4),
               Builder(
-                builder: (context) => GradientButton(
-                  label: 'Subscribe to Gold',
-                  onPressed: () => showAuraToast(context, 'VIP Gold activated', kind: AuraToastKind.gold),
+                builder: (context) => _GoldSubscribeButton(
+                  onTap: () => showAuraToast(context, 'VIP Gold activated', kind: AuraToastKind.gold),
                 ),
               ),
               const SizedBox(height: 10),
@@ -594,6 +589,52 @@ class _VipTab extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Gold-gradient VIP subscribe button (mockup: "Subscribe · $9.99 / month").
+class _GoldSubscribeButton extends StatelessWidget {
+  const _GoldSubscribeButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(17),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(17),
+          onTap: onTap,
+          child: Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: AuraGradients.goldCoin,
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+              boxShadow: [
+                BoxShadow(
+                  color: AuraColors.gold.withValues(alpha: 0.35),
+                  blurRadius: 24,
+                  spreadRadius: -6,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Text(
+              'Subscribe · \$9.99 / month',
+              style: TextStyle(
+                fontFamily: AuraText.displayFamily,
+                color: const Color(0xFF1A1206),
+                fontSize: 15.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

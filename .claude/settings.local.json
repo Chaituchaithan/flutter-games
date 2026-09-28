@@ -38,7 +38,12 @@
       "Bash(flutter build *)",
       "Bash(pkill -f \"http.server 8723\")",
       "Bash(awk '{print $NF}')",
-      "Bash(flutter pub *)"
+      "Bash(flutter pub *)",
+      "Bash(java -version)",
+      "Bash(brew install *)",
+      "Bash(flutter config *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }

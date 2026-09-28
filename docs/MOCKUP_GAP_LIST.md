@@ -108,6 +108,30 @@ layout + colours. Three nits fixed:
 
 Verified via golden render; 46 tests pass. No further mismatches found.
 
+## B4. Fourth pass — rigorous deep dive ✅
+
+Zoomed into detail on auth, store tabs, overlays, and gameplay. Matched exactly:
+Login (Apple/Google/email/guest/create), Level-up, Player profile, Onboarding,
+Purchase confirm. Fixes:
+
+1. **Store · VIP** — Subscribe button was brand‑gradient "Subscribe to Gold"; the
+   mockup uses a **gold** "Subscribe · $9.99 / month" (new `_GoldSubscribeButton`).
+   Perk copy replaced to match the mockup exactly (Remove all ads forever / 2× match
+   rewards / Daily 500 Gold bonus / Exclusive avatars & frames / Priority
+   matchmaking / Gold VIP badge). Tier labels `/mo`→`/ month`, Free `current`→`forever`.
+2. **Store · Power‑ups** — the whole catalogue differed. Replaced with the mockup's
+   five: Double XP (EPIC, ×2, 500 Gold), Extra Spins (RARE, 300 Gold), Streak Shield
+   (LEGENDARY, ×1, 1,200), Hint Boost (RARE, 800), Time Freeze (COMMON, ×3, 600) —
+   correct icons/colours/prices/currency. Rarity chips now tint to each item's accent
+   colour (mockup), not a fixed per‑rarity palette.
+3. **Chat sheet** — ours was a simple "Quick Chat" emote/message picker; the mockup is
+   a **full chat panel**. Rebuilt `showGameChatSheet`: opponent header (avatar +
+   online dot + close), empty‑conversation state ("Say hi or send an emote"),
+   horizontal quick‑message pills (Good luck!/Nice move/Rematch?/GG), 8‑emote row
+   (👋🔥GG😅👀💀🎯🤝), and a message input + gradient send button.
+
+Verified via golden render; 46 tests pass.
+
 ## C. Notes
 - Items 2 & 3 react to live auth/connectivity, so they stay dormant until the
   backend is on, but the wiring is complete and correct. Item 1 works now. Item 4

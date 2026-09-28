@@ -503,44 +503,41 @@ Future<void> confirmGameForfeit(BuildContext context) async {
 
 // ─────────────────────────── Chat / emotes sheet ───────────────────────────
 
-const _emotes = ['👍', '😂', '🔥', '😮', '😢', '🎉', '🤝', '👏'];
-const _quickMessages = [
-  'Good luck! 🍀',
-  'Nice move!',
-  'Well played 👏',
-  'So close!',
-  'Rematch? 🔁',
-  'Good game 🤝',
-];
+const _emotes = ['👋', '🔥', 'GG', '😅', '👀', '💀', '🎯', '🤝'];
+const _quickMessages = ['Good luck!', 'Nice move', 'Rematch?', 'GG'];
 
-/// Quick-chat bottom sheet: emote row + canned messages. Tapping either sends
-/// (toast) and closes — presentation only.
-void showGameChatSheet(BuildContext context) {
+/// In-game chat panel (mockup `chat`): opponent header, empty conversation,
+/// quick-message pills + emote row, and a message input with send button.
+/// Presentation only — sending shows a toast.
+void showGameChatSheet(
+  BuildContext context, {
+  String opponent = 'ZeroCool',
+  String initials = 'ZE',
+  Color color = AuraColors.avatarBlue,
+}) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (ctx) => const _ChatSheet(),
+    builder: (ctx) => _ChatSheet(opponent: opponent, initials: initials, color: color),
   );
 }
 
 class _ChatSheet extends StatelessWidget {
-  const _ChatSheet();
+  const _ChatSheet({required this.opponent, required this.initials, required this.color});
+  final String opponent;
+  final String initials;
+  final Color color;
 
-  void _send(BuildContext context, String message) {
-    Navigator.of(context).pop();
-    showAuraToast(context, 'Sent  $message', kind: AuraToastKind.info);
-  }
+  void _send(BuildContext context, String message) =>
+      showAuraToast(context, 'Sent  $message', kind: AuraToastKind.info);
 
   @override
   Widget build(BuildContext context) {
+    final height = MediaQuery.of(context).size.height * 0.72;
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        14,
-        20,
-        20 + MediaQuery.of(context).padding.bottom,
-      ),
+      height: height,
+      padding: EdgeInsets.fromLTRB(18, 12, 18, 14 + MediaQuery.of(context).padding.bottom),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -548,44 +545,158 @@ class _ChatSheet extends StatelessWidget {
           colors: [Color(0xFF1A1330), Color(0xFF0C0A18)],
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(
-          top: BorderSide(color: Color(0x33FFFFFF), width: 1.5),
-        ),
+        border: Border(top: BorderSide(color: Color(0x33FFFFFF), width: 1.5)),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 44,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(99),
+          // Header: opponent + online + close.
+          Row(
+            children: [
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    LetterAvatar(letter: initials, color: color, size: 44),
+                    Positioned(
+                      right: -1,
+                      bottom: -1,
+                      child: Container(
+                        width: 13,
+                        height: 13,
+                        decoration: BoxDecoration(
+                          color: AuraColors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AuraColors.bgBase, width: 2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(opponent, style: AuraText.cardTitle.copyWith(fontSize: 15.5)),
+                    const SizedBox(height: 1),
+                    const Text('Online',
+                        style: TextStyle(color: AuraColors.green, fontSize: 12, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+              GlassIconButton(icon: Icons.close, onTap: () => Navigator.of(context).maybePop()),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Divider(color: Colors.white.withValues(alpha: 0.1), height: 1),
+          // Empty conversation.
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                    ),
+                    child: Icon(Icons.chat_bubble_outline, color: AuraColors.textSecondary, size: 24),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Say hi or send an emote',
+                      style: AuraText.body.copyWith(color: AuraColors.textSecondary, fontSize: 13.5)),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          Text('Quick Chat', style: AuraText.title.copyWith(fontSize: 18)),
-          const SizedBox(height: 14),
+          // Quick-message pills.
+          SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final m in _quickMessages) ...[
+                  _QuickPill(text: m, onTap: () => _send(context, m)),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           // Emote row.
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              for (final e in _emotes)
-                _EmoteButton(emote: e, onTap: () => _send(context, e)),
+              for (final e in _emotes) _EmoteButton(emote: e, onTap: () => _send(context, e)),
             ],
           ),
-          const SizedBox(height: 18),
-          const SectionHeader('QUICK MESSAGES'),
-          const SizedBox(height: 10),
-          for (final m in _quickMessages) ...[
-            _QuickMessageRow(text: m, onTap: () => _send(context, m)),
-            const SizedBox(height: 8),
-          ],
+          const SizedBox(height: 12),
+          // Message input + send.
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  alignment: Alignment.centerLeft,
+                  decoration: AuraGlass.decoration(radius: 14, shadow: false),
+                  child: Text('Message…',
+                      style: TextStyle(color: AuraColors.textPrimary.withValues(alpha: 0.34), fontSize: 15)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: () => _send(context, 'a message'),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: AuraGradients.brand,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                  ),
+                  child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickPill extends StatelessWidget {
+  const _QuickPill({required this.text, required this.onTap});
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AuraColors.card,
+      borderRadius: BorderRadius.circular(99),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(99),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: AuraColors.cardBorder),
+          ),
+          child: Text(text,
+              style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600)),
+        ),
       ),
     );
   }
@@ -600,58 +711,25 @@ class _EmoteButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AuraColors.card,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(13),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(13),
         onTap: onTap,
         child: Container(
-          width: 52,
-          height: 52,
+          width: 42,
+          height: 42,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(13),
             border: Border.all(color: AuraColors.cardBorder),
           ),
-          child: Text(emote, style: const TextStyle(fontSize: 24)),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickMessageRow extends StatelessWidget {
-  const _QuickMessageRow({required this.text, required this.onTap});
-  final String text;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AuraColors.card,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AuraColors.cardBorder),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  text,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const Icon(Icons.send_rounded, size: 16, color: AuraColors.textSecondary),
-            ],
+          child: Text(
+            emote,
+            style: TextStyle(
+              fontSize: emote.length > 1 ? 14 : 22,
+              fontWeight: emote.length > 1 ? FontWeight.w800 : FontWeight.w400,
+              color: Colors.white,
+            ),
           ),
         ),
       ),
