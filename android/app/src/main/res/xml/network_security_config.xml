@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The dev API (docs/INTEGRATION_PLAN.md §7b) is plain HTTP on a raw IP, and
+  Android 9+ blocks cleartext by default. Permit cleartext ONLY for that host so
+  every other connection keeps the secure HTTPS-only default. Remove this domain
+  once the API is served over HTTPS.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">169.58.184.121</domain>
+    </domain-config>
+</network-security-config>

@@ -84,8 +84,19 @@ JDK 17 + the Android toolchain are installed and wired to Flutter, so
 
 ---
 
-## 9. Notes for this project
-- App is presentation-only today; a real API is injected later via
-  `--dart-define=API_BASE_URL=…` (see `docs/INTEGRATION_PLAN.md`).
+## 9. Connecting to the dev API
+The live dev API is `http://169.58.184.121:30080/api/v1` (see `docs/INTEGRATION_PLAN.md`
+§7b). It's injected at build/run time — nothing is hardcoded:
+- Run against it: `flutter run --dart-define=API_BASE_URL=http://169.58.184.121:30080/api/v1`
+- Build APK against it: `flutter build apk --release --dart-define=API_BASE_URL=http://169.58.184.121:30080/api/v1`
+- **Cleartext HTTP** to that IP is already whitelisted for Android in
+  `android/app/src/main/res/xml/network_security_config.xml` (all other hosts stay
+  HTTPS-only). `INTERNET` permission is declared in the manifest.
+- **Not wired on yet:** the app still uses static data (`useRemoteSourcesProvider = false`).
+  Turning it on additionally needs the API's JSON field names mapped into each
+  `Remote*Source` (backend is snake_case) — pending a test token / schema.
+
+## 10. Notes for this project
+- App is presentation-only today; the real API is injected via `--dart-define=API_BASE_URL=…`.
 - Tests can't fetch Google Fonts offline — that's expected and harmless; goldens render
   with a fallback font in CI.

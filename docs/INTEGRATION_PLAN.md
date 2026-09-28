@@ -161,6 +161,31 @@ With riverpod this is one `AsyncValue.when(data/loading/error)` per screen.
 
 ---
 
+## 7b. Discovered live API (dev) — 2026‑09‑28
+
+Probed the backend the user pointed at (`http://169.58.184.121:30080/metrics` is its
+Prometheus endpoint). The real API:
+- **Base URL:** `http://169.58.184.121:30080/api/v1` (set `API_BASE_URL` to this).
+- **Health:** `/health` ok; `/health/deep` → `{postgres, redis, clickhouse: ok}`.
+- **Auth:** JWT bearer. `POST /api/v1/auth/login` body `{email, password}` →
+  `401 {"error":"INVALID_CREDENTIALS"}` on bad creds; `400` serde error if a field is
+  missing. Backend is **Rust/serde → responses are almost certainly snake_case**.
+- **Routes confirmed present** (401 without token, i.e. they exist): `/me` `/profile`
+  `/wallet` `/store/packs` `/leaderboard` `/friends` `/tournaments` `/inbox`
+  `/matches/history` `/daily` `/season` `/referral` — matches our `Remote*Source`s.
+- Error envelope: `{"error":"CODE","message":"..."}`; `x-request-id` header present.
+
+**To wire it (Phase 4) — remaining before flipping `useRemoteSourcesProvider` on:**
+1. Pass `--dart-define=API_BASE_URL=http://169.58.184.121:30080/api/v1`.
+2. **Android cleartext**: it's `http://` on an IP → Android 9+ blocks cleartext by
+   default. Add `android:usesCleartextTraffic="true"` (dev) or a network‑security‑config
+   scoped to `169.58.184.121`, else every call fails on device.
+3. **Field-name mapping**: our models use camelCase (`displayName`, `xpMax`, `gems`…);
+   the API is snake_case. Need one authenticated response (or the schema/OpenAPI) for
+   `/auth/login`, `/me`, `/wallet`, `/friends`, `/leaderboard`, etc. to fix each
+   `fromJson`. **Blocked on a test token or schema** — can't self-auth against a remote
+   host (only localhost test-cred exception applies).
+
 ## 8. Open decisions (need a call before Phase 1)
 
 1. **State management:** riverpod (recommended) vs provider+ChangeNotifier.
