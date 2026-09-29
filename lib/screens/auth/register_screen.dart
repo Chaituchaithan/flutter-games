@@ -1,21 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
+import '../../services/app_exception.dart';
+import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
-/// Register — "Create account". Standalone screen. See docs/DESIGN_SPEC.md §3.
-class RegisterScreen extends StatefulWidget {
+/// Register — "Create account". Creates the account via the session/AuthService.
+/// See docs/DESIGN_SPEC.md §3.
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscure = true;
   bool _agreed = false;
+  bool _busy = false;
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
 
-  void _goHome() => Navigator.pushReplacementNamed(context, Routes.home);
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    if (_busy) return;
+    if (!_agreed) {
+      showAuraToast(context, 'Please accept the Terms & Privacy Policy', kind: AuraToastKind.info);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await ref.read(sessionProvider.notifier).register(
+            name: _name.text.trim(),
+            email: _email.text.trim(),
+            password: _password.text,
+          );
+      // Account created (session established) → email verification step.
+      if (mounted) Navigator.pushNamed(context, Routes.otp);
+    } on AppException catch (e) {
+      if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
+    } on Object catch (_) {
+      if (mounted) showAuraToast(context, "Couldn't create account. Try again.", kind: AuraToastKind.error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _oauthSoon() =>
+      showAuraToast(context, 'Social sign-up coming soon', kind: AuraToastKind.info);
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: LightButton(
                   label: 'Apple',
                   leading: const Icon(Icons.apple, size: 20, color: Colors.black),
-                  onPressed: _goHome,
+                  onPressed: _oauthSoon,
                 ),
               ),
               const SizedBox(width: 8),
@@ -50,7 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   label: 'Google',
                   dark: true,
                   leading: const _GoogleG(size: 18),
-                  onPressed: _goHome,
+                  onPressed: _oauthSoon,
                 ),
               ),
             ],
@@ -58,22 +99,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 20),
           const _OrDivider(label: 'or sign up with email'),
           const SizedBox(height: 20),
-          const AuraTextField(
+          AuraTextField(
             hint: 'Full name',
             icon: Icons.person_outline,
             keyboardType: TextInputType.name,
+            controller: _name,
           ),
           const SizedBox(height: 14),
-          const AuraTextField(
+          AuraTextField(
             hint: 'Email address',
             icon: Icons.mail_outline,
             keyboardType: TextInputType.emailAddress,
+            controller: _email,
           ),
           const SizedBox(height: 14),
           AuraTextField(
             hint: 'Create password',
             icon: Icons.lock_outline,
             obscure: _obscure,
+            controller: _password,
             trailing: IconButton(
               splashRadius: 20,
               icon: Icon(
@@ -90,10 +134,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             onToggle: () => setState(() => _agreed = !_agreed),
           ),
           const SizedBox(height: 18),
-          GradientButton(
-            label: 'Create Account',
-            onPressed: () => Navigator.pushNamed(context, Routes.otp),
-          ),
+          GradientButton(label: 'Create Account', onPressed: _create),
           const SizedBox(height: 24),
           Center(
             child: Text.rich(

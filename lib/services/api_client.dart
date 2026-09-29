@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_exception.dart';
 
-/// Base URL is injected at build time: `--dart-define=API_BASE_URL=…`.
-/// Never hardcode a real host or secrets here (see docs/INTEGRATION_PLAN.md §5).
+/// API host/port. Defaults to the dev gateway (Portal Gateway API, §7b) and is
+/// overridable at build time: `--dart-define=API_BASE_URL=…`. Point this at a
+/// staging/prod HTTPS host before release (and drop the Android cleartext rule).
 const _baseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'https://api.aura.example',
+  defaultValue: 'http://169.58.184.121:30080/api/v1',
 );
 
 /// Thin wrapper over Dio: attaches the auth bearer token and maps raw

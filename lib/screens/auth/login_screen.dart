@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
+import '../../services/app_exception.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
@@ -29,21 +30,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _signIn() async {
+  /// Runs an auth action with a busy guard, surfacing the server's error message.
+  Future<void> _auth(Future<void> Function() action) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      await ref.read(sessionProvider.notifier).login(
-            email: _email.text.trim(),
-            password: _password.text,
-          );
+      await action();
       if (mounted) Navigator.pushReplacementNamed(context, Routes.home);
+    } on AppException catch (e) {
+      if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
     } on Object catch (_) {
       if (mounted) showAuraToast(context, "Couldn't sign in. Try again.", kind: AuraToastKind.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  void _signIn() => _auth(() => ref
+      .read(sessionProvider.notifier)
+      .login(email: _email.text.trim(), password: _password.text));
+
+  void _guest() => _auth(() => ref.read(sessionProvider.notifier).loginGuest());
+
+  // OAuth linking is stubbed server-side (503); surface a friendly notice.
+  void _oauthSoon() =>
+      showAuraToast(context, 'Social sign-in coming soon', kind: AuraToastKind.info);
 
   @override
   Widget build(BuildContext context) {
@@ -87,14 +98,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           LightButton(
             label: 'Continue with Apple',
             leading: const Icon(Icons.apple, size: 22, color: Colors.black),
-            onPressed: _signIn,
+            onPressed: _oauthSoon,
           ),
           const SizedBox(height: 12),
           LightButton(
             label: 'Continue with Google',
             dark: true,
             leading: const _GoogleG(size: 20),
-            onPressed: _signIn,
+            onPressed: _oauthSoon,
           ),
           const SizedBox(height: 20),
           const _OrDivider(label: 'or log in with email'),
@@ -144,7 +155,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 14),
           GradientButton(label: 'Log In', onPressed: _signIn),
           const SizedBox(height: 12),
-          SecondaryButton(label: 'Continue as guest', onPressed: _signIn),
+          SecondaryButton(label: 'Continue as guest', onPressed: _guest),
           const SizedBox(height: 24),
           Center(
             child: Text.rich(

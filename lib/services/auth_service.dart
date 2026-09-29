@@ -19,6 +19,7 @@ class AuthResult {
 abstract class AuthService {
   Future<AuthResult> login({required String email, required String password});
   Future<AuthResult> register({required String name, required String email, required String password});
+  Future<AuthResult> loginGuest();
   Future<AuthResult> refresh(String refreshToken);
   Future<AuthResult> verifyOtp({required String code});
   Future<void> resetPassword({required String email, required String code, required String newPassword});
@@ -36,6 +37,10 @@ class StaticAuthService implements AuthService {
   Future<AuthResult> register({required String name, required String email, required String password}) async =>
       AuthResult(User.demo.copyWith(displayName: name.isEmpty ? 'Nova Rider' : name),
           accessToken: 'demo-access', refreshToken: 'demo-refresh');
+
+  @override
+  Future<AuthResult> loginGuest() async =>
+      AuthResult(User.demo.copyWith(displayName: 'Guest'), accessToken: 'demo-access', refreshToken: 'demo-refresh');
 
   @override
   Future<AuthResult> refresh(String refreshToken) async =>
@@ -96,6 +101,9 @@ class RemoteAuthService implements AuthService {
       _finish(await _api.post('/auth/register', body: {'username': name, 'email': email, 'password': password}));
 
   @override
+  Future<AuthResult> loginGuest() async => _finish(await _api.post('/guest/create'));
+
+  @override
   Future<AuthResult> refresh(String refreshToken) async =>
       _finish(await _api.post('/auth/refresh', body: {'refresh_token': refreshToken}));
 
@@ -121,7 +129,7 @@ class RemoteAuthService implements AuthService {
 }
 
 final authServiceProvider = Provider<AuthService>((ref) {
-  final remote = ref.watch(useRemoteSourcesProvider);
+  final remote = ref.watch(useRemoteAuthProvider);
   final api = ref.watch(apiClientProvider);
   return remote ? RemoteAuthService(api) : const StaticAuthService();
 });

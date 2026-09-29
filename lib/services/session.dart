@@ -38,6 +38,13 @@ class SessionController extends Notifier<User?> {
     return r.user;
   }
 
+  /// Anonymous guest sign-in (public POST /guest/create) — no credentials.
+  Future<User> loginGuest() async {
+    final r = await ref.read(authServiceProvider).loginGuest();
+    await _apply(r);
+    return r.user;
+  }
+
   Future<User> verifyOtp(String code) async {
     final r = await ref.read(authServiceProvider).verifyOtp(code: code);
     await _apply(r);
