@@ -9,12 +9,20 @@ import 'token_store.dart';
 /// Persists the token best-effort so a session survives a restart. See
 /// docs/INTEGRATION_PLAN.md §5.
 class SessionController extends Notifier<User?> {
+  /// Latest opaque refresh token (7-day, rotated) for /auth/refresh.
+  String? _refreshToken;
+
   @override
   User? build() => null;
 
   Future<void> _apply(AuthResult r) async {
-    ref.read(apiClientProvider).authToken = r.token;
-    await ref.read(tokenStoreProvider).write(r.token);
+    // Only replace the access token when the call actually returned one (e.g.
+    // OTP verify returns no token pair and must keep the current session).
+    if (r.accessToken.isNotEmpty) {
+      ref.read(apiClientProvider).authToken = r.accessToken;
+      _refreshToken = r.refreshToken ?? _refreshToken;
+      await ref.read(tokenStoreProvider).save(access: r.accessToken, refresh: _refreshToken);
+    }
     state = r.user;
   }
 
@@ -36,12 +44,26 @@ class SessionController extends Notifier<User?> {
     return r.user;
   }
 
+  /// Exchange the stored refresh token for a fresh access token (rotation).
+  Future<bool> refreshSession() async {
+    final rt = _refreshToken ?? await ref.read(tokenStoreProvider).readRefresh();
+    if (rt == null || rt.isEmpty) return false;
+    try {
+      await _apply(await ref.read(authServiceProvider).refresh(rt));
+      return true;
+    } on Object catch (_) {
+      return false;
+    }
+  }
+
   /// Restore a persisted session on boot. Returns true if signed in.
   Future<bool> restore() async {
-    final token = await ref.read(tokenStoreProvider).read();
-    if (token == null || token.isEmpty) return false;
-    ref.read(apiClientProvider).authToken = token;
-    // Remote phase would GET /me here; static phase restores the demo player.
+    final store = ref.read(tokenStoreProvider);
+    final access = await store.readAccess();
+    if (access == null || access.isEmpty) return false;
+    ref.read(apiClientProvider).authToken = access;
+    _refreshToken = await store.readRefresh();
+    // Remote phase would GET /users/me here; static phase restores the demo player.
     state = User.demo;
     return true;
   }
@@ -55,6 +77,7 @@ class SessionController extends Notifier<User?> {
   Future<void> signOut() async {
     await ref.read(authServiceProvider).logout();
     ref.read(apiClientProvider).authToken = null;
+    _refreshToken = null;
     await ref.read(tokenStoreProvider).clear();
     state = null;
   }
@@ -63,6 +86,7 @@ class SessionController extends Notifier<User?> {
   /// (calling logout there could recurse on another 401).
   void forceSignOut() {
     ref.read(apiClientProvider).authToken = null;
+    _refreshToken = null;
     ref.read(tokenStoreProvider).clear();
     state = null;
   }

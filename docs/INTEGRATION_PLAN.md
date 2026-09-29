@@ -161,30 +161,46 @@ With riverpod this is one `AsyncValue.when(data/loading/error)` per screen.
 
 ---
 
-## 7b. Discovered live API (dev) — 2026‑09‑28
+## 7b. Live API (dev) — from "Portal Gateway API" doc + probing (2026‑09‑29)
 
-Probed the backend the user pointed at (`http://169.58.184.121:30080/metrics` is its
-Prometheus endpoint). The real API:
-- **Base URL:** `http://169.58.184.121:30080/api/v1` (set `API_BASE_URL` to this).
+`http://169.58.184.121:30080/metrics` is the gateway's Prometheus endpoint. The real
+API (142 endpoints under `/api/v1`; the doc is an index, not full JSON bodies):
+- **Base URL:** `http://169.58.184.121:30080/api/v1`.
 - **Health:** `/health` ok; `/health/deep` → `{postgres, redis, clickhouse: ok}`.
-- **Auth:** JWT bearer. `POST /api/v1/auth/login` body `{email, password}` →
-  `401 {"error":"INVALID_CREDENTIALS"}` on bad creds; `400` serde error if a field is
-  missing. Backend is **Rust/serde → responses are almost certainly snake_case**.
-- **Routes confirmed present** (401 without token, i.e. they exist): `/me` `/profile`
-  `/wallet` `/store/packs` `/leaderboard` `/friends` `/tournaments` `/inbox`
-  `/matches/history` `/daily` `/season` `/referral` — matches our `Remote*Source`s.
-- Error envelope: `{"error":"CODE","message":"..."}`; `x-request-id` header present.
+- **Auth scheme:** `Authorization: Bearer <access_token>` — **HS256 JWT, 15 min**;
+  **refresh = opaque UUID, 7 days**, rotated via `/auth/refresh`. Every response carries
+  an `X-Request-Id`. Auth rate limit 5/min per IP.
+- **Envelopes:** error `{"error":"CODE","message":"…"}`; **list `{"data":[…],"total",
+  "page","per_page","total_pages"}`** (remote list sources must unwrap `data`).
+- **401 codes:** `UNAUTHORIZED`, `INVALID_CREDENTIALS`, `TOKEN_EXPIRED`, `TOKEN_BLACKLISTED`.
+- **Backend:** Rust/serde → **snake_case** JSON.
 
-**To wire it (Phase 4) — remaining before flipping `useRemoteSourcesProvider` on:**
-1. Pass `--dart-define=API_BASE_URL=http://169.58.184.121:30080/api/v1`.
-2. **Android cleartext**: it's `http://` on an IP → Android 9+ blocks cleartext by
-   default. Add `android:usesCleartextTraffic="true"` (dev) or a network‑security‑config
-   scoped to `169.58.184.121`, else every call fails on device.
-3. **Field-name mapping**: our models use camelCase (`displayName`, `xpMax`, `gems`…);
-   the API is snake_case. Need one authenticated response (or the schema/OpenAPI) for
-   `/auth/login`, `/me`, `/wallet`, `/friends`, `/leaderboard`, etc. to fix each
-   `fromJson`. **Blocked on a test token or schema** — can't self-auth against a remote
-   host (only localhost test-cred exception applies).
+### Account & sign-in endpoints (confirmed)
+- `POST /auth/register` (public) — new account → access+refresh pair.
+- `POST /auth/login` (public) `{email,password}` → token pair.
+- `POST /auth/refresh` (public) `{refresh_token}` → new pair (rotation).
+- `POST /auth/logout` (bearer) — ends the session (blacklists tokens).
+- `POST /auth/change-password` (bearer) — needs current password; signs out all sessions.
+- `POST /guest/create`, `POST /guest/convert`; `POST /otp/send`+`/otp/verify` (bearer,
+  503 outside debug); `GET/DELETE /sessions`, `GET/POST/DELETE /devices`.
+- **Current user:** `GET /api/v1/users/me`; profile: `PATCH /api/v1/users/me/profile`,
+  `GET /api/v1/users/{id}/profile`. (There is **no public forgot-password** endpoint.)
+
+### Auth wiring status — DONE (configured to the above)
+`AuthResult` carries access+refresh; `RemoteAuthService` parses the pair (tolerant of
+`access_token`/`token` names) and fetches the user from `/users/me` when the login body
+has no embedded user; `refresh()` rotates; `TokenStore` persists both; `SessionController`
+keeps the refresh token + `refreshSession()`; `ApiClient` preserves the `/api/v1` base
+and only fires session-expired on an authenticated 401. `User.fromJson` accepts snake or
+camel case.
+
+**Remaining before flipping `useRemoteSourcesProvider` on:**
+1. `--dart-define=API_BASE_URL=http://169.58.184.121:30080/api/v1` (done: documented).
+2. Android cleartext scoped to the IP (done: `network_security_config.xml`).
+3. **Non-auth domains** (friends/leaderboard/wallet/store/tournaments/inbox/history):
+   their `Remote*Source`s still expect bare arrays + guessed field names. They need the
+   **list `{data:[…]}` unwrap** and real field names — pending exact JSON (a token to read
+   `/friends` etc., or the detailed schema). Auth can be verified now with a token.
 
 ## 8. Open decisions (need a call before Phase 1)
 
