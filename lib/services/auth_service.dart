@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/data_config.dart';
@@ -24,6 +26,13 @@ abstract class AuthService {
   Future<AuthResult> verifyOtp({required String code});
   Future<void> resetPassword({required String email, required String code, required String newPassword});
   Future<void> logout();
+
+  /// The signed-in player: GET /users/me + GET /users/{id}/profile.
+  Future<User> fetchMe();
+
+  /// PATCH /users/me/profile with the changed fields; returns the updated
+  /// player. Only non-null arguments are sent.
+  Future<User> updateProfile(User current, {String? displayName, String? bio, String? country});
 }
 
 class StaticAuthService implements AuthService {
@@ -54,6 +63,13 @@ class StaticAuthService implements AuthService {
 
   @override
   Future<void> logout() async {}
+
+  @override
+  Future<User> fetchMe() async => User.demo;
+
+  @override
+  Future<User> updateProfile(User current, {String? displayName, String? bio, String? country}) async =>
+      current.copyWith(displayName: displayName, bio: bio, country: country);
 }
 
 class RemoteAuthService implements AuthService {
@@ -75,21 +91,50 @@ class RemoteAuthService implements AuthService {
     return (body as Map).cast<String, dynamic>();
   }
 
-  /// From an auth response, extract the token pair and the user (embedded if
-  /// present, otherwise fetched from /users/me with the new access token).
+  /// From an auth response, extract the token pair and the user. Now that the
+  /// backend serves it, fetch the authoritative profile from `/users/me`
+  /// (so the real username is available for the socket identity). Falls back to
+  /// an embedded user, then to JWT claims, if that call is unavailable.
   Future<AuthResult> _finish(dynamic body) async {
     final resp = (body as Map).cast<String, dynamic>();
     final access = _str(resp, ['access_token', 'accessToken', 'token', 'jwt']) ?? '';
     final refresh = _str(resp, ['refresh_token', 'refreshToken']);
-    final embedded = resp['user'] ?? (resp['data'] is Map ? (resp['data'] as Map)['user'] : null);
+    if (access.isNotEmpty) _api.authToken = access;
     User user;
-    if (embedded is Map) {
-      user = User.fromJson(embedded.cast<String, dynamic>());
-    } else {
-      if (access.isNotEmpty) _api.authToken = access; // so /users/me is authorized
-      user = User.fromJson(_unwrap(await _api.get('/users/me')));
+    try {
+      user = await fetchMe();
+    } on Object {
+      final embedded = resp['user'] ?? (resp['data'] is Map ? (resp['data'] as Map)['user'] : null);
+      user = embedded is Map ? User.fromJson(embedded.cast<String, dynamic>()) : _userFromJwt(access);
     }
     return AuthResult(user, accessToken: access, refreshToken: refresh);
+  }
+
+  /// Minimal [User] derived from the access-token JWT claims, used when
+  /// /users/me is unavailable. `sub` is the user id; username/email seed a name.
+  User _userFromJwt(String jwt) {
+    final sub = _jwtClaim(jwt, 'sub') ?? '';
+    final username = _jwtClaim(jwt, 'username');
+    final name = username ?? _jwtClaim(jwt, 'email') ?? 'Player';
+    // Carry the real account username through as the handle — it's the socket
+    // `auth.login` identity, so it must not be a guess derived from the email.
+    return User.fromJson({'id': sub, 'display_name': name.split('@').first, 'username': ?username});
+  }
+
+  /// Reads a single claim from a JWT payload (base64url middle segment).
+  String? _jwtClaim(String jwt, String key) {
+    try {
+      final parts = jwt.split('.');
+      if (parts.length < 2) return null;
+      var payload = parts[1].replaceAll('-', '+').replaceAll('_', '/');
+      while (payload.length % 4 != 0) {
+        payload += '=';
+      }
+      final map = (jsonDecode(utf8.decode(base64.decode(payload))) as Map).cast<String, dynamic>();
+      return map[key]?.toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -112,7 +157,7 @@ class RemoteAuthService implements AuthService {
     // OTP is bearer-scoped (post-auth) and stubbed (503 outside debug); verifying
     // just re-reads the current account. No token change.
     await _api.post('/otp/verify', body: {'code': code, 'purpose': 'email_verification'});
-    return AuthResult(User.fromJson(_unwrap(await _api.get('/users/me'))));
+    return AuthResult(await fetchMe());
   }
 
   @override
@@ -125,6 +170,37 @@ class RemoteAuthService implements AuthService {
   @override
   Future<void> logout() async {
     await _api.post('/auth/logout');
+  }
+
+  /// Account from /users/me, then its profile. A missing/failed profile is not
+  /// fatal (new and guest accounts may not have one yet) — the username then
+  /// stands in for the display name.
+  @override
+  Future<User> fetchMe() async {
+    final me = _unwrap(await _api.get('/users/me'));
+    Map<String, dynamic>? profile;
+    final id = me['id']?.toString();
+    if (id != null && id.isNotEmpty) {
+      try {
+        profile = _unwrap(await _api.get('/users/$id/profile'));
+      } on Object catch (_) {
+        profile = null;
+      }
+    }
+    return User.fromApi(me, profile);
+  }
+
+  @override
+  Future<User> updateProfile(User current, {String? displayName, String? bio, String? country}) async {
+    final body = <String, dynamic>{
+      'display_name': ?displayName,
+      'bio': ?bio,
+      'country': ?country,
+    };
+    final res = await _api.patch('/users/me/profile', body: body);
+    // The API returns the updated profile; if it sends no body, apply locally.
+    if (res is Map) return current.withProfile(_unwrap(res));
+    return current.copyWith(displayName: displayName, bio: bio, country: country);
   }
 }
 

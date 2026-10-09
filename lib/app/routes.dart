@@ -12,6 +12,7 @@ import '../screens/match/match_setup_screen.dart';
 import '../screens/match/match_preview_screen.dart';
 import '../screens/match/match_result_screen.dart';
 import '../screens/economy/purchase_confirm_screen.dart';
+import '../screens/economy/purchase_complete_screen.dart';
 import '../screens/economy/transactions_screen.dart';
 import '../screens/economy/daily_rewards_screen.dart';
 import '../screens/economy/season_pass_screen.dart';
@@ -21,6 +22,9 @@ import '../screens/profile/avatars_screen.dart';
 import '../screens/profile/game_history_screen.dart';
 import '../screens/profile/achievements_screen.dart';
 import '../screens/games/chess_screen.dart';
+import '../screens/games/chess_online_screen.dart';
+import '../screens/games/chess_vs_computer_screen.dart';
+import '../screens/games/chess_setup_screen.dart';
 import '../screens/games/othello_screen.dart';
 import '../screens/games/snakes_ladders_screen.dart';
 import '../screens/games/ludo_screen.dart';
@@ -57,6 +61,7 @@ class Routes {
   static const matchPreview = '/match/preview';
   static const matchResult = '/match/result';
   static const purchaseConfirm = '/economy/purchase-confirm';
+  static const purchaseComplete = '/economy/purchase-complete';
   static const transactions = '/economy/transactions';
   static const dailyRewards = '/economy/daily-rewards';
   static const seasonPass = '/economy/season-pass';
@@ -76,6 +81,9 @@ class Routes {
   static const gameHistory = '/profile/history';
   static const achievements = '/profile/achievements';
   static const chess = '/game/chess';
+  static const chessOnline = '/game/chess-online';
+  static const chessVsComputer = '/game/chess-vs-computer';
+  static const chessSetup = '/game/chess-setup';
   static const othello = '/game/othello';
   static const snakesLadders = '/game/snakes-ladders';
   static const ludo = '/game/ludo';
@@ -94,7 +102,8 @@ class Routes {
       case splash:
         page = const SplashScreen();
       case language:
-        page = const LanguageScreen();
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = LanguageScreen(fromSettings: args?['fromSettings'] as bool? ?? false);
       case onboarding:
         page = const OnboardingScreen();
       case login:
@@ -127,6 +136,13 @@ class Routes {
         page = const LevelUpScreen();
       case purchaseConfirm:
         page = const PurchaseConfirmScreen();
+      case purchaseComplete:
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = PurchaseCompleteScreen(
+          amount: args?['amount'] as String?,
+          unit: args?['unit'] as String?,
+          gold: args?['gold'] as bool? ?? true,
+        );
       case transactions:
         page = const TransactionsScreen();
       case dailyRewards:
@@ -148,7 +164,12 @@ class Routes {
       case tournaments:
         page = const TournamentsScreen();
       case matchmaking:
-        page = const MatchmakingScreen();
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = MatchmakingScreen(
+          stake: args?['stake'] as int? ?? 200,
+          tokens: args?['tokens'] as bool? ?? true,
+          label: args?['label'] as String? ?? 'Friends room',
+        );
       case maintenance:
         page = const MaintenanceScreen();
       case forceUpdate:
@@ -165,6 +186,22 @@ class Routes {
         page = const AchievementsScreen();
       case chess:
         page = const ChessScreen();
+      case chessVsComputer:
+        page = const ChessVsComputerScreen();
+      case chessSetup:
+        page = const ChessSetupScreen();
+      case chessOnline:
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = ChessOnlineScreen(
+          stake: args?['stake'] as int? ?? 0,
+          tokens: args?['tokens'] as bool? ?? true,
+          mode: switch (args?['mode'] as String?) {
+            'create' => ChessEntryMode.create,
+            'join' => ChessEntryMode.join,
+            _ => ChessEntryMode.match,
+          },
+          joinCode: args?['code'] as String?,
+        );
       case othello:
         page = const OthelloScreen();
       case snakesLadders:

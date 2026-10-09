@@ -73,26 +73,34 @@ class AuraAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Mockup screen header: 42px glass back button, then the title LEFT-
+    // aligned beside it (22px display, bold), optional action on the right.
+    // Aligned to the 20px content gutter.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       child: SizedBox(
         height: 48,
-        child: Stack(
-          alignment: Alignment.center,
+        child: Row(
           children: [
-            if (title != null)
-              Text(title!, style: AuraText.appBarTitle),
             if (showBack)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: GlassIconButton(
-                  icon: Icons.chevron_left,
-                  iconSize: 24,
-                  onTap: onBack ?? () => Navigator.of(context).maybePop(),
-                ),
+              GlassIconButton(
+                icon: Icons.chevron_left,
+                iconSize: 24,
+                onTap: onBack ?? () => Navigator.of(context).maybePop(),
               ),
-            if (trailing != null)
-              Align(alignment: Alignment.centerRight, child: trailing!),
+            if (showBack && title != null) const SizedBox(width: 12),
+            if (title != null)
+              Expanded(
+                child: Text(
+                  title!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 22, color: Colors.white),
+                ),
+              )
+            else
+              const Spacer(),
+            if (trailing != null) ...[const SizedBox(width: 10), trailing!],
           ],
         ),
       ),
@@ -284,6 +292,10 @@ class AuraTextField extends StatefulWidget {
     this.keyboardType,
     this.controller,
     this.maxLines = 1,
+    this.errorText,
+    this.onChanged,
+    this.onSubmitted,
+    this.textInputAction,
   });
 
   final String hint;
@@ -293,6 +305,12 @@ class AuraTextField extends StatefulWidget {
   final TextInputType? keyboardType;
   final TextEditingController? controller;
   final int maxLines;
+
+  /// Validation message shown below the field; also tints the border red.
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final TextInputAction? textInputAction;
 
   @override
   State<AuraTextField> createState() => _AuraTextFieldState();
@@ -316,30 +334,40 @@ class _AuraTextFieldState extends State<AuraTextField> {
   @override
   Widget build(BuildContext context) {
     final focused = _node.hasFocus;
-    return AnimatedContainer(
+    final hasError = widget.errorText != null;
+    // Error state takes priority over the focus ring.
+    final borderColor = hasError
+        ? AuraColors.danger
+        : (focused ? AuraColors.accentGlow : Colors.white.withValues(alpha: 0.22));
+    final field = AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       decoration: BoxDecoration(
         color: focused ? AuraColors.accentGlow.withValues(alpha: 0.08) : AuraColors.field,
         borderRadius: BorderRadius.circular(AuraRadii.md),
-        border: Border.all(
-          color: focused ? AuraColors.accentGlow : Colors.white.withValues(alpha: 0.22),
-          width: 1.5,
-        ),
-        boxShadow: focused
+        border: Border.all(color: borderColor, width: 1.5),
+        boxShadow: hasError
             ? [
                 BoxShadow(
-                  color: AuraColors.accentGlow.withValues(alpha: 0.18),
+                  color: AuraColors.danger.withValues(alpha: 0.18),
                   spreadRadius: 3,
                   blurRadius: 0,
                 ),
               ]
-            : const [
-                BoxShadow(
-                  color: Color(0x59000000), // inset-ish depth (0.35 black)
-                  blurRadius: 6,
-                  offset: Offset(0, 2),
-                ),
-              ],
+            : focused
+                ? [
+                    BoxShadow(
+                      color: AuraColors.accentGlow.withValues(alpha: 0.18),
+                      spreadRadius: 3,
+                      blurRadius: 0,
+                    ),
+                  ]
+                : const [
+                    BoxShadow(
+                      color: Color(0x59000000), // inset-ish depth (0.35 black)
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -358,6 +386,9 @@ class _AuraTextFieldState extends State<AuraTextField> {
               controller: widget.controller,
               obscureText: widget.obscure,
               keyboardType: widget.maxLines > 1 ? TextInputType.multiline : widget.keyboardType,
+              textInputAction: widget.textInputAction,
+              onChanged: widget.onChanged,
+              onSubmitted: widget.onSubmitted,
               maxLines: widget.maxLines,
               minLines: widget.maxLines > 1 ? 3 : 1,
               style: TextStyle(
@@ -381,6 +412,36 @@ class _AuraTextFieldState extends State<AuraTextField> {
           ?widget.trailing,
         ],
       ),
+    );
+    // Always the same Column shape, error or not: switching between a bare
+    // field and a Column re-created the TextField when an error appeared or
+    // cleared, which dropped focus and closed the keyboard mid-typing.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        field,
+        if (hasError)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, size: 14, color: AuraColors.dangerText),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    widget.errorText!,
+                    style: const TextStyle(
+                      color: AuraColors.dangerText,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -468,13 +529,18 @@ class LightButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (leading != null) ...[leading!, const SizedBox(width: 10)],
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontFamily: AuraText.bodyFamily,
-                    color: fg,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w600,
+                // Shrinks instead of overflowing on narrow phones.
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AuraText.bodyFamily,
+                      color: fg,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -524,16 +590,21 @@ class SectionBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          text,
-          style: TextStyle(
-            fontFamily: AuraText.displayFamily,
-            color: AuraColors.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+        // Flexible so a long title + trailing can never overflow the row.
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
+              color: AuraColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-        if (trailing != null) ...[const Spacer(), trailing!],
+        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
       ],
     );
   }
@@ -746,7 +817,10 @@ class AuraCard extends StatelessWidget {
   }
 }
 
-/// Floating bottom navigation bar: Home · Wheel · Store · Profile.
+/// Floating bottom bar (mockup `BOTTOM NAV`): inset 16px, 64px tall, r24,
+/// dark violet glass. Each tab = a 23px outline icon (stroke 1.9) + label
+/// (10.5px); the active tab is white with a 5px pink dot under it, the others
+/// 42% white. Tabs: Home · Wheel · Store · Profile.
 class AuraBottomNav extends StatelessWidget {
   const AuraBottomNav({super.key, required this.index, required this.onChanged});
 
@@ -754,62 +828,57 @@ class AuraBottomNav extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   static const _items = [
-    (Icons.home_rounded, 'Home'),
-    (Icons.track_changes, 'Wheel'),
-    (Icons.storefront_rounded, 'Store'),
-    (Icons.person_rounded, 'Profile'),
+    (_NavIcon.home, 'Home'),
+    (_NavIcon.wheel, 'Wheel'),
+    (_NavIcon.store, 'Store'),
+    (_NavIcon.profile, 'Profile'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        height: 64,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFF1E1634).withValues(alpha: 0.96),
-              const Color(0xFF0C0A16).withValues(alpha: 0.98),
-            ],
+            colors: [Color(0xEB221A38), Color(0xF00E0B1A)], // rgba(34,26,56,.92) → rgba(14,11,26,.94)
           ),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.8),
-              blurRadius: 30,
-              spreadRadius: -12,
-              offset: const Offset(0, -10),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: 40, spreadRadius: -10, offset: const Offset(0, 16)),
           ],
         ),
         child: Row(
           children: List.generate(_items.length, (i) {
             final active = i == index;
             final (icon, label) = _items[i];
+            final color = active ? Colors.white : Colors.white.withValues(alpha: 0.42);
             return Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => onChanged(i),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ShaderMask(
-                      shaderCallback: (r) => active
-                          ? AuraGradients.brand.createShader(r)
-                          : const LinearGradient(colors: [AuraColors.textSecondary, AuraColors.textSecondary]).createShader(r),
-                      child: Icon(icon, size: 24, color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
+                    CustomPaint(size: const Size(23, 23), painter: _NavIconPainter(icon, color)),
+                    const SizedBox(height: 3),
                     Text(
                       label,
-                      style: TextStyle(
-                        color: active ? AuraColors.textPrimary : AuraColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      style: TextStyle(fontFamily: AuraText.bodyFamily, fontSize: 10.5, fontWeight: FontWeight.w600, color: color),
+                    ),
+                    const SizedBox(height: 3),
+                    AnimatedOpacity(
+                      duration: const Duration(milliseconds: 180),
+                      opacity: active ? 1 : 0,
+                      child: Container(
+                        width: 5,
+                        height: 5,
+                        decoration: const BoxDecoration(color: AuraColors.brandPink, shape: BoxShape.circle),
                       ),
                     ),
                   ],
@@ -821,4 +890,68 @@ class AuraBottomNav extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _NavIcon { home, wheel, store, profile }
+
+/// The mockup's nav icons, drawn from their SVG paths (24×24 viewBox,
+/// round caps/joins, stroke 1.9).
+class _NavIconPainter extends CustomPainter {
+  _NavIconPainter(this.icon, this.color);
+  final _NavIcon icon;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 24, size.height / 24);
+    final p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.9
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = color;
+    switch (icon) {
+      case _NavIcon.home: // M3 11.5L12 4l9 7.5M5.5 9.8V20h13V9.8
+        canvas.drawPath(
+          Path()
+            ..moveTo(3, 11.5)
+            ..lineTo(12, 4)
+            ..lineTo(21, 11.5)
+            ..moveTo(5.5, 9.8)
+            ..lineTo(5.5, 20)
+            ..lineTo(18.5, 20)
+            ..lineTo(18.5, 9.8),
+          p,
+        );
+      case _NavIcon.wheel: // two concentric circles r9 / r3.5
+        canvas.drawCircle(const Offset(12, 12), 9, p);
+        canvas.drawCircle(const Offset(12, 12), 3.5, p);
+      case _NavIcon.store: // M6 8h12l-1.2 12H7.2z  M9 8V6.5a3 3 0 016 0V8
+        canvas.drawPath(
+          Path()
+            ..moveTo(6, 8)
+            ..lineTo(18, 8)
+            ..lineTo(16.8, 20)
+            ..lineTo(7.2, 20)
+            ..close()
+            ..moveTo(9, 8)
+            ..lineTo(9, 6.5)
+            ..arcToPoint(const Offset(15, 6.5), radius: const Radius.circular(3))
+            ..lineTo(15, 8),
+          p,
+        );
+      case _NavIcon.profile: // head r4 at (12,7.5) + shoulders curve
+        canvas.drawCircle(const Offset(12, 7.5), 4, p);
+        canvas.drawPath(
+          Path()
+            ..moveTo(4.5, 20)
+            ..cubicTo(4.5, 16, 8, 14, 12, 14)
+            ..cubicTo(16, 14, 19.5, 16, 19.5, 20),
+          p,
+        );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _NavIconPainter old) => old.icon != icon || old.color != color;
 }

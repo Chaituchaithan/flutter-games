@@ -13,7 +13,7 @@ import '../theme.dart';
 /// `false`/`null` otherwise. Set [destructive] for a red primary (e.g. Log out).
 /// Visual tone of a dialog: brand (default), danger (destructive red),
 /// or warning (amber/gold — e.g. "Not enough balance").
-enum AuraDialogTone { brand, danger, warning }
+enum AuraDialogTone { brand, danger, warning, success }
 
 Future<bool?> showAuraDialog(
   BuildContext context, {
@@ -92,11 +92,13 @@ class _DialogPanel extends StatelessWidget {
       AuraDialogTone.danger => const LinearGradient(colors: [AuraColors.danger, Color(0xFFBE123C)]),
       AuraDialogTone.warning => AuraGradients.goldCoin,
       AuraDialogTone.brand => AuraGradients.brand,
+      AuraDialogTone.success => const LinearGradient(colors: [Color(0xFF34D399), Color(0xFF14B8A6)]),
     };
     final glowColor = switch (tone) {
       AuraDialogTone.danger => AuraColors.danger,
       AuraDialogTone.warning => AuraColors.gold,
       AuraDialogTone.brand => AuraColors.brandPink,
+      AuraDialogTone.success => const Color(0xFF34D399),
     };
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -250,7 +252,7 @@ void showAuraToast(BuildContext context, String message, {AuraToastKind kind = A
         backgroundColor: Colors.transparent,
         elevation: 0,
         duration: const Duration(milliseconds: 2600),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 112),
         padding: EdgeInsets.zero,
         content: Align(
           alignment: Alignment.center,

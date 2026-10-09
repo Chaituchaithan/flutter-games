@@ -159,7 +159,8 @@ class _TxnRow extends StatelessWidget {
               children: [
                 Text(
                   txn.title,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
                     color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,

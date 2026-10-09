@@ -278,7 +278,8 @@ class _ReferralRow extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
                     color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -296,7 +297,8 @@ class _ReferralRow extends StatelessWidget {
               children: [
                 Text(
                   trailing!,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
                     color: AuraColors.green,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,

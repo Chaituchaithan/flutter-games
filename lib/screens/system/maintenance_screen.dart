@@ -35,7 +35,7 @@ class MaintenanceScreen extends StatelessWidget {
           Text('We\'ll be right back', textAlign: TextAlign.center, style: AuraText.headline.copyWith(fontSize: 28)),
           const SizedBox(height: 10),
           Text(
-            'Aura is down for scheduled maintenance while Season 4 rolls out. Your balances and match history are safe.',
+            'Chess is down for scheduled maintenance while Season 4 rolls out. Your balances and match history are safe.',
             textAlign: TextAlign.center,
             style: AuraText.body.copyWith(color: AuraColors.textSecondary, fontSize: 14.5),
           ),
@@ -49,7 +49,9 @@ class MaintenanceScreen extends StatelessWidget {
                 children: [
                   const Icon(Icons.schedule_rounded, color: AuraColors.amber, size: 16),
                   const SizedBox(width: 8),
-                  Text('Estimated return', style: AuraText.cardSub.copyWith(fontSize: 13)),
+                  Flexible(
+                    child: Text('Estimated return', maxLines: 1, overflow: TextOverflow.ellipsis, style: AuraText.cardSub.copyWith(fontSize: 13)),
+                  ),
                   const SizedBox(width: 6),
                   Text('~42 min',
                       style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
@@ -74,8 +76,33 @@ class MaintenanceScreen extends StatelessWidget {
           GradientButton(label: 'Try again', onPressed: () => Navigator.of(context).maybePop()),
           const SizedBox(height: 10),
           SecondaryButton(label: 'View status page', onPressed: () {}),
+          const SizedBox(height: 14),
+          const _ExitPreview(),
           const SizedBox(height: 8),
         ],
+      ),
+    );
+  }
+}
+
+/// Muted underlined "Exit preview" link (mockup) — pops this demo-state screen.
+class _ExitPreview extends StatelessWidget {
+  const _ExitPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).maybePop(),
+        child: Text(
+          'Exit preview',
+          style: TextStyle(
+            color: AuraColors.textPrimary.withValues(alpha: 0.4),
+            fontSize: 12,
+            decoration: TextDecoration.underline,
+            decorationColor: AuraColors.textPrimary.withValues(alpha: 0.4),
+          ),
+        ),
       ),
     );
   }

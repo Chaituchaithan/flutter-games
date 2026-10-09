@@ -1,6 +1,6 @@
 {
-    "name": "snakeladder",
-    "short_name": "snakeladder",
+    "name": "Chess",
+    "short_name": "Chess",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

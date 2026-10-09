@@ -15,6 +15,14 @@ class User {
     required this.xp,
     required this.xpMax,
     required this.color,
+    this.email = '',
+    this.role = '',
+    this.country,
+    this.avatarId,
+    this.avatarUrl,
+    this.dateOfBirth,
+    this.preferredLanguage,
+    this.createdAt,
   });
 
   final String id;
@@ -27,6 +35,27 @@ class User {
   final int xpMax;
   final Color color;
 
+  // ── Account (/users/me) + profile (/users/{id}/profile) ──
+  final String email;
+
+  /// "user", "admin", "guest", …
+  final String role;
+
+  /// ISO country code (e.g. "IN"); null until the player sets one.
+  final String? country;
+  final String? avatarId;
+  final String? avatarUrl;
+
+  /// "YYYY-MM-DD" as the API sends it.
+  final String? dateOfBirth;
+  final String? preferredLanguage;
+
+  /// Account creation time ("Member since").
+  final DateTime? createdAt;
+
+  /// Anonymous guest account (POST /guest/create).
+  bool get isGuest => role == 'guest' || username.toLowerCase().startsWith('guest');
+
   /// Up to two uppercase initials from the display name.
   String get initials {
     final parts = displayName.trim().split(RegExp(r'\s+'));
@@ -37,7 +66,12 @@ class User {
 
   double get xpFraction => xpMax == 0 ? 0 : (xp / xpMax).clamp(0.0, 1.0);
 
-  User copyWith({String? displayName, String? bio}) => User(
+  /// Raw username (no leading `@`) — the server identity used for the realtime
+  /// socket's `auth.login`. Derived from [handle], which [fromJson] seeds from
+  /// the API's `username` field.
+  String get username => handle.startsWith('@') ? handle.substring(1) : handle;
+
+  User copyWith({String? displayName, String? bio, String? country, String? avatarId}) => User(
         id: id,
         displayName: displayName ?? this.displayName,
         handle: handle,
@@ -47,7 +81,73 @@ class User {
         xp: xp,
         xpMax: xpMax,
         color: color,
+        email: email,
+        role: role,
+        country: country ?? this.country,
+        avatarId: avatarId ?? this.avatarId,
+        avatarUrl: avatarUrl,
+        dateOfBirth: dateOfBirth,
+        preferredLanguage: preferredLanguage,
+        createdAt: createdAt,
       );
+
+  /// Builds the player from `GET /users/me` (account: id, username, email,
+  /// role, created_at) merged with `GET /users/{id}/profile` (display_name,
+  /// bio, country, avatar, …). The profile may be missing (null) — e.g. a
+  /// brand-new or guest account — in which case the username is the name.
+  /// Progression (level / tier / XP) has no service yet, so it starts at the
+  /// new-player defaults.
+  factory User.fromApi(Map<String, dynamic> me, [Map<String, dynamic>? profile]) {
+    final username = me['username'] as String? ?? '';
+    final p = profile ?? const <String, dynamic>{};
+    final shown = (p['display_name'] as String?)?.trim();
+    final name = (shown == null || shown.isEmpty) ? username : shown;
+    return User(
+      id: (me['id'] ?? p['user_id'] ?? '').toString(),
+      displayName: name,
+      handle: '@$username',
+      bio: p['bio'] as String? ?? '',
+      level: (me['level'] as num?)?.toInt() ?? 1,
+      tier: me['tier'] as String? ?? 'Bronze I',
+      xp: (me['xp'] as num?)?.toInt() ?? 0,
+      xpMax: (me['xp_max'] as num?)?.toInt() ?? 100,
+      color: Friend.colorForName(name),
+      email: me['email'] as String? ?? '',
+      role: me['role'] as String? ?? '',
+      country: p['country'] as String?,
+      avatarId: p['avatar_id']?.toString(),
+      avatarUrl: p['avatar_url'] as String?,
+      dateOfBirth: p['date_of_birth'] as String?,
+      preferredLanguage: p['preferred_language'] as String?,
+      createdAt: DateTime.tryParse(me['created_at'] as String? ?? ''),
+    );
+  }
+
+  /// Applies a profile payload (e.g. the PATCH /users/me/profile response) on
+  /// top of this user, keeping the account fields.
+  User withProfile(Map<String, dynamic> profile) {
+    final shown = (profile['display_name'] as String?)?.trim();
+    final name = (shown == null || shown.isEmpty) ? displayName : shown;
+    return User(
+      id: id,
+      displayName: name,
+      handle: handle,
+      bio: profile.containsKey('bio') ? (profile['bio'] as String? ?? '') : bio,
+      level: level,
+      tier: tier,
+      xp: xp,
+      xpMax: xpMax,
+      color: Friend.colorForName(name),
+      email: email,
+      role: role,
+      country: profile.containsKey('country') ? profile['country'] as String? : country,
+      avatarId: profile.containsKey('avatar_id') ? profile['avatar_id']?.toString() : avatarId,
+      avatarUrl: profile.containsKey('avatar_url') ? profile['avatar_url'] as String? : avatarUrl,
+      dateOfBirth: profile['date_of_birth'] as String? ?? dateOfBirth,
+      preferredLanguage: profile['preferred_language'] as String? ?? preferredLanguage,
+      createdAt: createdAt,
+    );
+  }
 
   /// First non-null value among [keys] — tolerates snake_case or camelCase
   /// (the API is Rust/serde snake_case; see docs/INTEGRATION_PLAN.md §7b).

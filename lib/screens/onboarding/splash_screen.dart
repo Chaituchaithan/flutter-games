@@ -47,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   const _AuraOrb(size: 150),
                   const SizedBox(height: 34),
                   Text(
-                    'Aura',
+                    'Chess',
                     style: TextStyle(
                       fontFamily: AuraText.displayFamily,
                       color: Colors.white,

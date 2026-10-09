@@ -164,6 +164,7 @@ class _LevelBadge extends StatelessWidget {
             child: Text(
               '$level',
               style: TextStyle(
+                fontFamily: AuraText.displayFamily,
                 color: Colors.white,
                 fontSize: size * 0.30,
                 fontWeight: FontWeight.w900,

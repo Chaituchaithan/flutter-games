@@ -64,8 +64,10 @@ class _Glow extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(
-            colors: [color.withValues(alpha: 0.24), color.withValues(alpha: 0.0)],
-            stops: const [0.0, 0.62],
+            // Softer, more diffuse than before so it reads as a subtle backdrop
+            // glow (matching the mockup's blurred blobs) rather than a bright blob.
+            colors: [color.withValues(alpha: 0.16), color.withValues(alpha: 0.0)],
+            stops: const [0.0, 0.70],
           ),
         ),
       ),
@@ -76,36 +78,72 @@ class _Glow extends StatelessWidget {
 /// Full-width gradient pill button with a soft glow, used for
 /// "Continue" / "Get Started".
 class GradientButton extends StatelessWidget {
-  const GradientButton({super.key, required this.label, required this.onPressed});
+  const GradientButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.loading = false,
+    this.enabled = true,
+  });
 
   final String label;
   final VoidCallback onPressed;
 
+  /// When true, shows a spinner instead of the label and ignores taps.
+  final bool loading;
+
+  /// When false, the button is dimmed and non-interactive (e.g. "Come back
+  /// tomorrow" after a daily reward has been claimed).
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 56,
-      decoration: BoxDecoration(
-        gradient: AuraGradients.brand,
-        borderRadius: BorderRadius.circular(17),
-        // Hairline top-edge highlight (inset 0 1px 0 rgba(255,255,255,.35)).
-        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: AuraColors.brandPink.withValues(alpha: 0.5),
-            blurRadius: 28,
-            spreadRadius: -12,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+    final inert = loading || !enabled;
+    // Disabled state is a FLAT glass button (mockup: white@7% fill, white@50%
+    // text, no gradient/shadow) — not a dimmed gradient.
+    return Opacity(
+      opacity: loading ? 0.75 : 1,
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: enabled ? AuraGradients.brand : null,
+          color: enabled ? null : Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(17),
-          onTap: onPressed,
-          child: Center(
-            child: Text(label, style: AuraText.button),
+          // Hairline top-edge highlight (inset 0 1px 0 rgba(255,255,255,.35)).
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: AuraColors.brandPink.withValues(alpha: 0.5),
+                    blurRadius: 28,
+                    spreadRadius: -12,
+                    offset: const Offset(0, 14),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(17),
+            onTap: inert ? null : onPressed,
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      label,
+                      style: enabled
+                          ? AuraText.button
+                          : AuraText.button.copyWith(color: Colors.white.withValues(alpha: 0.5)),
+                    ),
+            ),
           ),
         ),
       ),
@@ -228,8 +266,9 @@ class AuraAvatar extends StatelessWidget {
                   ),
                   child: Text(
                     '$level',
-                    style: const TextStyle(
-                      color: Color(0xFF1A1206),
+                    style: TextStyle(
+                      fontFamily: AuraText.displayFamily,
+                      color: const Color(0xFF1A1206),
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                     ),
@@ -288,6 +327,7 @@ class LetterAvatar extends StatelessWidget {
         child: Text(
           letter,
           style: TextStyle(
+            fontFamily: AuraText.displayFamily,
             color: Colors.white,
             fontSize: size * 0.36,
             fontWeight: FontWeight.w700,

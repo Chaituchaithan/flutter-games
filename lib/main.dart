@@ -33,8 +33,11 @@ class _AuraAppState extends ConsumerState<AuraApp> {
   @override
   void initState() {
     super.initState();
-    // On a 401 from the API: clear the session and show "Session expired".
-    ref.read(apiClientProvider).onUnauthorized = () {
+    final api = ref.read(apiClientProvider);
+    // Expired access token (15 min): refresh with the refresh token and retry.
+    api.onRefreshToken = () => ref.read(sessionProvider.notifier).refreshSession();
+    // Still 401 after that: clear the session and show "Session expired".
+    api.onUnauthorized = () {
       ref.read(sessionProvider.notifier).forceSignOut();
       showSessionExpiredDialog();
     };
@@ -43,7 +46,7 @@ class _AuraAppState extends ConsumerState<AuraApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Aura',
+      title: 'Chess',
       navigatorKey: rootNavigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

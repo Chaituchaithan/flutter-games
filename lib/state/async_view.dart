@@ -33,7 +33,10 @@ class AsyncView<T> extends StatelessWidget {
   }
 }
 
-/// A shimmering list of placeholder rows — the default loading state.
+/// The default loading state (mockup `LOADING SKELETON` rows): shimmering
+/// placeholder rows — a 44px tile, a title line (60%) over a dimmer subtitle
+/// line (38%), and a small pill on the right — shown while a service call is
+/// in flight.
 class _SkeletonList extends StatelessWidget {
   const _SkeletonList();
 
@@ -42,28 +45,34 @@ class _SkeletonList extends StatelessWidget {
     return Shimmer(
       child: Column(
         children: [
-          for (var i = 0; i < 5; i++) ...[
+          for (var i = 0; i < 6; i++) ...[
             Container(
-              padding: const EdgeInsets.all(12),
-              decoration: AuraGlass.decoration(radius: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
               child: Row(
                 children: [
-                  const SkeletonBox(height: 40, shape: BoxShape.circle),
+                  const SkeletonBox(width: 44, height: 44, radius: 14),
                   const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      SkeletonBox(width: 130, height: 13),
-                      SizedBox(height: 8),
-                      SkeletonBox(width: 90, height: 10),
-                    ],
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FractionallySizedBox(widthFactor: 0.6, child: SkeletonBox(height: 13, radius: 6)),
+                        SizedBox(height: 8),
+                        FractionallySizedBox(widthFactor: 0.38, child: SkeletonBox(height: 10, radius: 6)),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
-                  const SkeletonBox(width: 46, height: 22, radius: 11),
+                  const SizedBox(width: 12),
+                  const SkeletonBox(width: 54, height: 24, radius: 8),
                 ],
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
           ],
         ],
       ),

@@ -8,6 +8,17 @@ import '../screens/profile/profile_screen.dart';
 import '../services/connectivity.dart';
 import '../widgets/aura.dart';
 
+/// Active bottom-tab index (0 Home · 1 Wheel · 2 Store · 3 Profile). A provider
+/// so any screen — including pushed routes like Inbox — can switch tabs
+/// (e.g. an inbox "Shop" action) by setting this, then popping back to the shell.
+class MainTabController extends Notifier<int> {
+  @override
+  int build() => 0;
+  void select(int index) => state = index;
+}
+
+final mainTabProvider = NotifierProvider<MainTabController, int>(MainTabController.new);
+
 /// Lets tab screens (e.g. Home) switch the active bottom-tab — used for taps
 /// like "Lucky Wheel" → Wheel tab or a currency pill → Store tab. Access via
 /// [MainShellScope.maybeOf] and no-op gracefully when absent (e.g. in tests).
@@ -34,13 +45,22 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  late int _index = widget.initialIndex;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialIndex != 0) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => ref.read(mainTabProvider.notifier).select(widget.initialIndex),
+      );
+    }
+  }
 
-  void _select(int i) => setState(() => _index = i);
+  void _select(int i) => ref.read(mainTabProvider.notifier).select(i);
 
   @override
   Widget build(BuildContext context) {
     final online = isOnline(ref.watch(connectivityProvider));
+    final index = ref.watch(mainTabProvider);
     return Scaffold(
       backgroundColor: AuraColors.bgBase,
       body: AuraBackground(
@@ -59,7 +79,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                   ),
                 Expanded(
                   child: IndexedStack(
-                    index: _index,
+                    index: index,
                     children: const [
                       HomeScreen(),
                       WheelScreen(),
@@ -68,7 +88,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                     ],
                   ),
                 ),
-                AuraBottomNav(index: _index, onChanged: _select),
+                AuraBottomNav(index: index, onChanged: _select),
               ],
             ),
           ),

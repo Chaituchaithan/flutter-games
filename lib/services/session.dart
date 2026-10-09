@@ -38,11 +38,38 @@ class SessionController extends Notifier<User?> {
     return r.user;
   }
 
+  /// Create an account WITHOUT signing in — the user then logs in with their
+  /// new credentials on the login screen. Does not establish a session or
+  /// persist tokens (clears the token the register call set).
+  Future<User> registerAccount({required String name, required String email, required String password}) async {
+    final r = await ref.read(authServiceProvider).register(name: name, email: email, password: password);
+    ref.read(apiClientProvider).authToken = null;
+    return r.user;
+  }
+
   /// Anonymous guest sign-in (public POST /guest/create) — no credentials.
   Future<User> loginGuest() async {
     final r = await ref.read(authServiceProvider).loginGuest();
     await _apply(r);
     return r.user;
+  }
+
+  /// Dev-only: seed a signed-in session from `--dart-define` values so online
+  /// play can be exercised without a real auth backend (e.g. two emulators
+  /// against the local chess relay in tools/chess_relay_server.dart). The token
+  /// doubles as the server-side user id, so each build must pass a distinct
+  /// `DEMO_TOKEN`. No-op (returns false) when `DEMO_TOKEN` is empty, so release
+  /// builds behave exactly as before.
+  Future<bool> startDemoSession() async {
+    const token = String.fromEnvironment('DEMO_TOKEN');
+    if (token.isEmpty) return false;
+    const uidDefine = String.fromEnvironment('DEMO_USER_ID');
+    const name = String.fromEnvironment('DEMO_NAME', defaultValue: 'Demo Player');
+    final uid = uidDefine.isEmpty ? token : uidDefine;
+    ref.read(apiClientProvider).authToken = token;
+    await ref.read(tokenStoreProvider).save(access: token);
+    state = User.fromJson({'id': uid, 'display_name': name, 'level': 1, 'tier': 'Bronze I'});
+    return true;
   }
 
   Future<User> verifyOtp(String code) async {
@@ -70,15 +97,39 @@ class SessionController extends Notifier<User?> {
     if (access == null || access.isEmpty) return false;
     ref.read(apiClientProvider).authToken = access;
     _refreshToken = await store.readRefresh();
-    // Remote phase would GET /users/me here; static phase restores the demo player.
-    state = User.demo;
+    try {
+      state = await ref.read(authServiceProvider).fetchMe();
+    } on Object catch (_) {
+      // Expired/invalid token: try the refresh token once, else signed out.
+      if (!await refreshSession()) {
+        forceSignOut();
+        return false;
+      }
+    }
     return true;
   }
 
-  /// Apply an Edit-profile save so Profile/HUD reflect it immediately. Seeds
-  /// from the demo player when signed out so edits still show in the demo build.
-  void updateProfile({String? displayName, String? bio}) {
-    state = (state ?? User.demo).copyWith(displayName: displayName, bio: bio);
+  /// Re-read the account + profile from the API (Profile screen open /
+  /// pull-to-refresh). Keeps the current player if the call fails.
+  Future<void> reloadProfile() async {
+    if (state == null) return;
+    try {
+      state = await ref.read(authServiceProvider).fetchMe();
+    } on Object catch (_) {/* keep what we have */}
+  }
+
+  /// Save Edit-profile changes via PATCH /users/me/profile, then show the
+  /// server's result everywhere (Profile, HUD). Throws on failure so the
+  /// screen can report it. Signed out (demo build) → applied locally only.
+  Future<void> updateProfile({String? displayName, String? bio, String? country}) async {
+    final current = state;
+    if (current == null) {
+      state = User.demo.copyWith(displayName: displayName, bio: bio, country: country);
+      return;
+    }
+    state = await ref
+        .read(authServiceProvider)
+        .updateProfile(current, displayName: displayName, bio: bio, country: country);
   }
 
   Future<void> signOut() async {

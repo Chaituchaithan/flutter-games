@@ -172,8 +172,14 @@ class AuraGlass {
     Color? border,
     bool shadow = true,
   }) {
+    final gradient = accentGradient ?? AuraGradients.glass;
     return BoxDecoration(
-      gradient: accentGradient ?? AuraGradients.glass,
+      // With a drop shadow, the fill is made opaque (the glass tint blended
+      // onto the app's near-black base): a Flutter BoxShadow is painted UNDER
+      // the box and showed through a translucent fill as a lighter inner panel
+      // (CSS box-shadow never draws beneath its element). Visually identical
+      // on the dark backgrounds the cards sit on.
+      gradient: shadow ? _opaque(gradient) : gradient,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(color: border ?? AuraColors.glassStroke),
       boxShadow: [
@@ -189,6 +195,19 @@ class AuraGlass {
       ],
     );
   }
+
+  /// Base the glass is composited onto (≈ the screen background).
+  static const Color _base = Color(0xFF0D0A18);
+
+  static Gradient _opaque(Gradient g) {
+    if (g is! LinearGradient) return g;
+    return LinearGradient(
+      begin: g.begin,
+      end: g.end,
+      stops: g.stops,
+      colors: [for (final c in g.colors) Color.alphaBlend(c, _base)],
+    );
+  }
 }
 
 /// Typography. Display face defaults to **Chakra Petch** (swappable via
@@ -198,7 +217,7 @@ class AuraText {
 
   /// The single hook for the display face. Swap to e.g.
   /// `GoogleFonts.spaceGrotesk().fontFamily` to change every heading/number/button.
-  static final String? displayFamily = GoogleFonts.chakraPetch().fontFamily;
+  static final String? displayFamily = GoogleFonts.spaceGrotesk().fontFamily;
 
   /// Body face.
   static final String? bodyFamily = GoogleFonts.manrope().fontFamily;

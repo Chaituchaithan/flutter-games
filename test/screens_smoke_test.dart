@@ -21,6 +21,7 @@ import 'package:snakeladder/screens/onboarding/otp_screen.dart';
 import 'package:snakeladder/screens/onboarding/reset_password_screen.dart';
 import 'package:snakeladder/screens/onboarding/welcome_bonus_screen.dart';
 import 'package:snakeladder/screens/economy/purchase_confirm_screen.dart';
+import 'package:snakeladder/screens/economy/purchase_complete_screen.dart';
 import 'package:snakeladder/screens/economy/transactions_screen.dart';
 import 'package:snakeladder/screens/economy/daily_rewards_screen.dart';
 import 'package:snakeladder/screens/economy/season_pass_screen.dart';
@@ -30,6 +31,8 @@ import 'package:snakeladder/screens/profile/avatars_screen.dart';
 import 'package:snakeladder/screens/profile/game_history_screen.dart';
 import 'package:snakeladder/screens/profile/achievements_screen.dart';
 import 'package:snakeladder/screens/games/chess_screen.dart';
+import 'package:snakeladder/screens/games/chess_setup_screen.dart';
+import 'package:snakeladder/screens/games/chess_vs_computer_screen.dart';
 import 'package:snakeladder/screens/games/othello_screen.dart';
 import 'package:snakeladder/screens/games/snakes_ladders_screen.dart';
 import 'package:snakeladder/screens/games/ludo_screen.dart';
@@ -68,6 +71,7 @@ void main() {
     'ResetPassword': const ResetPasswordScreen(),
     'WelcomeBonus': const WelcomeBonusScreen(),
     'PurchaseConfirm': const PurchaseConfirmScreen(),
+    'PurchaseComplete': const PurchaseCompleteScreen(amount: '1,200', unit: 'Gold'),
     'Transactions': const TransactionsScreen(),
     'DailyRewards': const DailyRewardsScreen(),
     'SeasonPass': const SeasonPassScreen(),
@@ -77,6 +81,8 @@ void main() {
     'GameHistory': const GameHistoryScreen(),
     'Achievements': const AchievementsScreen(),
     'Chess': const ChessScreen(),
+    'ChessSetup': const ChessSetupScreen(),
+    'ChessVsComputer': const ChessVsComputerScreen(),
     'Othello': const OthelloScreen(),
     'SnakesLadders': const SnakesLaddersScreen(),
     'Ludo': const LudoScreen(),

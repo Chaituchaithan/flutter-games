@@ -44,13 +44,9 @@ class AchievementsScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 4),
-          Text('Trophy Room', style: AuraText.title),
-          const SizedBox(height: 6),
-          const Text(
-            'Unlock badges to earn Gold & frames',
-            style: TextStyle(color: AuraColors.textSecondary, fontSize: 14),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
+          _TrophyRoomCard(fraction: _items.where((a) => a.unlocked).length / 12),
+          const SizedBox(height: 16),
           for (final a in _items) ...[
             _AchievementRow(item: a),
             const SizedBox(height: 10),
@@ -108,7 +104,8 @@ class _AchievementRow extends StatelessWidget {
                 Text(
                   item.name,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
                     color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -253,6 +250,91 @@ class _ProgressBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(3),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Mockup "Trophy Room" card: gold-tinted glass, gold trophy tile, title,
+/// subtitle and a gold progress bar (badges unlocked / total).
+class _TrophyRoomCard extends StatelessWidget {
+  const _TrophyRoomCard({required this.fraction});
+  final double fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [const Color(0xFFFBBF24).withValues(alpha: 0.24), AuraColors.brandPink.withValues(alpha: 0.12)],
+        ),
+        border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.45), width: 1.5),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Container(
+              width: 130,
+              height: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(colors: [const Color(0xFFFBBF24).withValues(alpha: 0.4), const Color(0xFFFBBF24).withValues(alpha: 0)], stops: const [0, 0.7]),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(17),
+                    gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)]),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                  ),
+                  child: const Icon(Icons.emoji_events_rounded, color: Color(0xFF1A1206), size: 26),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Trophy Room', style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 16, color: Colors.white)),
+                      Text('Unlock badges to earn Gold & frames', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.75))),
+                      const SizedBox(height: 9),
+                      Container(
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                        ),
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: fraction.clamp(0.0, 1.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(99),
+                              gradient: const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)]),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

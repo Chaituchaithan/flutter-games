@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
+import '../../services/app_exception.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
@@ -25,10 +26,54 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     ('🇬🇧', 'GB'),
   ];
 
-  String _selected = 'FR';
+  // Seeded from the signed-in player (GET /users/me + /users/{id}/profile).
+  late final _initial = ref.read(currentUserProvider);
+  late String? _selected = _initial.country;
+  late final _nameCtrl = TextEditingController(text: _initial.displayName);
+  late final _bioCtrl = TextEditingController(text: _initial.bio);
+  bool _saving = false;
 
-  late final _nameCtrl = TextEditingController(text: ref.read(currentUserProvider).displayName);
-  late final _bioCtrl = TextEditingController(text: ref.read(currentUserProvider).bio);
+  /// The grid, plus the player's saved country if it isn't one of the 8.
+  List<(String, String)> get _countryOptions {
+    final c = _initial.country;
+    if (c == null || _countries.any((e) => e.$2 == c)) return _countries;
+    return [..._countries, (_flagFor(c), c)];
+  }
+
+  /// "IN" → 🇮🇳 (regional indicator letters).
+  static String _flagFor(String code) => code.length == 2
+      ? String.fromCharCodes(code.toUpperCase().codeUnits.map((u) => 0x1F1E6 + u - 0x41))
+      : '🏳️';
+
+  /// PATCH /users/me/profile with only the fields that changed.
+  Future<void> _save() async {
+    final name = _nameCtrl.text.trim();
+    final bio = _bioCtrl.text.trim();
+    if (name.isEmpty) {
+      showAuraToast(context, 'Display name can’t be empty', kind: AuraToastKind.error);
+      return;
+    }
+    final changedName = name != _initial.displayName ? name : null;
+    final changedBio = bio != _initial.bio ? bio : null;
+    final changedCountry = _selected != _initial.country ? _selected : null;
+    if (changedName == null && changedBio == null && changedCountry == null) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await ref.read(sessionProvider.notifier).updateProfile(displayName: changedName, bio: changedBio, country: changedCountry);
+      if (!mounted) return;
+      showAuraToast(context, 'Profile saved');
+      Navigator.of(context).maybePop();
+    } on AppException catch (e) {
+      if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
+    } on Object catch (_) {
+      if (mounted) showAuraToast(context, "Couldn't save your profile. Try again.", kind: AuraToastKind.error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -49,22 +94,41 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           Center(
             child: Column(
               children: [
-                const LetterAvatar(
-                  letter: 'NR',
-                  color: AuraColors.brandPurple,
-                  size: 88,
-                  glow: true,
+                // Avatar with a camera button — only the camera navigates to
+                // the avatar picker.
+                SizedBox(
+                  width: 88,
+                  height: 88,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      LetterAvatar(letter: _initial.initials, color: _initial.color, size: 88, glow: true),
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, Routes.avatars),
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)]),
+                              border: Border.all(color: AuraColors.bgBase, width: 2.5),
+                              boxShadow: [BoxShadow(color: AuraColors.brandPink.withValues(alpha: 0.8), blurRadius: 14, spreadRadius: -4, offset: const Offset(0, 6))],
+                            ),
+                            child: const Icon(Icons.photo_camera_rounded, color: Colors.white, size: 15),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pushNamed(context, Routes.avatars),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AuraColors.accentGlow,
-                  ),
-                  child: const Text(
-                    'Change avatar',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                const SizedBox(height: 10),
+                // Plain label — does not navigate (use the camera button).
+                const Text(
+                  'Change avatar',
+                  style: TextStyle(color: AuraColors.accentGlow, fontSize: 14, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -72,7 +136,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           const SizedBox(height: 12),
           const SectionHeader('Display name'),
           const SizedBox(height: 8),
-          AuraTextField(hint: 'Nova Rider', icon: Icons.person_outline, controller: _nameCtrl),
+          AuraTextField(hint: 'Your display name', icon: Icons.person_outline, controller: _nameCtrl),
           const SizedBox(height: 20),
           const SectionHeader('Bio'),
           const SizedBox(height: 8),
@@ -93,7 +157,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 spacing: gap,
                 runSpacing: gap,
                 children: [
-                  for (final (flag, code) in _countries)
+                  for (final (flag, code) in _countryOptions)
                     SizedBox(
                       width: tileWidth,
                       child: _CountryTile(
@@ -108,17 +172,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             },
           ),
           const SizedBox(height: 28),
-          GradientButton(
-            label: 'Save changes',
-            onPressed: () {
-              ref.read(sessionProvider.notifier).updateProfile(
-                    displayName: _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
-                    bio: _bioCtrl.text.trim(),
-                  );
-              showAuraToast(context, 'Profile saved');
-              Navigator.of(context).maybePop();
-            },
-          ),
+          GradientButton(label: 'Save changes', loading: _saving, onPressed: _save),
           const SizedBox(height: 8),
         ],
       ),

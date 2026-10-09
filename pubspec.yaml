@@ -42,6 +42,9 @@ dependencies:
   dio: ^5.11.1
   flutter_secure_storage: ^11.2.0
   connectivity_plus: ^7.3.1
+  # Cross-platform (mobile + web) WebSocket for the realtime game protocol
+  # (see docs/SOCKET_PROTOCOL in SOCKET_HOOKS.md).
+  web_socket_channel: ^3.0.1
 
 dev_dependencies:
   flutter_test:

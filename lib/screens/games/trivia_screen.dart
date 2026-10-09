@@ -220,7 +220,8 @@ class _PlayerChip extends StatelessWidget {
                   player.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
                     color: Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -295,7 +296,8 @@ class _QuestionCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             question,
-            style: const TextStyle(
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
               color: Colors.white,
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -390,6 +392,7 @@ class _LetterBadge extends StatelessWidget {
       child: Text(
         letter,
         style: TextStyle(
+          fontFamily: AuraText.displayFamily,
           color: selected ? Colors.white : AuraColors.textSecondary,
           fontSize: 13,
           fontWeight: FontWeight.w800,
@@ -459,6 +462,7 @@ class _PowerUp extends StatelessWidget {
             child: Text(
               '×$count',
               style: TextStyle(
+                fontFamily: AuraText.displayFamily,
                 color: fg,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,

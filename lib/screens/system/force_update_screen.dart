@@ -85,6 +85,21 @@ class ForceUpdateScreen extends StatelessWidget {
           GradientButton(label: 'Update on the App Store', onPressed: () {}),
           const SizedBox(height: 12),
           Center(child: Text('Required update · 48 MB', style: AuraText.cardSub.copyWith(fontSize: 12))),
+          const SizedBox(height: 14),
+          Center(
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              child: Text(
+                'Exit preview',
+                style: TextStyle(
+                  color: AuraColors.textPrimary.withValues(alpha: 0.4),
+                  fontSize: 12,
+                  decoration: TextDecoration.underline,
+                  decorationColor: AuraColors.textPrimary.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 8),
         ],
       ),

@@ -461,7 +461,8 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
         Text(label, style: AuraText.body),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
+            fontFamily: AuraText.displayFamily,
             color: AuraColors.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.w700,

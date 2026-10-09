@@ -112,6 +112,7 @@ class _AvatarTile extends StatelessWidget {
         child: Text(
           letter,
           style: TextStyle(
+            fontFamily: AuraText.displayFamily,
             color: Colors.white,
             fontSize: size * 0.30,
             fontWeight: FontWeight.w700,

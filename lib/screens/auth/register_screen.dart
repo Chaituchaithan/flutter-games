@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/routes.dart';
 import '../../services/app_exception.dart';
 import '../../services/session.dart';
+import '../../utils/validators.dart';
 import '../../widgets/aura.dart';
 
 /// Register — "Create account". Creates the account via the session/AuthService.
@@ -19,33 +20,54 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscure = true;
   bool _agreed = false;
   bool _busy = false;
-  final _name = TextEditingController();
+  final _username = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  String? _usernameError;
+  String? _emailError;
+  String? _passwordError;
 
   @override
   void dispose() {
-    _name.dispose();
+    _username.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
   }
 
+  /// Validate all three fields; returns true when they all pass.
+  bool _validate() {
+    final usernameError = Validators.username(_username.text);
+    final emailError = Validators.email(_email.text);
+    final passwordError = Validators.newPassword(_password.text);
+    setState(() {
+      _usernameError = usernameError;
+      _emailError = emailError;
+      _passwordError = passwordError;
+    });
+    return usernameError == null && emailError == null && passwordError == null;
+  }
+
   Future<void> _create() async {
     if (_busy) return;
+    if (!_validate()) return;
     if (!_agreed) {
       showAuraToast(context, 'Please accept the Terms & Privacy Policy', kind: AuraToastKind.info);
       return;
     }
     setState(() => _busy = true);
     try {
-      await ref.read(sessionProvider.notifier).register(
-            name: _name.text.trim(),
+      // Create the account (no auto-sign-in), then send the user to Login to
+      // sign in with their new credentials.
+      await ref.read(sessionProvider.notifier).registerAccount(
+            name: _username.text.trim(),
             email: _email.text.trim(),
             password: _password.text,
           );
-      // Account created (session established) → email verification step.
-      if (mounted) Navigator.pushNamed(context, Routes.otp);
+      if (mounted) {
+        showAuraToast(context, 'Account created — please log in', kind: AuraToastKind.success);
+        Navigator.pushReplacementNamed(context, Routes.login);
+      }
     } on AppException catch (e) {
       if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
     } on Object catch (_) {
@@ -55,8 +77,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  void _oauthSoon() =>
-      showAuraToast(context, 'Social sign-up coming soon', kind: AuraToastKind.info);
+  // Real OAuth is stubbed server-side (503). Placeholder: continue into the app
+  // (demo session) so the Apple/Google buttons land on Home. Swap for a real
+  // OAuth sign-up when the backend supports it.
+  void _oauthContinue() => Navigator.pushReplacementNamed(context, Routes.home);
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +106,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 child: LightButton(
                   label: 'Apple',
                   leading: const Icon(Icons.apple, size: 20, color: Colors.black),
-                  onPressed: _oauthSoon,
+                  onPressed: _oauthContinue,
                 ),
               ),
               const SizedBox(width: 8),
@@ -91,7 +115,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: 'Google',
                   dark: true,
                   leading: const _GoogleG(size: 18),
-                  onPressed: _oauthSoon,
+                  onPressed: _oauthContinue,
                 ),
               ),
             ],
@@ -100,17 +124,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const _OrDivider(label: 'or sign up with email'),
           const SizedBox(height: 20),
           AuraTextField(
-            hint: 'Full name',
-            icon: Icons.person_outline,
-            keyboardType: TextInputType.name,
-            controller: _name,
+            hint: 'Username',
+            icon: Icons.alternate_email,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.next,
+            controller: _username,
+            errorText: _usernameError,
+            onChanged: (_) {
+              if (_usernameError != null) setState(() => _usernameError = null);
+            },
           ),
           const SizedBox(height: 14),
           AuraTextField(
             hint: 'Email address',
             icon: Icons.mail_outline,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
             controller: _email,
+            errorText: _emailError,
+            onChanged: (_) {
+              if (_emailError != null) setState(() => _emailError = null);
+            },
           ),
           const SizedBox(height: 14),
           AuraTextField(
@@ -118,6 +152,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             icon: Icons.lock_outline,
             obscure: _obscure,
             controller: _password,
+            errorText: _passwordError,
+            textInputAction: TextInputAction.done,
+            onChanged: (_) {
+              if (_passwordError != null) setState(() => _passwordError = null);
+            },
+            onSubmitted: (_) => _create(),
             trailing: IconButton(
               splashRadius: 20,
               icon: Icon(
@@ -134,7 +174,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             onToggle: () => setState(() => _agreed = !_agreed),
           ),
           const SizedBox(height: 18),
-          GradientButton(label: 'Create Account', onPressed: _create),
+          GradientButton(label: 'Create Account', onPressed: _create, loading: _busy),
           const SizedBox(height: 24),
           Center(
             child: Text.rich(

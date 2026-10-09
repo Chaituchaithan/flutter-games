@@ -87,9 +87,23 @@ void main() {
   testWidgets('Game history: All/Wins/Losses filter', (tester) async {
     await pumpScreen(tester, const GameHistoryScreen());
     await settle(tester, 'History load');
-    for (final t in ['Wins', 'Losses', 'All']) {
-      await tapText(tester, t, 'GameHistory');
-    }
+    // Static data: ZeroCool = win, NeonViper = loss, PixelGhost = draw.
+    expect(find.text('ZeroCool'), findsOneWidget);
+    expect(find.text('NeonViper'), findsOneWidget);
+    expect(find.text('PixelGhost'), findsOneWidget);
+
+    await tapText(tester, 'Wins', 'GameHistory');
+    expect(find.text('ZeroCool'), findsOneWidget);
+    expect(find.text('NeonViper'), findsNothing);
+    expect(find.text('PixelGhost'), findsNothing);
+
+    await tapText(tester, 'Losses', 'GameHistory');
+    expect(find.text('ZeroCool'), findsNothing);
+    expect(find.text('NeonViper'), findsOneWidget);
+    expect(find.text('PixelGhost'), findsNothing);
+
+    await tapText(tester, 'All', 'GameHistory');
+    expect(find.text('PixelGhost'), findsOneWidget);
   });
 
   testWidgets('Tournaments: Live/Upcoming/Ended', (tester) async {
@@ -131,10 +145,13 @@ void main() {
     );
     await settle(tester, 'launcher');
     await tapText(tester, 'open', 'OnlinePlay');
-    await tapText(tester, '2', 'OnlinePlay players'); // choose 2 players -> currency step
-    await tapText(tester, 'Tokens', 'OnlinePlay currency'); // -> stake step
+    // Chess is 2-player, so the sheet opens directly on "Choose your stake".
+    expect(find.text('Choose your stake'), findsOneWidget, reason: 'opens on stake');
+    await tapText(tester, 'Tokens', 'OnlinePlay currency'); // -> stake amount step
     await tapText(tester, 'Preview match  →', 'OnlinePlay stake'); // -> preview
-    await tapText(tester, 'Create game', 'OnlinePlay preview'); // -> matchmaking route
+    // "Create game" is reachable; tapping it launches the live online Chess
+    // screen (real WebSocket) which isn't exercised here — just assert it shows.
+    expect(find.text('Create game'), findsOneWidget, reason: 'OnlinePlay preview');
   });
 
   testWidgets('Overlays: chat / paused / dialog / balance / toast', (tester) async {

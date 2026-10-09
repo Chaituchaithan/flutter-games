@@ -4,7 +4,7 @@ import '../../app/routes.dart';
 import '../../widgets/aura.dart';
 
 /// Match preview — VS card + stake summary + "Create game". Standalone screen.
-/// Create game → Routes.matchResult. See docs/DESIGN_SPEC.md §12.
+/// Create game → Routes.matchmaking (VS → Chess board → result). See docs/DESIGN_SPEC.md §12.
 class MatchPreviewScreen extends StatelessWidget {
   const MatchPreviewScreen({super.key});
 
@@ -74,8 +74,9 @@ class MatchPreviewScreen extends StatelessWidget {
           const SizedBox(height: 24),
           GradientButton(
             label: 'Create game',
+            // → matchmaking (VS) → Chess board → result, same as the main flow.
             onPressed: () =>
-                Navigator.pushReplacementNamed(context, Routes.matchResult),
+                Navigator.pushReplacementNamed(context, Routes.matchmaking),
           ),
           const SizedBox(height: 16),
         ],
@@ -119,7 +120,10 @@ class MatchPreviewScreen extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AuraText.body.copyWith(color: AuraColors.textSecondary)),
+        Expanded(
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AuraText.body.copyWith(color: AuraColors.textSecondary)),
+        ),
+        const SizedBox(width: 12),
         Text(
           value,
           style: TextStyle(

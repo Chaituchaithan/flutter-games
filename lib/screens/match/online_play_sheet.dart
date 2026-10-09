@@ -29,8 +29,10 @@ class OnlinePlaySheet extends ConsumerStatefulWidget {
 }
 
 class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
-  int _step = 0; // 0 players · 1 currency · 2 stake · 3 preview
-  int _players = 2;
+  // Chess is always 2-player, so the "How many players?" step (0) is skipped —
+  // the sheet opens directly on "Choose your stake" (step 1).
+  int _step = 1; // 1 currency ("Choose your stake") · 2 amount · 3 preview
+  final int _players = 2;
   bool _isTokens = true;
   int _stake = 200;
 
@@ -73,11 +75,13 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
     }
     if (!mounted) return;
     Navigator.of(context).pop();
-    Navigator.pushNamed(context, Routes.matchmaking);
+    // Launch online Chess (the only game): connect → matchmake → live board.
+    Navigator.pushNamed(context, Routes.chessOnline, arguments: {'stake': _stake, 'tokens': _isTokens});
   }
 
   void _back() {
-    if (_step > 0) {
+    // Step 1 ("Choose your stake") is the first step now — back from it closes.
+    if (_step > 1) {
       setState(() => _step--);
     } else {
       Navigator.of(context).maybePop();
@@ -97,9 +101,12 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
   }
 
   (String, String, String) get _headerText => switch (_step) {
-        0 => ('1 / 3', 'How many players?', 'Pick the match size'),
-        1 => ('2 / 3', 'Choose your stake', 'Token or Gold buy-in'),
-        2 => ('3 / 3 · buy-in', 'How many $_currency?', '$_players Players · $_currency'),
+        1 => ('1/2', 'Choose your stake', 'Token or Gold buy-in'),
+        2 => (
+            '2/2 · buy-in',
+            _isTokens ? 'How many tokens?' : 'How much gold?',
+            '$_players Players · $_currency',
+          ),
         _ => ('preview', 'Match preview', 'Online · ${_players}P · $_currency'),
       };
 
@@ -177,7 +184,6 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                   Flexible(
                     child: SingleChildScrollView(
                       child: switch (_step) {
-                        0 => _players_(),
                         1 => _currency_(),
                         2 => _stake_(),
                         _ => _preview_(),
@@ -193,52 +199,7 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
     );
   }
 
-  // ── Step 0: players ──
-  Widget _players_() {
-    return Row(
-      children: [
-        Expanded(
-          child: _OptCard(
-            selected: _players == 2,
-            onTap: () => setState(() { _players = 2; _step = 1; }),
-            child: _playerContent('2', '1v1', 2),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _OptCard(
-            selected: _players == 4,
-            onTap: () => setState(() { _players = 4; _step = 1; }),
-            child: _playerContent('4', 'free-for-all', 4),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _playerContent(String big, String sub, int dots) {
-    const colors = [AuraColors.avatarPurple, AuraColors.avatarBlue, AuraColors.avatarOrange, AuraColors.avatarGreen];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(big, style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 40, fontWeight: FontWeight.w700, height: 1)),
-        const SizedBox(height: 8),
-        Text('Players · $sub', style: AuraText.cardSub),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            for (var i = 0; i < dots; i++)
-              Padding(
-                padding: const EdgeInsets.only(right: 5),
-                child: Container(width: 11, height: 11, decoration: BoxDecoration(color: colors[i % 4], shape: BoxShape.circle)),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ── Step 1: currency ──
+  // ── Step 1: currency ("Choose your stake") ──
   Widget _currency_() {
     return Row(
       children: [
@@ -261,15 +222,17 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
     );
   }
 
+  // Mockup currency card: centred glyph + Space Grotesk 700/17 title + muted
+  // balance line.
   Widget _currencyContent(Currency kind, String title, String balance) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        CurrencyGlyph(kind: kind, size: 34),
-        const SizedBox(height: 14),
-        Text(title, style: AuraText.cardTitle),
+        CurrencyGlyph(kind: kind, size: 40),
+        const SizedBox(height: 10),
+        Text(title, style: AuraText.cardTitle.copyWith(fontSize: 17)),
         const SizedBox(height: 4),
-        Text(balance, style: AuraText.cardSub),
+        Text(balance, style: AuraText.cardSub.copyWith(fontSize: 12)),
       ],
     );
   }
@@ -292,16 +255,16 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
             for (final (amt, pot) in _tiers)
               _OptCard(
                 selected: _stake == amt,
-                radius: 16,
+                radius: 14,
                 padding: const EdgeInsets.all(8),
                 onTap: () => _setStake(amt),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(amt >= 1000 ? '${amt ~/ 1000}k' : '$amt',
-                        style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(pot, style: AuraText.cardSub.copyWith(fontSize: 11)),
+                        style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 3),
+                    Text(pot, style: AuraText.cardSub.copyWith(fontSize: 10, color: AuraColors.textMuted)),
                   ],
                 ),
               ),
@@ -458,14 +421,15 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
   }
 }
 
-/// Selectable glass card with a brand-gradient border when [selected]
-/// (opaque dark interior so the border reads as a frame, not a fill).
+/// Selectable glass card. Matches the mockup `selCard`/`unselCard`: a 2px
+/// accent-glow border over a violet→pink tint with a soft purple glow when
+/// [selected]; a hairline glass fill otherwise.
 class _OptCard extends StatelessWidget {
   const _OptCard({
     required this.child,
     required this.selected,
     required this.onTap,
-    this.radius = 20,
+    this.radius = 18,
     this.padding = const EdgeInsets.all(16),
   });
 
@@ -479,24 +443,31 @@ class _OptCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
+      borderRadius: BorderRadius.circular(radius),
       child: InkWell(
         borderRadius: BorderRadius.circular(radius),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(1.5),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: padding,
           decoration: BoxDecoration(
-            gradient: selected ? AuraGradients.brand : null,
-            color: selected ? null : Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(radius),
-          ),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: const Color(0xFF14101F),
-              borderRadius: BorderRadius.circular(radius - 1.5),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: selected
+                  ? [AuraColors.brandPurple.withValues(alpha: 0.32), AuraColors.brandPink.withValues(alpha: 0.16)]
+                  : [Colors.white.withValues(alpha: 0.09), Colors.white.withValues(alpha: 0.03)],
             ),
-            child: child,
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(
+              color: selected ? AuraColors.accentGlow : Colors.white.withValues(alpha: 0.22),
+              width: selected ? 2 : 1.5,
+            ),
+            boxShadow: selected
+                ? [BoxShadow(color: AuraColors.accentGlow.withValues(alpha: 0.45), blurRadius: 24, spreadRadius: -4)]
+                : null,
           ),
+          child: child,
         ),
       ),
     );

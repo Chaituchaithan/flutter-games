@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/routes.dart';
 import '../../services/app_exception.dart';
 import '../../services/session.dart';
+import '../../services/socket/app_socket.dart';
+import '../../services/token_store.dart';
+import '../../utils/validators.dart';
 import '../../widgets/aura.dart';
 
 /// Login — "Welcome back". Standalone screen (uses AuraScaffold).
@@ -22,6 +25,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _busy = false;
   final _email = TextEditingController();
   final _password = TextEditingController();
+  String? _emailError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -30,13 +35,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  /// Validate the email + password fields; returns true when both pass.
+  /// The server's /auth/login validates a proper email, so we enforce it here.
+  bool _validate() {
+    final emailError = Validators.email(_email.text);
+    final passwordError = Validators.password(_password.text);
+    setState(() {
+      _emailError = emailError;
+      _passwordError = passwordError;
+    });
+    return emailError == null && passwordError == null;
+  }
+
   /// Runs an auth action with a busy guard, surfacing the server's error message.
+  /// On success the realtime socket is opened + authenticated (auth.login with
+  /// token + username) before landing on Home — see [_connectSocketThenHome].
   Future<void> _auth(Future<void> Function() action) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
       await action();
-      if (mounted) Navigator.pushReplacementNamed(context, Routes.home);
+      // Use the signed-in account's real username for the socket identity
+      // (fetched via /users/me) instead of a hardcoded one.
+      await _connectSocketThenHome(username: ref.read(sessionProvider)?.username);
     } on AppException catch (e) {
       if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
     } on Object catch (_) {
@@ -46,15 +67,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  void _signIn() => _auth(() => ref
-      .read(sessionProvider.notifier)
-      .login(email: _email.text.trim(), password: _password.text));
+  /// The flow is: API login → socket login → Home, and Home is reached ONLY
+  /// if the socket authenticates. After auth succeeds we open the realtime
+  /// socket with the freshly-issued gateway token and the account's real
+  /// username (from /users/me). If the socket can't connect/authenticate
+  /// we surface the error and stay on the login screen. (The demo/OAuth path
+  /// has no token → no socket → it still proceeds Home.)
+  Future<void> _connectSocketThenHome({String? username}) async {
+    final token = await ref.read(tokenStoreProvider).readAccess() ?? '';
+    // Socket bypassed (kSocketEnabled = false): API login alone reaches Home.
+    if (kSocketEnabled && token.isNotEmpty) {
+      try {
+        await ref.read(appSocketProvider).connect(token: token, username: username);
+      } on Object catch (e) {
+        if (mounted) showAuraToast(context, "Couldn't reach the game server: $e", kind: AuraToastKind.error);
+        return; // strict gating: no Home unless the socket login succeeded
+      }
+    }
+    if (mounted) Navigator.pushReplacementNamed(context, Routes.home);
+  }
+
+  void _signIn() {
+    if (!_validate()) return;
+    _auth(() => ref
+        .read(sessionProvider.notifier)
+        .login(email: _email.text.trim(), password: _password.text));
+  }
 
   void _guest() => _auth(() => ref.read(sessionProvider.notifier).loginGuest());
 
-  // OAuth linking is stubbed server-side (503); surface a friendly notice.
-  void _oauthSoon() =>
-      showAuraToast(context, 'Social sign-in coming soon', kind: AuraToastKind.info);
+  // Real OAuth is stubbed server-side (503). Placeholder: continue into the app
+  // (demo session) so the Apple/Google buttons land on Home. When a DEMO_TOKEN
+  // is provided at build time, seed a signed-in session so online play works
+  // against the local chess relay (no-op otherwise). Swap for a real OAuth
+  // sign-in when the backend supports it.
+  Future<void> _oauthContinue() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(sessionProvider.notifier).startDemoSession();
+      await _connectSocketThenHome();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,13 +123,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 4),
-          // Logo row: gradient ring + dot, then "Aura".
+          // Logo row: gradient ring + dot, then the app name.
           Row(
             children: [
               const _AuraLogo(size: 28),
               const SizedBox(width: 10),
               Text(
-                'Aura',
+                'Chess',
                 style: TextStyle(
                   fontFamily: AuraText.displayFamily,
                   color: AuraColors.textPrimary,
@@ -98,14 +154,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           LightButton(
             label: 'Continue with Apple',
             leading: const Icon(Icons.apple, size: 22, color: Colors.black),
-            onPressed: _oauthSoon,
+            onPressed: _oauthContinue,
           ),
           const SizedBox(height: 12),
           LightButton(
             label: 'Continue with Google',
             dark: true,
             leading: const _GoogleG(size: 20),
-            onPressed: _oauthSoon,
+            onPressed: _oauthContinue,
           ),
           const SizedBox(height: 20),
           const _OrDivider(label: 'or log in with email'),
@@ -114,7 +170,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             hint: 'Email address',
             icon: Icons.mail_outline,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
             controller: _email,
+            errorText: _emailError,
+            onChanged: (_) {
+              if (_emailError != null) setState(() => _emailError = null);
+            },
           ),
           const SizedBox(height: 14),
           AuraTextField(
@@ -122,6 +183,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             icon: Icons.lock_outline,
             obscure: _obscure,
             controller: _password,
+            errorText: _passwordError,
+            textInputAction: TextInputAction.done,
+            onChanged: (_) {
+              if (_passwordError != null) setState(() => _passwordError = null);
+            },
+            onSubmitted: (_) => _signIn(),
             trailing: IconButton(
               splashRadius: 20,
               icon: Icon(
@@ -153,7 +220,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          GradientButton(label: 'Log In', onPressed: _signIn),
+          GradientButton(label: 'Log In', onPressed: _signIn, loading: _busy),
           const SizedBox(height: 12),
           SecondaryButton(label: 'Continue as guest', onPressed: _guest),
           const SizedBox(height: 24),
@@ -165,7 +232,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   fontSize: 14,
                 ),
                 children: [
-                  const TextSpan(text: 'New to Aura? '),
+                  const TextSpan(text: 'New to Chess? '),
                   WidgetSpan(
                     alignment: PlaceholderAlignment.middle,
                     child: GestureDetector(

@@ -24,6 +24,7 @@ class _GameHistoryScreenState extends ConsumerState<GameHistoryScreen> {
 
     return AuraScaffold(
       appBar: const AuraAppBar(title: 'Game History'),
+      showGlow: false, // mockup History has no backdrop glow
       scroll: true,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -118,7 +119,8 @@ class _MatchRow extends StatelessWidget {
                 Text(
                   match.opponent,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
                     color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -141,6 +143,7 @@ class _MatchRow extends StatelessWidget {
                 child: Text(
                   match.amount,
                   style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
                     color: match.isXp ? AuraColors.skip : AuraColors.gems,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -179,7 +182,7 @@ class _ResultBadge extends StatelessWidget {
       ),
       child: Text(
         letter,
-        style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w800),
+        style: TextStyle(fontFamily: AuraText.displayFamily, color: color, fontSize: 16, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -210,7 +213,8 @@ class _OpponentAvatar extends StatelessWidget {
       ),
       child: Text(
         initials,
-        style: const TextStyle(
+        style: TextStyle(
+          fontFamily: AuraText.displayFamily,
           color: Colors.white,
           fontSize: 13,
           fontWeight: FontWeight.w700,

@@ -56,7 +56,7 @@ class Shimmer extends StatefulWidget {
 
 class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1400)) // mockup auraShimmer 1.4s
         ..repeat();
 
   @override

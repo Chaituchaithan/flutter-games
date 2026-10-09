@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/main_shell.dart';
+import '../../app/routes.dart';
 import '../../data/models/inbox_message.dart';
 import '../../data/repositories/inbox_repository.dart';
 import '../../state/async_view.dart';
@@ -29,6 +31,26 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
   void _markRead(int i) {
     setState(() => _items![i] = _items![i].copyWith(unread: false));
+  }
+
+  /// Run a notification's call-to-action (Join / Claim / View / Accept / Shop).
+  void _runAction(InboxMessage n) {
+    switch (n.kind) {
+      case InboxKind.invite:
+      case InboxKind.friendRequest:
+        Navigator.pushNamed(context, Routes.friends);
+      case InboxKind.dailyBonus:
+        Navigator.pushNamed(context, Routes.dailyRewards);
+      case InboxKind.tournament:
+        Navigator.pushNamed(context, Routes.tournaments);
+      case InboxKind.shop:
+        // Store is a shell tab: switch to it, then pop back to the shell.
+        ref.read(mainTabProvider.notifier).select(2);
+        Navigator.popUntil(context, (r) => r.isFirst);
+      case InboxKind.result:
+      case InboxKind.announcement:
+        break;
+    }
   }
 
   @override
@@ -88,7 +110,16 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                     ),
                   ),
                 for (var i = 0; i < items.length; i++) ...[
-                  _NotifRow(notif: items[i], onTap: () => _markRead(i)),
+                  _NotifRow(
+                    notif: items[i],
+                    onTap: () => _markRead(i),
+                    onAction: items[i].action == null
+                        ? null
+                        : () {
+                            _markRead(i);
+                            _runAction(items[i]);
+                          },
+                  ),
                   const SizedBox(height: 10),
                 ],
                 const SizedBox(height: 8),
@@ -99,9 +130,12 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 }
 
 class _NotifRow extends StatelessWidget {
-  const _NotifRow({required this.notif, required this.onTap});
+  const _NotifRow({required this.notif, required this.onTap, this.onAction});
   final InboxMessage notif;
   final VoidCallback onTap;
+
+  /// Tapped the CTA pill (Join / Claim / View / Accept / Shop). Null = no CTA.
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -112,18 +146,16 @@ class _NotifRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color.lerp(notif.color, Colors.white, 0.18)!,
-                  Color.lerp(notif.color, Colors.black, 0.12)!,
-                ],
+                colors: notif.gradient,
               ),
-              borderRadius: BorderRadius.circular(13),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
             ),
             child: Icon(notif.icon, color: Colors.white, size: 20),
           ),
@@ -150,16 +182,31 @@ class _NotifRow extends StatelessWidget {
                 Text(notif.body, style: AuraText.cardSub.copyWith(fontSize: 12.5)),
                 if (notif.action != null) ...[
                   const SizedBox(height: 9),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
-                    decoration: AuraGlass.decoration(radius: 10, shadow: false),
-                    child: Text(
-                      notif.action!,
-                      style: TextStyle(
-                        fontFamily: AuraText.displayFamily,
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                  // Functional CTA pill (mockup style): white-glass chip, tappable.
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: onAction,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+                          ),
+                          child: Text(
+                            notif.action!,
+                            style: TextStyle(
+                              fontFamily: AuraText.displayFamily,
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),

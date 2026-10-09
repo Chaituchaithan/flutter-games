@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/main_shell.dart';
 import '../../app/routes.dart';
+import '../../data/repositories/store_repository.dart';
+import '../../services/session.dart';
 import '../../widgets/aura.dart';
 import '../match/online_play_sheet.dart';
 
@@ -41,8 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
             children: [
-              _GameChipsStrip(onTapGame: _openMatchFlow),
-              const SizedBox(height: 14),
+              // Game-picker chips removed: Chess is the only available game, so
+              // play launches directly via Online Play / Quick Play below.
               _FeaturedHero(onTap: _openMatchFlow),
               const SizedBox(height: 14),
               Row(
@@ -52,9 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: Icons.play_arrow_rounded,
                       iconColor: AuraColors.green,
                       title: 'Quick Play',
-                      sub: 'Free practice match',
+                      sub: 'Play vs computer',
                       minHeight: 122,
-                      onTap: _openMatchFlow,
+                      onTap: () => Navigator.pushNamed(context, Routes.chessSetup),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -65,13 +68,23 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: 'Friends',
                       sub: 'Play with a room code',
                       minHeight: 122,
-                      onTap: () => Navigator.pushNamed(context, Routes.playFriends),
+                      onTap: () async {
+                        // Play with Friends pops 'store' from its "Buy more".
+                        final r = await Navigator.pushNamed(context, Routes.playFriends);
+                        if (r == 'store') _selectTab(2);
+                      },
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 14),
-              _TournamentsRow(onTap: () => Navigator.pushNamed(context, Routes.tournaments)),
+              _TournamentsRow(
+                onTap: () async {
+                  // Tournaments pops 'store' from "Buy more".
+                  final r = await Navigator.pushNamed(context, Routes.tournaments);
+                  if (r == 'store') _selectTab(2);
+                },
+              ),
               if (!_adClosed) ...[
                 const SizedBox(height: 14),
                 _AdBanner(onClose: () => setState(() => _adClosed = true)),
@@ -80,31 +93,43 @@ class _HomeScreenState extends State<HomeScreen> {
               const SectionBar('Earn rewards'),
               const SizedBox(height: 10),
               _SeasonPassCard(
-                onTap: () => Navigator.pushNamed(context, Routes.seasonPass),
+                onTap: () async {
+                  // Season Pass pops 'store' from "Buy more".
+                  final r = await Navigator.pushNamed(context, Routes.seasonPass);
+                  if (r == 'store') _selectTab(2);
+                },
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
-                    child: _QuickTile(
+                    child: _RewardTile(
                       icon: Icons.calendar_today_rounded,
-                      iconColor: AuraColors.brandPurple,
+                      iconGradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+                      ),
+                      glowColor: AuraColors.brandPurple,
                       title: 'Daily Bonus',
                       sub: 'Day 3 ready',
                       chipColor: AuraColors.accentGlow,
-                      minHeight: 148,
                       onTap: () => Navigator.pushNamed(context, Routes.dailyRewards),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _QuickTile(
+                    child: _RewardTile(
                       icon: Icons.track_changes,
-                      iconColor: AuraColors.brandPink,
+                      iconGradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFEC4899), Color(0xFFF472B6)],
+                      ),
+                      glowColor: AuraColors.brandPink,
                       title: 'Lucky Wheel',
                       sub: '3 spins left',
                       chipColor: AuraColors.brandPink,
-                      minHeight: 148,
                       onTap: () => _selectTab(1),
                     ),
                   ),
@@ -122,7 +147,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _ProfileHeaderCard extends StatelessWidget {
+/// HUD (mockup): avatar + level, name + country flag, @handle, bell, wallet
+/// pills, then the level/XP bar — all from the signed-in player and wallet.
+class _ProfileHeaderCard extends ConsumerWidget {
   const _ProfileHeaderCard({
     required this.onProfile,
     required this.onBell,
@@ -133,8 +160,17 @@ class _ProfileHeaderCard extends StatelessWidget {
   final VoidCallback onBell;
   final VoidCallback onShop;
 
+  static String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+
+  /// "IN" → 🇮🇳.
+  static String _flag(String code) =>
+      String.fromCharCodes(code.toUpperCase().codeUnits.map((u) => 0x1F1E6 + u - 0x41));
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final wallet = ref.watch(walletProvider).maybeWhen(data: (w) => w, orElse: () => null);
+    final country = user.country;
     return AuraCard(
       child: Column(
         children: [
@@ -147,7 +183,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                   onTap: onProfile,
                   child: Row(
                     children: [
-                      const AuraAvatar(initials: 'NR', size: 50, level: 7),
+                      AuraAvatar(initials: user.initials, size: 50, level: user.level),
                       const SizedBox(width: 11),
                       Expanded(
                         child: Column(
@@ -158,17 +194,19 @@ class _ProfileHeaderCard extends StatelessWidget {
                               children: [
                                 Flexible(
                                   child: Text(
-                                    'Nova Rider',
+                                    user.displayName,
                                     style: AuraText.cardTitle,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                const Text('🇫🇷', style: TextStyle(fontSize: 13)),
+                                if (country != null && country.length == 2) ...[
+                                  const SizedBox(width: 6),
+                                  Text(_flag(country), style: const TextStyle(fontSize: 13)),
+                                ],
                               ],
                             ),
                             const SizedBox(height: 2),
-                            Text('@nova_rider', style: AuraText.cardSub.copyWith(fontSize: 12)),
+                            Text(user.handle, overflow: TextOverflow.ellipsis, style: AuraText.cardSub.copyWith(fontSize: 12)),
                           ],
                         ),
                       ),
@@ -185,12 +223,12 @@ class _ProfileHeaderCard extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: onShop,
-                    child: const CurrencyPill(kind: Currency.gems, amount: '5,000'),
+                    child: CurrencyPill(kind: Currency.gems, amount: wallet?.gems ?? '5,000'),
                   ),
                   const SizedBox(height: 6),
                   GestureDetector(
                     onTap: onShop,
-                    child: const CurrencyPill(kind: Currency.gold, amount: '2,000'),
+                    child: CurrencyPill(kind: Currency.gold, amount: wallet?.gold ?? '2,000'),
                   ),
                 ],
               ),
@@ -206,7 +244,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: Text(
-                  'LV 7',
+                  'LV ${user.level}',
                   style: TextStyle(
                     fontFamily: AuraText.displayFamily,
                     color: AuraColors.accentGlow,
@@ -216,9 +254,9 @@ class _ProfileHeaderCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(child: _ProgressBar(fraction: 0.65)),
+              Expanded(child: _ProgressBar(fraction: user.xpFraction)),
               const SizedBox(width: 10),
-              Text('1,300 / 2,000', style: AuraText.cardSub.copyWith(fontSize: 11)),
+              Text('${_fmt(user.xp)} / ${_fmt(user.xpMax)}', style: AuraText.cardSub.copyWith(fontSize: 11)),
             ],
           ),
         ],
@@ -270,81 +308,11 @@ class _NotificationBell extends StatelessWidget {
               ),
               child: Text(
                 count,
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _GameChipsStrip extends StatelessWidget {
-  const _GameChipsStrip({required this.onTapGame});
-  final VoidCallback onTapGame;
-
-  static const _games = [
-    (Icons.extension, 'Chess'),
-    (Icons.stairs, 'Snakes'),
-    (Icons.casino, 'Ludo'),
-    (Icons.circle, 'Othello'),
-    (Icons.abc, 'Scrabble'),
-    (Icons.bolt, 'Trivia Duel'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    // 3-column grid (6 games → 2 rows), matching the mockup.
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      crossAxisCount: 3,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 2.9,
-      children: [
-        for (final g in _games) _GameChip(icon: g.$1, label: g.$2, onTap: onTapGame),
-      ],
-    );
-  }
-}
-
-class _GameChip extends StatelessWidget {
-  const _GameChip({required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          alignment: Alignment.center,
-          decoration: AuraGlass.decoration(radius: 12, shadow: false),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: AuraColors.accentGlow),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AuraColors.textPrimary, fontSize: 12.5, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -416,7 +384,7 @@ class _FeaturedHero extends StatelessWidget {
                       letterSpacing: 1.5,
                     ),
                   ),
-                  const AuraBadge('2P · 4P', color: Colors.white),
+                  const AuraBadge('2P', color: Colors.white), // chess is always 2 players
                 ],
               ),
               const SizedBox(height: 10),
@@ -435,9 +403,9 @@ class _FeaturedHero extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
+                    child: Text(
                       '♦ 50 – 5K',
-                      style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                      style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
                     ),
                   ),
                   const Spacer(),
@@ -477,6 +445,8 @@ class _IconTile extends StatelessWidget {
   }
 }
 
+/// Plain action tile (Quick Play / Friends): glass box with a translucent
+/// bordered icon tile, title and a muted subtitle. No glow/pill.
 class _QuickTile extends StatelessWidget {
   const _QuickTile({
     required this.icon,
@@ -484,7 +454,6 @@ class _QuickTile extends StatelessWidget {
     required this.title,
     required this.sub,
     required this.onTap,
-    this.chipColor,
     this.minHeight,
   });
 
@@ -493,9 +462,6 @@ class _QuickTile extends StatelessWidget {
   final String title;
   final String sub;
   final VoidCallback onTap;
-
-  /// When set, the subtitle renders as a coloured pill chip (Daily/Wheel style).
-  final Color? chipColor;
 
   /// Optional fixed content height so tiles line up (mockup min-height).
   final double? minHeight;
@@ -510,25 +476,127 @@ class _QuickTile extends StatelessWidget {
         if (minHeight == null) const SizedBox(height: 12) else const Spacer(),
         Text(title, style: AuraText.cardTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 6),
-        if (chipColor != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-            decoration: BoxDecoration(
-              color: chipColor!.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(99),
-            ),
-            child: Text(
-              sub,
-              style: TextStyle(color: chipColor, fontSize: 11, fontWeight: FontWeight.w600),
-            ),
-          )
-        else
-          Text(sub, style: AuraText.cardSub, maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(sub, style: AuraText.cardSub, maxLines: 1, overflow: TextOverflow.ellipsis),
       ],
     );
     return AuraCard(
       onTap: onTap,
       child: minHeight == null ? content : SizedBox(height: minHeight, child: content),
+    );
+  }
+}
+
+/// Reward tile (Daily Bonus / Lucky Wheel). Matches the mockup exactly: glass
+/// box (r20) with a radial glow bleeding from the top-right corner, a solid
+/// gradient icon chip (46×46, r14) with a coloured glow, title, and a pill.
+class _RewardTile extends StatelessWidget {
+  const _RewardTile({
+    required this.icon,
+    required this.iconGradient,
+    required this.glowColor,
+    required this.title,
+    required this.sub,
+    required this.onTap,
+    this.chipColor,
+  });
+
+  final IconData icon;
+
+  /// Diagonal (135°) gradient filling the icon chip.
+  final Gradient iconGradient;
+
+  /// Drives both the icon chip's glow shadow and the corner radial glow.
+  final Color glowColor;
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+
+  /// When set, the subtitle renders as a coloured pill chip (Daily/Wheel style).
+  final Color? chipColor;
+
+  /// Box min-height so the two tiles line up (mockup: 148).
+  static const double _minHeight = 148;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          // Solid gradient icon chip with a coloured drop glow.
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              gradient: iconGradient,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: glowColor.withValues(alpha: 0.6),
+                  blurRadius: 18,
+                  spreadRadius: -6,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const Spacer(),
+          Text(title, style: AuraText.cardTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 6),
+          if (chipColor != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(
+                color: chipColor!.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                sub,
+                style: TextStyle(color: chipColor, fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+            )
+          else
+            Text(sub, style: AuraText.cardSub, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          decoration: AuraGlass.decoration(radius: 20),
+          // Clip so the corner glow bleeds to the rounded edge (overflow: hidden).
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -20,
+                  right: -20,
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [glowColor.withValues(alpha: 0.3), Colors.transparent],
+                        stops: const [0.0, 0.7],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: double.infinity, height: _minHeight, child: content),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -667,9 +735,9 @@ class _AdBanner extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Banner placement',
-            style: TextStyle(color: AuraColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700),
+            style: TextStyle(fontFamily: AuraText.displayFamily, color: AuraColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text('House ad fallback · remove with VIP', style: AuraText.cardSub),

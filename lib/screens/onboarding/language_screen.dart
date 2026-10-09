@@ -1,14 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
 import '../../widgets/aura.dart';
 
-/// Language picker. See docs/DESIGN_SPEC.md (v2 §Language).
-class LanguageScreen extends StatefulWidget {
-  const LanguageScreen({super.key});
+/// The chosen app language (index into the picker list). Settings shows it;
+/// the picker reads and writes it.
+class LanguageController extends Notifier<int> {
+  @override
+  int build() => 0; // English
+  void select(int index) => state = index;
+}
+
+final languageProvider = NotifierProvider<LanguageController, int>(LanguageController.new);
+
+/// "🇬🇧 English" for the Settings row.
+String languageLabel(int index) => '${_languages[index].flag} ${_languages[index].english}';
+
+/// Language picker (mockup `language`). First launch: globe hero +
+/// "Choose your language", Continue → onboarding. From Settings
+/// ([fromSettings]): a "← Language" header instead, and Continue saves the
+/// choice and returns to Settings.
+class LanguageScreen extends ConsumerStatefulWidget {
+  const LanguageScreen({super.key, this.fromSettings = false});
+
+  final bool fromSettings;
 
   @override
-  State<LanguageScreen> createState() => _LanguageScreenState();
+  ConsumerState<LanguageScreen> createState() => _LanguageScreenState();
 }
 
 class _Language {
@@ -33,18 +52,29 @@ const _languages = <_Language>[
   _Language('Русский', 'Russian', '🇷🇺'),
 ];
 
-class _LanguageScreenState extends State<LanguageScreen> {
-  int _selected = 0;
+class _LanguageScreenState extends ConsumerState<LanguageScreen> {
+  late int _selected = ref.read(languageProvider);
+
+  void _continue() {
+    ref.read(languageProvider.notifier).select(_selected);
+    if (widget.fromSettings) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.pushReplacementNamed(context, Routes.onboarding);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final fromSettings = widget.fromSettings;
     return AuraScaffold(
-      appBar: const AuraAppBar(showBack: true),
+      appBar: AuraAppBar(showBack: true, title: fromSettings ? 'Language' : null),
       scroll: true,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 4),
+          if (!fromSettings) ...[
           // Gradient rounded-square globe tile.
           Center(
             child: Container(
@@ -69,6 +99,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
             textAlign: TextAlign.center,
             style: AuraText.body.copyWith(color: AuraColors.textSecondary),
           ),
+          ],
           const SizedBox(height: 24),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -91,11 +122,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
             },
           ),
           const SizedBox(height: 24),
-          GradientButton(
-            label: 'Continue',
-            onPressed: () =>
-                Navigator.pushReplacementNamed(context, Routes.onboarding),
-          ),
+          GradientButton(label: 'Continue', onPressed: _continue),
           const SizedBox(height: 8),
         ],
       ),
@@ -141,7 +168,8 @@ class _LanguageCard extends StatelessWidget {
                   language.native,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
                     color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,

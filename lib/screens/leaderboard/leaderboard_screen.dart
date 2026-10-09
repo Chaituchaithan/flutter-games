@@ -142,7 +142,7 @@ class _Podium extends StatelessWidget {
                     border: Border.all(color: AuraColors.bgBase, width: 2),
                   ),
                   child: Text('${r.rank}',
-                      style: const TextStyle(color: Color(0xFF1A1206), fontSize: 11, fontWeight: FontWeight.w800)),
+                      style: TextStyle(fontFamily: AuraText.displayFamily, color: const Color(0xFF1A1206), fontSize: 11, fontWeight: FontWeight.w800)),
                 ),
               ),
             ],
@@ -154,7 +154,7 @@ class _Podium extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700)),
         const SizedBox(height: 2),
-        Text(r.pts, style: const TextStyle(color: AuraColors.amber, fontSize: 11, fontWeight: FontWeight.w700)),
+        Text(r.pts, style: TextStyle(fontFamily: AuraText.displayFamily, color: AuraColors.amber, fontSize: 11, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Container(
           height: pedestal,

@@ -176,7 +176,8 @@ class _Keypad extends StatelessWidget {
                   color: AuraColors.textPrimary, size: 22)
               : Text(
                   k,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
                     color: AuraColors.textPrimary,
                     fontSize: 24,
                     fontWeight: FontWeight.w700,

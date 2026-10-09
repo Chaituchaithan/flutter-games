@@ -15,7 +15,7 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: AuraApp()));
 
     // Splash is the entry point.
-    expect(find.text('Aura'), findsOneWidget);
+    expect(find.text('Chess'), findsOneWidget);
     expect(find.text('Play. Win. Repeat.'), findsOneWidget);
 
     // Splash auto-advances after ~1.4s.

@@ -30,9 +30,11 @@ Build every screen from these — do not re-invent them:
 
 - `AuraBackground(child)` — dark bg + glows. Wrap each screen body.
 - `AuraScaffold(...)` — Scaffold + AuraBackground + SafeArea helper.
-- `GradientButton(label, onPressed)` — full-width brand-gradient pill.
+- `GradientButton(label, onPressed, loading)` — full-width brand-gradient pill.
+  `loading: true` swaps the label for a white spinner and ignores taps (busy state).
 - `SecondaryButton(label, onPressed)` — dark outline pill (e.g. "Continue as guest").
-- `AuraTextField(hint, icon, obscure, trailing)` — dark rounded input.
+- `AuraTextField(hint, icon, obscure, trailing, errorText, onChanged, onSubmitted, textInputAction)`
+  — dark rounded input. `errorText` draws a red border + inline message with an icon.
 - `CurrencyPill(kind: gems|gold, amount, showPlus)` — the 10,000 / 3,000 chips.
 - `AuraAppBar(title, showBack, trailing)` — back chevron + centered title.
 - `SegmentedTabs(labels, index, onChanged)` — Store/section pill tabs.
@@ -143,6 +145,33 @@ Home** (text/dark).
 
 ---
 
+## Loading states
+
+Two distinct loading affordances:
+
+1. **Button spinner** — `GradientButton(loading: true)`: for a one-shot async
+   *action* on tap (sign in, create account, verify). Shows a spinner in place of
+   the label and blocks re-taps while the call is in flight.
+2. **Skeleton** — `LoadingSkeletonScreen` / `Shimmer` + `SkeletonBox` via `AsyncView`:
+   for screens that *fetch data on load* (lists, profiles). See INTEGRATION_PLAN §4.
+
+Button-spinner coverage (keep in sync as seams go live):
+
+| Screen | Action | Spinner |
+|---|---|---|
+| Login | `login()` | ✅ |
+| Register | `register()` | ✅ |
+| OTP verify | `verifyOtp()` (live) | ⏳ recommended next |
+| Settings → Sign out | `signOut()` (live, via dialog) | ◐ optional |
+| Edit profile → Save | `updateProfile()` (sync today → `PATCH /users/me` later) | ⏳ when async |
+| Store purchase / Daily reward / Welcome bonus / Player profile / Match flows | presentation-only seams | ⏳ when wired to API |
+| Language, Reset password, Force update, Maintenance, Match preview/setup/result, Avatars | pure navigation / local state | ✗ not eligible |
+
+Data-load screens already covered by the skeleton: Leaderboard, Friends, Inbox,
+Game history, Tournaments, Store.
+
+---
+
 ## Required Assets
 
 > **Asset rule (current policy).** Whenever a screen needs an asset (logo, badge,
@@ -177,5 +206,31 @@ provide the ★ items I'll drop them in; otherwise the online/drawn placeholders
 | Post image (onboarding) | Image | "Share your moment" card | ~240×118 | Placeholder (gradient) |
 | Tab bar icons (4) | Icon | Home/Wheel/Store/Profile | 24 px | Placeholder (`Icons`) |
 | Ad banner creative | Image | Home ad slot | 320×50 | Placeholder (house-ad text) |
+| Chess board + pieces ★ | SVG/PNG set | Chess game board | board + 12 piece glyphs | Placeholder (Unicode chess glyphs ♞♟ on a drawn board) — real assets to be provided |
+
+> **Single-game note (current policy).** The app ships with **Chess** as the only
+> playable game. The other boards (Snakes & Ladders, Ludo, Othello, Scrabble,
+> Trivia) remain in the codebase but are **hidden** — the Home game-picker chips
+> were removed, and Online Play / Quick Play launch **Chess** (VS → Chess board →
+> result). Re-expose the others by restoring the game-picker and a `gameType`.
+
+> **Chess board perspective (2.5D ↔ 3D) note.** The chess board
+> (`ChessBoardView` in `lib/game/chess/chess_board_view.dart`) renders with
+> Flutter-drawn beveled squares and vector-styled glyph pieces (no bundled
+> assets). It now takes a `perspective` flag (default `false`) and a `tilt`
+> angle (default `0.46` rad ≈ 26°):
+> - `perspective: false` keeps the existing flat, top-down 2.5D board unchanged.
+> - `perspective: true` wraps the whole 8×8 square `Stack` in a single
+>   `Transform` with a perspective matrix (perspective divide + `rotateX(-tilt)`)
+>   so the far rank recedes/shrinks and the near rank enlarges — an
+>   over-the-table 3D view. Tap-to-move stays exact: Flutter runs pointer events
+>   through the matrix inverse (`transformHitTests`) and the squares sit on the
+>   child z = 0 plane, so taps still land on the right square with no manual
+>   projection. Pieces are billboarded upright (counter-rotated by `+tilt`) and
+>   scale with depth, and `flipped` (black-at-bottom) is still honoured.
+>
+> It's exposed in the UI as a flat/3D toggle (a cube icon) on the **offline
+> Practice** board in `lib/screens/games/chess_online_screen.dart`
+> (`_OfflineBoard`). Online play stays on the flat default.
 
 Legend: **Provided** = shipped file · **Pending** = waiting on you (★) · **Placeholder** = drawn/system stand-in that works today · **Online placeholder** = temporary network image/icon, to be swapped for a provided file later.

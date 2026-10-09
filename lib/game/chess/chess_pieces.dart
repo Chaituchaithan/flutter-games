@@ -1,0 +1,266 @@
+import 'package:flutter/material.dart';
+
+import 'chess_engine.dart';
+
+/// Draws a chess piece as a faux-3D vector figurine — no font or image assets,
+/// so it renders identically on every device and in tests. Each piece is a
+/// clean silhouette (union of primitives) given real depth: a soft ground
+/// contact shadow, an extruded base (stacked darker copies) for height, a
+/// multi-stop metallic fill, ambient occlusion at the foot, a glossy top
+/// specular, a crisp outline, and a neon rim light tying it to the Aura theme.
+class ChessPiece extends StatelessWidget {
+  const ChessPiece({super.key, required this.piece, required this.size});
+  final Piece piece;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(painter: _PiecePainter(piece)),
+    );
+  }
+}
+
+class _PiecePainter extends CustomPainter {
+  _PiecePainter(this.piece);
+  final Piece piece;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Author in a 100×100 box, then scale to fit.
+    final s = size.width / 100.0;
+    canvas.save();
+    canvas.scale(s, s);
+
+    final path = _pathFor(piece.type);
+    final isWhite = piece.color == PieceColor.white;
+    // Neon accent that lights the piece: cyan for pearl, violet for obsidian.
+    final rim = isWhite ? const Color(0xFF7DE3FF) : const Color(0xFFB98BFF);
+
+    // 1. Soft elliptical ground contact shadow (grounds the piece on the tile).
+    canvas.drawPath(
+      _ellipse(50, 93, 60, 17),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.42)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+
+    // 1b. Neon bloom halo behind the piece — the "lit" glass-arena glow.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = rim.withValues(alpha: 0.30)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+    );
+
+    // 2. Extruded body: stack darker copies downward to fake height/thickness.
+    const depth = 6.0;
+    final edgeLight = isWhite ? const Color(0xFFCBBFA0) : const Color(0xFF3A3A46);
+    final edgeDark = isWhite ? const Color(0xFF7E7252) : const Color(0xFF17171E);
+    for (var dy = depth; dy >= 1; dy -= 1) {
+      final f = dy / depth;
+      canvas.drawPath(
+        path.shift(Offset(0, dy)),
+        Paint()..color = Color.lerp(edgeLight, edgeDark, f)!,
+      );
+    }
+
+    // 3. Main metallic fill (multi-stop for a rounded, lit body).
+    final fill = isWhite
+        ? const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFFFF), Color(0xFFF2E8CF), Color(0xFFD5C7A4)],
+            stops: [0.0, 0.55, 1.0],
+          )
+        // Graphite (not near-black) so black pieces stay visible on the dark
+        // squares — the old #08080D blended into the board's dark tiles.
+        : const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF9A9AA8), Color(0xFF55555F), Color(0xFF2E2E38)],
+            stops: [0.0, 0.5, 1.0],
+          );
+    canvas.drawPath(path, Paint()..shader = fill.createShader(const Rect.fromLTWH(0, 0, 100, 100)));
+
+    // 4. Ambient occlusion at the foot — darkens the base for weight.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.center,
+          colors: [Colors.black.withValues(alpha: 0.30), Colors.transparent],
+        ).createShader(const Rect.fromLTWH(0, 45, 100, 55)),
+    );
+
+    // 5. Glossy top specular highlight.
+    final highlight = isWhite ? Colors.white.withValues(alpha: 0.75) : Colors.white.withValues(alpha: 0.30);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.center,
+          colors: [highlight, Colors.transparent],
+        ).createShader(const Rect.fromLTWH(0, 0, 100, 58)),
+    );
+
+    // 6. Crisp outline.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0
+        ..strokeJoin = StrokeJoin.round
+        ..color = isWhite ? const Color(0xFF6B6350) : const Color(0xFF04040A),
+    );
+
+    // 7. Neon rim light — the signature Aura accent that makes the piece pop
+    // and feel lit by the board's glow. A soft blurred pass + a crisp edge.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5)
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [rim.withValues(alpha: 0.85), Colors.transparent],
+          stops: const [0.0, 0.5],
+        ).createShader(const Rect.fromLTWH(0, 0, 100, 100)),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..strokeJoin = StrokeJoin.round
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [rim, rim.withValues(alpha: 0.0)],
+          stops: const [0.0, 0.5],
+        ).createShader(const Rect.fromLTWH(0, 0, 100, 100)),
+    );
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _PiecePainter old) => old.piece != piece;
+}
+
+// ── Piece silhouettes (unioned primitives in a 100×100 box, base at bottom) ──
+
+Path _pathFor(PieceType type) => switch (type) {
+      PieceType.pawn => _pawn(),
+      PieceType.rook => _rook(),
+      PieceType.bishop => _bishop(),
+      PieceType.queen => _queen(),
+      PieceType.king => _king(),
+      PieceType.knight => _knight(),
+    };
+
+Path _union(List<Path> parts) {
+  var p = parts.first;
+  for (var i = 1; i < parts.length; i++) {
+    p = Path.combine(PathOperation.union, p, parts[i]);
+  }
+  return p;
+}
+
+Path _ellipse(double cx, double cy, double w, double h) =>
+    Path()..addOval(Rect.fromCenter(center: Offset(cx, cy), width: w, height: h));
+
+Path _rrect(double l, double t, double r, double b, [double radius = 3]) =>
+    Path()..addRRect(RRect.fromLTRBR(l, t, r, b, Radius.circular(radius)));
+
+Path _poly(List<Offset> pts) {
+  final p = Path()..moveTo(pts.first.dx, pts.first.dy);
+  for (final o in pts.skip(1)) {
+    p.lineTo(o.dx, o.dy);
+  }
+  p.close();
+  return p;
+}
+
+Path _pawn() => _union([
+      _ellipse(50, 86, 44, 14), // base
+      _poly([const Offset(40, 82), Offset(60, 82), Offset(55, 52), Offset(45, 52)]), // stem
+      _ellipse(50, 52, 30, 9), // collar
+      _ellipse(50, 34, 26, 26), // head
+    ]);
+
+Path _rook() => _union([
+      _ellipse(50, 87, 50, 14), // base
+      _rrect(28, 74, 72, 88, 4), // base block
+      _poly([const Offset(34, 76), Offset(66, 76), Offset(62, 40), Offset(38, 40)]), // body
+      _rrect(28, 30, 72, 44, 2), // top band
+      // Crenellations.
+      _rrect(28, 20, 40, 34, 1),
+      _rrect(44, 20, 56, 34, 1),
+      _rrect(60, 20, 72, 34, 1),
+    ]);
+
+Path _bishop() => _union([
+      _ellipse(50, 88, 48, 14), // base
+      _rrect(32, 76, 68, 90, 4), // base block
+      _poly([const Offset(40, 78), Offset(60, 78), Offset(56, 48), Offset(44, 48)]), // body
+      _ellipse(50, 48, 28, 8), // collar
+      _ellipse(50, 32, 26, 38), // mitre
+      _ellipse(50, 12, 11, 11), // finial
+    ]);
+
+Path _queen() => _union([
+      _ellipse(50, 89, 52, 14), // base
+      _rrect(34, 78, 66, 92, 4), // base block
+      _poly([const Offset(40, 80), Offset(60, 80), Offset(58, 46), Offset(42, 46)]), // body
+      _ellipse(50, 46, 32, 9), // collar
+      _poly([const Offset(36, 46), Offset(64, 46), Offset(68, 28), Offset(32, 28)]), // crown band
+      // Crown orbs.
+      _ellipse(28, 22, 13, 13),
+      _ellipse(39, 18, 12, 12),
+      _ellipse(50, 15, 13, 13),
+      _ellipse(61, 18, 12, 12),
+      _ellipse(72, 22, 13, 13),
+    ]);
+
+Path _king() => _union([
+      _ellipse(50, 89, 52, 14), // base
+      _rrect(34, 78, 66, 92, 4), // base block
+      _poly([const Offset(40, 80), Offset(60, 80), Offset(58, 44), Offset(42, 44)]), // body
+      _ellipse(50, 44, 32, 9), // collar
+      _poly([const Offset(36, 44), Offset(64, 44), Offset(68, 28), Offset(32, 28)]), // crown band
+      _rrect(45, 4, 55, 30, 2), // cross vertical
+      _rrect(38, 11, 62, 20, 2), // cross horizontal
+    ]);
+
+Path _knight() => _union([
+      _ellipse(50, 89, 48, 14), // base
+      _rrect(34, 78, 66, 92, 4), // base block
+      // Stylised horse head facing left.
+      _poly([
+        const Offset(60, 80), // neck base right
+        const Offset(63, 58),
+        const Offset(60, 42),
+        const Offset(56, 30),
+        const Offset(54, 20), // right ear base
+        const Offset(49, 12), // ear tip
+        const Offset(45, 22),
+        const Offset(38, 18), // forehead
+        const Offset(31, 26),
+        const Offset(28, 36),
+        const Offset(20, 42), // nose top
+        const Offset(16, 50), // muzzle
+        const Offset(22, 54),
+        const Offset(30, 54), // chin / mouth
+        const Offset(34, 62),
+        const Offset(38, 72),
+        const Offset(40, 80), // neck base left
+      ]),
+    ]);
