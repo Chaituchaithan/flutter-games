@@ -12,10 +12,19 @@ import '../services/session.dart';
 import 'game_socket_login.dart';
 import 'routes.dart';
 
+/// The startup step running (the splash shows it in the player's language).
+enum StartupStep { preparing, signingIn, connecting, loadingProfile, ready }
+
+/// Why startup stopped (translated by the splash; [StartupState.error] keeps
+/// the English text / server message).
+enum StartupFailureKind { offline, slowServer, serverUnreachable, slowGameServer, gameServer }
+
 /// What the splash shows while the app starts.
 class StartupState {
   const StartupState({
     this.progress = 0,
+    this.step = StartupStep.preparing,
+    this.failure,
     this.message = 'Starting…',
     this.error,
     this.destination,
@@ -24,6 +33,10 @@ class StartupState {
 
   /// 0..1 — real progress through the startup steps.
   final double progress;
+  final StartupStep step;
+  final StartupFailureKind? failure;
+
+  /// English text of [step] (logs / tests).
   final String message;
 
   /// Set when startup stopped (offline, server down…): the splash shows it
@@ -36,8 +49,11 @@ class StartupState {
   /// The failure is tied to the saved session — offer "Log in again".
   final bool canSignOut;
 
-  StartupState copyWith({double? progress, String? message}) =>
-      StartupState(progress: progress ?? this.progress, message: message ?? this.message);
+  StartupState copyWith({double? progress, StartupStep? step, String? message}) => StartupState(
+        progress: progress ?? this.progress,
+        step: step ?? this.step,
+        message: message ?? this.message,
+      );
 }
 
 /// Runs the app's startup work behind the splash:
@@ -70,19 +86,26 @@ class StartupController extends Notifier<StartupState> {
       destination = await _steps();
     } on _StartupFailure catch (f) {
       _running = false;
-      state = StartupState(progress: state.progress, message: '', error: f.message, canSignOut: f.canSignOut);
+      state = StartupState(
+        progress: state.progress,
+        step: state.step,
+        message: '',
+        error: f.message,
+        failure: f.kind,
+        canSignOut: f.canSignOut,
+      );
       return;
     }
     final wait = minDuration - DateTime.now().difference(started);
     if (wait > Duration.zero) await Future<void>.delayed(wait);
-    state = StartupState(progress: 1, message: 'Ready', destination: destination);
+    state = StartupState(progress: 1, step: StartupStep.ready, message: 'Ready', destination: destination);
     _running = false;
   }
 
   /// After a session-related failure: forget the session and go to Login.
   void signOutAndContinue() {
     ref.read(sessionProvider.notifier).forceSignOut();
-    state = const StartupState(progress: 1, message: 'Ready', destination: Routes.login);
+    state = const StartupState(progress: 1, step: StartupStep.ready, message: 'Ready', destination: Routes.login);
   }
 
   Future<String> _steps() async {
@@ -96,23 +119,27 @@ class StartupController extends Notifier<StartupState> {
         if (i != null) ref.read(languageProvider.notifier).restore(i);
       }),
     ]);
-    _step(0.2, 'Getting things ready…');
+    _step(0.2, StartupStep.preparing, 'Getting things ready…');
 
     // 2 · first launch → language picker + intro.
     if (!await prefs.onboarded()) return Routes.language;
 
     // 3 · saved session.
-    _step(0.35, 'Signing you in…');
+    _step(0.35, StartupStep.signingIn, 'Signing you in…');
     final bool signedIn;
     try {
       signedIn = await ref.read(sessionProvider.notifier).restore().timeout(stepTimeout);
     } on TimeoutException {
-      throw const _StartupFailure("The server is taking too long to respond. Check your connection and try again.");
+      throw const _StartupFailure(
+        "The server is taking too long to respond. Check your connection and try again.",
+        StartupFailureKind.slowServer,
+      );
     } on AppException catch (e) {
       throw _StartupFailure(
         e.isOffline
             ? "You're offline. Check your connection and try again."
             : "We couldn't reach the server. Please try again in a moment.",
+        e.isOffline ? StartupFailureKind.offline : StartupFailureKind.serverUnreachable,
       );
     }
     if (!signedIn) return Routes.login;
@@ -120,7 +147,7 @@ class StartupController extends Notifier<StartupState> {
     // 4 · game socket (same gate as Login: Home only when it signs in).
     final socket = ref.read(gameSocketLoginProvider);
     if (socket.applies) {
-      _step(0.6, 'Connecting to game server…');
+      _step(0.6, StartupStep.connecting, 'Connecting to game server…');
       try {
         await socket.connect(username: ref.read(sessionProvider)?.username).timeout(stepTimeout);
       } on Object catch (e) {
@@ -128,6 +155,7 @@ class StartupController extends Notifier<StartupState> {
           e is TimeoutException
               ? "The game server is taking too long to respond. Please try again."
               : GameSocketLogin.errorText(e),
+          e is TimeoutException ? StartupFailureKind.slowGameServer : StartupFailureKind.gameServer,
           canSignOut: true,
         );
       }
@@ -135,7 +163,7 @@ class StartupController extends Notifier<StartupState> {
 
     // 5 · warm Home's data so it opens filled in (failures are fine — Home
     //     shows its own placeholders and retries).
-    _step(0.82, 'Loading your profile…');
+    _step(0.82, StartupStep.loadingProfile, 'Loading your profile…');
     final keep = [ref.listen(walletProvider, (_, _) {}), ref.listen(dailyBonusStatusProvider, (_, _) {})];
     await Future.wait<void>([
       ref.read(walletProvider.future).then((_) {}, onError: (Object _) {}),
@@ -150,12 +178,14 @@ class StartupController extends Notifier<StartupState> {
     return Routes.home;
   }
 
-  void _step(double progress, String message) => state = state.copyWith(progress: progress, message: message);
+  void _step(double progress, StartupStep step, String message) =>
+      state = state.copyWith(progress: progress, step: step, message: message);
 }
 
 class _StartupFailure implements Exception {
-  const _StartupFailure(this.message, {this.canSignOut = false});
+  const _StartupFailure(this.message, this.kind, {this.canSignOut = false});
   final String message;
+  final StartupFailureKind kind;
   final bool canSignOut;
 }
 

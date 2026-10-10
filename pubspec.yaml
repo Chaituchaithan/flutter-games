@@ -46,6 +46,9 @@ dependencies:
   # Cross-platform (mobile + web) WebSocket for the realtime game protocol
   # (see docs/SOCKET_PROTOCOL in SOCKET_HOOKS.md).
   web_socket_channel: ^3.0.1
+  flutter_localizations:
+    sdk: flutter
+  intl: any
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +67,8 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  # Generates the translation classes from lib/l10n/*.arb (see l10n.yaml).
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

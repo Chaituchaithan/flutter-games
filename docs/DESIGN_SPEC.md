@@ -106,6 +106,24 @@ top, and only one action can run at a time (`BusyGuard`).
 
 ---
 
+## 3b. Translations
+
+Flutter's built-in `gen-l10n`: one ARB file per language in `lib/l10n/`
+(`app_en.arb` is the template), generated into `lib/l10n/gen/` on build.
+Screens use `context.l10n.<key>` (placeholders: `l10n.newToApp(name)`;
+plurals: `l10n.spinsLeft(n)`). The language picked on the Language screen,
+or saved in the profile, sets the app locale. A language without an ARB file
+shows English.
+
+- **Add a text:** add the key to `app_en.arb`, then to every other ARB file
+  (`test/l10n_test.dart` fails if a language is missing a key), then use
+  `context.l10n.key`.
+- **Add a language:** copy `app_en.arb` to `app_<code>.arb` and translate it.
+  `<code>` matches `appLanguages` in `lib/data/languages.dart`.
+- **Status:** English + Hindi (machine-drafted — needs native review). Translated
+  screens: Splash, Language, Login, Home. The other screens are still English
+  (in progress).
+
 ## 4. Loading states
 
 0. **App start** — native splash (dark + orb) → Flutter splash with a

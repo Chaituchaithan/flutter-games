@@ -9,6 +9,7 @@ import '../../services/app_exception.dart';
 import '../../services/session.dart';
 import '../../utils/validators.dart';
 import '../../app/app_profile.dart';
+import '../../l10n/l10n.dart';
 import '../../widgets/aura.dart';
 
 /// Login — "Welcome back". Standalone screen (uses AuraScaffold).
@@ -146,32 +147,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ],
             ),
             const SizedBox(height: 22),
-            Text('Welcome back', style: AuraText.headline.copyWith(fontSize: 32)),
+            Text(context.l10n.welcomeBack, style: AuraText.headline.copyWith(fontSize: 32)),
             const SizedBox(height: 8),
             Text(
-              'Log in to pick up where you left off.',
+              context.l10n.loginSubtitle,
               style: AuraText.body.copyWith(color: AuraColors.textSecondary),
             ),
             const SizedBox(height: 24),
             LightButton(
-              label: 'Continue with Apple',
+              label: context.l10n.continueWithApple,
               leading: const Icon(Icons.apple, size: 22, color: Colors.black),
               loading: _pending == _SignInKind.apple,
               onPressed: () => _oauthContinue(_SignInKind.apple),
             ),
             const SizedBox(height: 12),
             LightButton(
-              label: 'Continue with Google',
+              label: context.l10n.continueWithGoogle,
               dark: true,
               leading: const _GoogleG(size: 20),
               loading: _pending == _SignInKind.google,
               onPressed: () => _oauthContinue(_SignInKind.google),
             ),
             const SizedBox(height: 20),
-            const _OrDivider(label: 'or log in with email'),
+            _OrDivider(label: context.l10n.orLogInWithEmail),
             const SizedBox(height: 20),
             AuraTextField(
-              hint: 'Email address',
+              hint: context.l10n.emailHint,
               icon: Icons.mail_outline,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
@@ -183,7 +184,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             const SizedBox(height: 14),
             AuraTextField(
-              hint: 'Password',
+              hint: context.l10n.passwordHint,
               icon: Icons.lock_outline,
               obscure: _obscure,
               controller: _password,
@@ -213,30 +214,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text(
-                  'Forgot password?',
-                  style: TextStyle(color: AuraColors.accentGlow, fontSize: 13.5, fontWeight: FontWeight.w600),
+                child: Text(
+                  context.l10n.forgotPassword,
+                  style: const TextStyle(color: AuraColors.accentGlow, fontSize: 13.5, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
             const SizedBox(height: 14),
-            GradientButton(label: 'Log In', onPressed: _signIn, loading: _pending == _SignInKind.email),
+            GradientButton(label: context.l10n.logIn, onPressed: _signIn, loading: _pending == _SignInKind.email),
             const SizedBox(height: 12),
-            SecondaryButton(label: 'Continue as guest', onPressed: _guest, loading: _pending == _SignInKind.guest),
+            SecondaryButton(label: context.l10n.continueAsGuest, onPressed: _guest, loading: _pending == _SignInKind.guest),
             const SizedBox(height: 24),
             Center(
               child: Text.rich(
                 TextSpan(
                   style: const TextStyle(color: AuraColors.textSecondary, fontSize: 14),
                   children: [
-                    TextSpan(text: 'New to ${AppProfile.current.appName}? '),
+                    TextSpan(text: context.l10n.newToApp(AppProfile.current.appName)),
                     WidgetSpan(
                       alignment: PlaceholderAlignment.middle,
                       child: GestureDetector(
                         onTap: () => Navigator.pushNamed(context, Routes.register),
-                        child: const Text(
-                          'Create account',
-                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                        child: Text(
+                          context.l10n.createAccount,
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                       ),
                     ),

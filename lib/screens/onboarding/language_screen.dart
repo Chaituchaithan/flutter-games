@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/routes.dart';
 import '../../data/languages.dart';
 import '../../services/session.dart';
+import '../../l10n/l10n.dart';
 import '../../widgets/aura.dart';
 
 export '../../data/languages.dart' show languageProvider, languageLabel;
@@ -45,7 +46,7 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
   Widget build(BuildContext context) {
     final fromSettings = widget.fromSettings;
     return AuraScaffold(
-      appBar: AuraAppBar(showBack: true, title: fromSettings ? 'Language' : null),
+      appBar: AuraAppBar(showBack: true, title: fromSettings ? context.l10n.languageTitle : null),
       scroll: true,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,13 +67,13 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            'Choose your language',
+            context.l10n.chooseLanguage,
             textAlign: TextAlign.center,
             style: AuraText.headline,
           ),
           const SizedBox(height: 10),
           Text(
-            'You can change this anytime in Settings.',
+            context.l10n.chooseLanguageSub,
             textAlign: TextAlign.center,
             style: AuraText.body.copyWith(color: AuraColors.textSecondary),
           ),
@@ -99,7 +100,7 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
             },
           ),
           const SizedBox(height: 24),
-          GradientButton(label: 'Continue', onPressed: _continue),
+          GradientButton(label: context.l10n.continueLabel, onPressed: _continue),
           const SizedBox(height: 8),
         ],
       ),

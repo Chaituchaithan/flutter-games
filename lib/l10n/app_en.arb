@@ -1,0 +1,103 @@
+{
+  "@@locale": "en",
+  "tagline": "Play. Win. Repeat.",
+  "retry": "Retry",
+  "logInAgain": "Log in again",
+  "continueLabel": "Continue",
+  "soon": "Soon",
+  "languageTitle": "Language",
+  "chooseLanguage": "Choose your language",
+  "chooseLanguageSub": "You can change this anytime in Settings.",
+  "welcomeBack": "Welcome back",
+  "loginSubtitle": "Log in to pick up where you left off.",
+  "continueWithApple": "Continue with Apple",
+  "continueWithGoogle": "Continue with Google",
+  "orLogInWithEmail": "or log in with email",
+  "emailHint": "Email address",
+  "passwordHint": "Password",
+  "forgotPassword": "Forgot password?",
+  "logIn": "Log In",
+  "continueAsGuest": "Continue as guest",
+  "newToApp": "New to {appName}? ",
+  "@newToApp": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "createAccount": "Create account",
+  "quickPlay": "Quick Play",
+  "quickPlaySub": "Play vs computer",
+  "friends": "Friends",
+  "friendsSub": "Play with a room code",
+  "featured": "FEATURED",
+  "onlinePlay": "Online Play",
+  "onlinePlaySub": "{game} · stake to enter, winner takes the pot",
+  "@onlinePlaySub": {
+    "placeholders": {
+      "game": {
+        "type": "String"
+      }
+    }
+  },
+  "play": "Play",
+  "onlineComingSoon": "Online {game} is coming soon — try Quick Play",
+  "@onlineComingSoon": {
+    "placeholders": {
+      "game": {
+        "type": "String"
+      }
+    }
+  },
+  "gameComingSoon": "{game} is coming soon",
+  "@gameComingSoon": {
+    "placeholders": {
+      "game": {
+        "type": "String"
+      }
+    }
+  },
+  "earnRewards": "Earn rewards",
+  "dailyBonus": "Daily Bonus",
+  "luckyWheel": "Lucky Wheel",
+  "spinsLeft": "{count, plural, =1{1 spin left} other{{count} spins left}}",
+  "@spinsLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "checking": "Checking…",
+  "openRewards": "Open rewards",
+  "dayReady": "Day {day} ready",
+  "@dayReady": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "nextIn": "Next in {time}",
+  "@nextIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "claimedToday": "Claimed today",
+  "recentMatches": "Recent matches",
+  "tournaments": "Tournaments",
+  "live": "LIVE",
+  "startupPreparing": "Getting things ready…",
+  "startupSigningIn": "Signing you in…",
+  "startupConnecting": "Connecting to game server…",
+  "startupLoadingProfile": "Loading your profile…",
+  "startupReady": "Ready",
+  "errOffline": "You're offline. Check your connection and try again.",
+  "errSlowServer": "The server is taking too long to respond. Check your connection and try again.",
+  "errServerUnreachable": "We couldn't reach the server. Please try again in a moment.",
+  "errSlowGameServer": "The game server is taking too long to respond. Please try again."
+}

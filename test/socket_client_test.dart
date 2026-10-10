@@ -149,4 +149,38 @@ void main() {
     fake.serverSend({'id': sent['id'], 'event': SocketEvent.loginSuccess, 'data': {'user_id': 'u1'}});
     await loginFut;
   });
+
+  test('reconnect after a drop signs in with a fresh token (not the expired one)', () async {
+    final channels = <_FakeChannel>[];
+    final urls = <Uri>[];
+    final c = SocketClient(
+      url: Uri.parse('ws://test/ws?token=OLD'),
+      channelFactory: (u) {
+        urls.add(u);
+        final ch = _FakeChannel();
+        channels.add(ch);
+        return ch;
+      },
+      reauth: () async => 'NEW',
+      urlForToken: (t) => Uri.parse('ws://test/ws?token=$t'),
+    );
+    final opened = c.connect();
+    channels.last.serverSend({'event': SocketEvent.established, 'data': {}});
+    await opened;
+    final login = c.login(token: 'OLD', username: 'u1');
+    await Future<void>.delayed(Duration.zero);
+    final id = channels.last.sent.last['id'];
+    channels.last.serverSend({'id': id, 'event': SocketEvent.loginSuccess, 'data': {'user_id': 'u1'}});
+    await login;
+
+    // Server drops the connection (e.g. token expired) → backoff → reconnect.
+    await channels.last.sink.close();
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    expect(urls.last.queryParameters['token'], 'NEW');
+    channels.last.serverSend({'event': SocketEvent.established, 'data': {}});
+    await Future<void>.delayed(Duration.zero);
+    final resumed = channels.last.sent.lastWhere((m) => m['event'] == SocketEvent.login);
+    expect(resumed['data']['token'], 'NEW');
+    await c.close();
+  });
 }

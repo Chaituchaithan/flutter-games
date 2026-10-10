@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/routes.dart';
 import '../../app/startup.dart';
 import '../../app/app_profile.dart';
+import '../../l10n/l10n.dart';
 import '../../widgets/aura.dart';
 
 /// Splash — the app's loading screen. Runs the real startup work
@@ -92,7 +93,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Play. Win. Repeat.',
+                    context.l10n.tagline,
                     style: AuraText.body.copyWith(color: AuraColors.textSecondary, fontSize: 15),
                   ),
                 ],
@@ -142,12 +143,34 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
           height: 18,
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
-            child: Text(st.message, key: ValueKey(st.message), style: AuraText.cardSub.copyWith(fontSize: 12.5)),
+            child: Text(
+              _stepText(context, st.step),
+              key: ValueKey(st.step),
+              style: AuraText.cardSub.copyWith(fontSize: 12.5),
+            ),
           ),
         ),
       ],
     );
   }
+
+  static String _stepText(BuildContext context, StartupStep step) => switch (step) {
+    StartupStep.preparing => context.l10n.startupPreparing,
+    StartupStep.signingIn => context.l10n.startupSigningIn,
+    StartupStep.connecting => context.l10n.startupConnecting,
+    StartupStep.loadingProfile => context.l10n.startupLoadingProfile,
+    StartupStep.ready => context.l10n.startupReady,
+  };
+
+  /// The failure in the player's language (game-server sign-in errors keep
+  /// the server's/English text for now).
+  static String _failureText(BuildContext context, StartupState st) => switch (st.failure) {
+    StartupFailureKind.offline => context.l10n.errOffline,
+    StartupFailureKind.slowServer => context.l10n.errSlowServer,
+    StartupFailureKind.serverUnreachable => context.l10n.errServerUnreachable,
+    StartupFailureKind.slowGameServer => context.l10n.errSlowGameServer,
+    _ => st.error ?? '',
+  };
 
   /// Startup stopped: why, plus Retry (and "Log in again" for session issues).
   Widget _error(StartupState st) {
@@ -158,21 +181,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
         const Icon(Icons.cloud_off_rounded, color: AuraColors.amber, size: 30),
         const SizedBox(height: 10),
         Text(
-          st.error!,
+          _failureText(context, st),
           textAlign: TextAlign.center,
           style: AuraText.body.copyWith(color: AuraColors.textSecondary, fontSize: 14),
         ),
         const SizedBox(height: 16),
         SizedBox(
           width: 200,
-          child: GradientButton(label: 'Retry', onPressed: () => ref.read(startupProvider.notifier).run()),
+          child: GradientButton(label: context.l10n.retry, onPressed: () => ref.read(startupProvider.notifier).run()),
         ),
         if (st.canSignOut)
           TextButton(
             onPressed: () => ref.read(startupProvider.notifier).signOutAndContinue(),
-            child: const Text(
-              'Log in again',
-              style: TextStyle(color: AuraColors.accentGlow, fontWeight: FontWeight.w600),
+            child: Text(
+              context.l10n.logInAgain,
+              style: const TextStyle(color: AuraColors.accentGlow, fontWeight: FontWeight.w600),
             ),
           ),
       ],

@@ -21,6 +21,12 @@ class AppSocket {
   AppSocket({this.channelFactory});
 
   final ChannelFactory? channelFactory;
+
+  /// A currently valid access token for automatic reconnects (refreshing an
+  /// expired one) — wired by the app to the session. Null = reuse the login
+  /// token.
+  Future<String?> Function()? freshToken;
+
   SocketClient? _client;
   String? _username;
 
@@ -56,6 +62,9 @@ class AppSocket {
       headers: endpoints.socketHeaders(token),
       requestTimeout: NetworkConfig.socketRequestTimeout,
       channelFactory: channelFactory,
+      reauth: freshToken,
+      urlForToken: (t) => Uri.parse(endpoints.socketUrlWithToken(t)),
+      headersForToken: endpoints.socketHeaders,
     );
     try {
       await c.connect();

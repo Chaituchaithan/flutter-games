@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/languages.dart';
@@ -95,6 +97,20 @@ class SessionController extends Notifier<User?> {
     } on Object catch (_) {
       return false;
     }
+  }
+
+  /// A usable access token for the realtime socket's reconnects: the saved
+  /// one while it has more than a minute left (per its JWT `exp`), else a
+  /// refreshed one. Null = signed out or the refresh failed.
+  Future<String?> validAccessToken() async {
+    final store = ref.read(tokenStoreProvider);
+    final access = await store.readAccess();
+    if (access == null || access.isEmpty) return null;
+    final exp = jwtExpiry(access);
+    if (exp != null && exp.isAfter(DateTime.now().add(const Duration(minutes: 1)))) return access;
+    // Expired / about to expire (or no readable expiry): refresh once.
+    if (!await refreshSession()) return exp == null ? access : null;
+    return store.readAccess();
   }
 
   /// Restore a persisted session on boot. Returns true if signed in.
@@ -206,3 +222,16 @@ final sessionProvider = NotifierProvider<SessionController, User?>(SessionContro
 /// The player to render. Falls back to the demo player when signed out so
 /// screens (and tests that build them directly) always have data.
 final currentUserProvider = Provider<User>((ref) => ref.watch(sessionProvider) ?? User.demo);
+
+/// The `exp` claim of a JWT as a time, or null if it can't be read.
+DateTime? jwtExpiry(String jwt) {
+  final parts = jwt.split('.');
+  if (parts.length != 3) return null;
+  try {
+    final json = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+    final exp = json is Map ? json['exp'] : null;
+    return exp is num ? DateTime.fromMillisecondsSinceEpoch(exp.toInt() * 1000) : null;
+  } on Object {
+    return null;
+  }
+}

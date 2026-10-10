@@ -8,6 +8,7 @@ import '../../app/routes.dart';
 import '../../data/repositories/daily_bonus_repository.dart';
 import '../../data/repositories/store_repository.dart';
 import '../../services/session.dart';
+import '../../l10n/l10n.dart';
 import '../../widgets/aura.dart';
 import '../match/online_play_sheet.dart';
 import '../../app/app_profile.dart';
@@ -37,7 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasOnline() {
     final game = ProviderScope.containerOf(context).read(activeGameConfigProvider);
     if (GameArea.onlineRoute(game.id) != null) return true;
-    showAuraToast(context, 'Online ${game.displayName} is coming soon — try Quick Play', kind: AuraToastKind.info);
+    showAuraToast(context, context.l10n.onlineComingSoon(game.displayName), kind: AuraToastKind.info);
     return false;
   }
 
@@ -75,8 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _QuickTile(
                       icon: Icons.play_arrow_rounded,
                       iconColor: AuraColors.green,
-                      title: 'Quick Play',
-                      sub: 'Play vs computer',
+                      title: context.l10n.quickPlay,
+                      sub: context.l10n.quickPlaySub,
                       minHeight: 122,
                       onTap: () {
                         // The active game's practice / vs-computer setup.
@@ -90,8 +91,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _QuickTile(
                       icon: Icons.group_rounded,
                       iconColor: AuraColors.brandPurple,
-                      title: 'Friends',
-                      sub: 'Play with a room code',
+                      title: context.l10n.friends,
+                      sub: context.l10n.friendsSub,
                       minHeight: 122,
                       onTap: () async {
                         if (!_hasOnline()) return;
@@ -116,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _AdBanner(onClose: () => setState(() => _adClosed = true)),
               ],
               const SizedBox(height: 20),
-              const SectionBar('Earn rewards'),
+              SectionBar(context.l10n.earnRewards),
               const SizedBox(height: 10),
               _SeasonPassCard(
                 onTap: () async {
@@ -141,8 +142,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         colors: [Color(0xFFEC4899), Color(0xFFF472B6)],
                       ),
                       glowColor: AuraColors.brandPink,
-                      title: 'Lucky Wheel',
-                      sub: '3 spins left',
+                      title: context.l10n.luckyWheel,
+                      sub: context.l10n.spinsLeft(3),
                       chipColor: AuraColors.brandPink,
                       onTap: () => _selectTab(1),
                     ),
@@ -391,7 +392,7 @@ class _FeaturedHero extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'FEATURED',
+                    context.l10n.featured,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 11,
@@ -403,10 +404,10 @@ class _FeaturedHero extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              Text('Online Play', style: AuraText.title.copyWith(color: Colors.white)),
+              Text(context.l10n.onlinePlay, style: AuraText.title.copyWith(color: Colors.white)),
               const SizedBox(height: 6),
               Text(
-                '${game.displayName} · stake to enter, winner takes the pot',
+                context.l10n.onlinePlaySub(game.displayName),
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 13.5),
               ),
               const SizedBox(height: 14),
@@ -424,9 +425,9 @@ class _FeaturedHero extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
-                  const Text(
-                    'Play',
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
+                  Text(
+                    context.l10n.play,
+                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(width: 4),
                   const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
@@ -547,11 +548,11 @@ class _DailyBonusTileState extends ConsumerState<_DailyBonusTile> {
     final next = s?.nextClaimAt;
     final String sub;
     if (s == null) {
-      sub = status.isLoading ? 'Checking…' : 'Open rewards';
+      sub = status.isLoading ? context.l10n.checking : context.l10n.openRewards;
     } else if (ready) {
-      sub = 'Day ${s.nextReward.dayNumber} ready';
+      sub = context.l10n.dayReady(s.nextReward.dayNumber);
     } else {
-      sub = next != null ? 'Next in ${_until(next)}' : 'Claimed today';
+      sub = next != null ? context.l10n.nextIn(_until(next)) : context.l10n.claimedToday;
     }
     return _RewardTile(
       icon: Icons.calendar_today_rounded,
@@ -561,7 +562,7 @@ class _DailyBonusTileState extends ConsumerState<_DailyBonusTile> {
         colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
       ),
       glowColor: AuraColors.brandPurple,
-      title: 'Daily Bonus',
+      title: context.l10n.dailyBonus,
       sub: sub,
       chipColor: ready ? AuraColors.green : AuraColors.accentGlow,
       dot: ready,
@@ -726,7 +727,7 @@ class _RecentMatchesButton extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Recent matches',
+              context.l10n.recentMatches,
               style: AuraText.body.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
@@ -753,7 +754,7 @@ class _TournamentsRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Tournaments', style: AuraText.cardTitle),
+                Text(context.l10n.tournaments, style: AuraText.cardTitle),
                 const SizedBox(height: 2),
                 Text('Neon Cup live · 50,000 prize pool', style: AuraText.cardSub),
               ],
@@ -780,12 +781,12 @@ class _LiveBadge extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          _Dot(color: AuraColors.green),
-          SizedBox(width: 5),
+        children: [
+          const _Dot(color: AuraColors.green),
+          const SizedBox(width: 5),
           Text(
-            'LIVE',
-            style: TextStyle(color: AuraColors.green, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+            context.l10n.live,
+            style: const TextStyle(color: AuraColors.green, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
           ),
         ],
       ),
@@ -977,7 +978,7 @@ class _GameChips extends ConsumerWidget {
                     if (GameRegistry.isAvailable(g.id)) {
                       ref.read(activeGameProvider.notifier).select(g.id);
                     } else {
-                      showAuraToast(context, '${g.displayName} is coming soon', kind: AuraToastKind.info);
+                      showAuraToast(context, context.l10n.gameComingSoon(g.displayName), kind: AuraToastKind.info);
                     }
                   },
                 ),
@@ -1028,7 +1029,7 @@ class _GameChip extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('Soon', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white)),
+                  child: Text(context.l10n.soon, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white)),
                 ),
               ],
             ],

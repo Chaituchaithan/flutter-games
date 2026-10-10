@@ -39,11 +39,11 @@ class SocketMessage {
   bool get isError => error != null;
 
   factory SocketMessage.fromJson(Map<String, dynamic> json) => SocketMessage(
-        id: json['id'] as String?,
-        event: json['event'] as String? ?? '',
-        data: (json['data'] as Map?)?.cast<String, dynamic>() ?? const {},
-        error: json['error'] is Map ? SocketError.fromJson((json['error'] as Map).cast<String, dynamic>()) : null,
-      );
+    id: json['id'] as String?,
+    event: json['event'] as String? ?? '',
+    data: (json['data'] as Map?)?.cast<String, dynamic>() ?? const {},
+    error: json['error'] is Map ? SocketError.fromJson((json['error'] as Map).cast<String, dynamic>()) : null,
+  );
 }
 
 class SocketError implements Exception {
@@ -66,16 +66,38 @@ typedef ChannelFactory = WebSocketChannel Function(Uri url);
 /// and exponential-backoff reconnection with session resume.
 class SocketClient {
   SocketClient({
-    required this.url,
+    required Uri url,
     ChannelFactory? channelFactory,
     this.pingInterval = NetworkConfig.socketPingInterval,
     this.requestTimeout = const Duration(seconds: 15),
     this.maxBackoff = NetworkConfig.socketMaxBackoff,
     Map<String, dynamic>? headers,
-  }) : _channelFactory = channelFactory ?? ((u) => connectWs(u, headers: headers));
+    this.reauth,
+    this.urlForToken,
+    this.headersForToken,
+  }) // Named params can't be private initializing formals.
+    // ignore: prefer_initializing_formals
+    : _url = url,
+       // ignore: prefer_initializing_formals
+       _headers = headers,
+       _customFactory = channelFactory;
 
-  final Uri url;
-  final ChannelFactory _channelFactory;
+  /// Current endpoint (rebuilt with a fresh token before a reconnect).
+  Uri get url => _url;
+  Uri _url;
+  Map<String, dynamic>? _headers;
+  final ChannelFactory? _customFactory;
+  WebSocketChannel _channelFactory(Uri u) => (_customFactory ?? (x) => connectWs(x, headers: _headers))(u);
+
+  /// Called before every automatic reconnect for a currently valid access
+  /// token (refreshing an expired one). Null result = keep the current one.
+  /// Without it a reconnect after the 15-min expiry would reuse a dead token.
+  final Future<String?> Function()? reauth;
+
+  /// Rebuild the endpoint / upgrade headers for a fresh token (the token can
+  /// ride in the URL via the dev proxy, or as a Bearer header).
+  final Uri Function(String token)? urlForToken;
+  final Map<String, dynamic> Function(String token)? headersForToken;
   final Duration pingInterval;
   final Duration requestTimeout;
   final Duration maxBackoff;
@@ -228,10 +250,7 @@ class SocketClient {
       } else if (msg.event.endsWith('_error') || msg.event.endsWith('.error')) {
         // Some handlers put {code, message} in `data` instead of `error`
         // (SOCKET_HOOKS.md tables) — still a failure, not a success.
-        c.completeError(SocketError(
-          msg.data['code'] as String? ?? msg.event,
-          msg.data['message'] as String? ?? '',
-        ));
+        c.completeError(SocketError(msg.data['code'] as String? ?? msg.event, msg.data['message'] as String? ?? ''));
       } else {
         c.complete(msg);
       }
@@ -268,10 +287,13 @@ class SocketClient {
     final completer = Completer<SocketMessage>();
     _pending[id] = completer;
     channel.sink.add(jsonEncode({'id': id, 'event': event, 'data': data}));
-    return completer.future.timeout(requestTimeout, onTimeout: () {
-      _pending.remove(id);
-      throw TimeoutException('No response for $event', requestTimeout);
-    });
+    return completer.future.timeout(
+      requestTimeout,
+      onTimeout: () {
+        _pending.remove(id);
+        throw TimeoutException('No response for $event', requestTimeout);
+      },
+    );
   }
 
   /// Authenticate with a token (first message after connect; also used on
@@ -290,9 +312,9 @@ class SocketClient {
   /// Builds the `auth.login` payload: always the token, plus the username when
   /// one has been set.
   Map<String, dynamic> _loginData(String token) => {
-        'token': token,
-        if (_username != null && _username!.isNotEmpty) 'username': _username,
-      };
+    'token': token,
+    if (_username != null && _username!.isNotEmpty) 'username': _username,
+  };
 
   void _startPing() {
     _pingTimer?.cancel();
@@ -303,11 +325,13 @@ class SocketClient {
     _slog('WS closed (code ${_channel?.closeCode}, reason ${_channel?.closeReason})');
     final hs = _pendingEstablished;
     if (hs != null && !hs.isCompleted) {
-      hs.completeError(SocketError(
-        'connect_failed',
-        'WebSocket to $url closed before connection.established'
-            '${_lastError != null ? ': $_lastError' : ' (upgrade rejected or wrong path?)'}',
-      ));
+      hs.completeError(
+        SocketError(
+          'connect_failed',
+          'WebSocket to $url closed before connection.established'
+              '${_lastError != null ? ': $_lastError' : ' (upgrade rejected or wrong path?)'}',
+        ),
+      );
     }
     _pingTimer?.cancel();
     _sub?.cancel();
@@ -333,9 +357,31 @@ class SocketClient {
     // Exponential backoff with a cap (1s, 2s, 4s … maxBackoff).
     final ms = (1000 * (1 << (_reconnectAttempt - 1))).clamp(1000, maxBackoff.inMilliseconds);
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(Duration(milliseconds: ms), () {
+    _reconnectTimer = Timer(Duration(milliseconds: ms), () async {
+      if (_manuallyClosed) return;
+      await _refreshCredentials();
       if (!_manuallyClosed) _open().catchError((Object e) => _slog('reconnect failed: $e'));
     });
+  }
+
+  /// Before a reconnect: swap in a valid token for the upgrade (URL/headers)
+  /// and the resumed `auth.login`. Failures keep the current credentials.
+  Future<void> _refreshCredentials() async {
+    final get = reauth;
+    if (get == null) return;
+    String? token;
+    try {
+      token = await get();
+    } on Object catch (e) {
+      _slog('reauth failed: $e');
+    }
+    if (token == null || token.isEmpty) return;
+    if (token != _sessionToken) _slog('reconnect with refreshed token ${_mask(token)}');
+    _sessionToken = token;
+    final u = urlForToken;
+    if (u != null) _url = u(token);
+    final h = headersForToken;
+    if (h != null) _headers = h(token);
   }
 
   Future<void> close() async {
