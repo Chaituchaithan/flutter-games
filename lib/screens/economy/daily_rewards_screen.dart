@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../../data/models/daily_bonus.dart';
 import '../../data/repositories/daily_bonus_repository.dart';
 import '../../data/repositories/store_repository.dart';
@@ -77,16 +78,27 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
       if (!mounted) return;
       // What the server actually paid (falls back to the shown reward).
       final nothing = paid.tokens == 0 && paid.gold == 0 && paid.powerUpQuantity == 0;
-      final label = nothing ? s.nextReward.label : paid.label;
-      final streak = paid.newStreak > 0 ? ' · ${paid.newStreak}-day streak' : '';
+      final label = nothing
+          ? rewardLabel(
+              context,
+              tokens: s.nextReward.tokens,
+              gold: s.nextReward.gold,
+              powerUps: s.nextReward.powerUpQuantity,
+            )
+          : rewardLabel(context, tokens: paid.tokens, gold: paid.gold, powerUps: paid.powerUpQuantity);
+      final streak = paid.newStreak > 0 ? context.l10n.dayStreakSuffix(paid.newStreak) : '';
       _burstGold = (nothing ? s.nextReward.gold : paid.gold) > 0;
       _burst.forward(from: 0);
-      showAuraToast(context, 'Claimed $label$streak', kind: _burstGold ? AuraToastKind.gold : AuraToastKind.success);
+      showAuraToast(
+        context,
+        context.l10n.claimedReward('$label$streak'),
+        kind: _burstGold ? AuraToastKind.gold : AuraToastKind.success,
+      );
     } on AppException catch (e) {
       if (!mounted) return;
       showAuraToast(
         context,
-        e.statusCode == 409 ? 'Already claimed today — come back tomorrow.' : e.message,
+        e.statusCode == 409 ? context.l10n.alreadyClaimed : e.message,
         kind: e.statusCode == 409 ? AuraToastKind.info : AuraToastKind.error,
       );
     } on Object catch (_) {
@@ -100,11 +112,11 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
   }
 
   /// "23h 41m" / "12m" until [at].
-  static String _until(DateTime at) {
+  String _until(DateTime at) {
     final d = at.difference(DateTime.now());
-    if (d.inMinutes < 1) return 'less than a minute';
+    if (d.inMinutes < 1) return context.l10n.lessThanMinute;
     final h = d.inHours, m = d.inMinutes % 60;
-    return h > 0 ? '${h}h ${m}m' : '${m}m';
+    return h > 0 ? context.l10n.durationHm(h, m) : context.l10n.durationM(m);
   }
 
   @override
@@ -115,7 +127,7 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
       child: Stack(
         children: [
           AuraScaffold(
-            appBar: const AuraAppBar(title: 'Daily Rewards'),
+            appBar: AuraAppBar(title: context.l10n.dailyRewards),
             scroll: true,
             body: AsyncView<DailyBonusStatus>(
               value: status,
@@ -153,8 +165,8 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
         const SizedBox(height: 22),
         Row(
           children: [
-            const Expanded(child: SectionBar('This week')),
-            Text('${s.claimedInCycle}/7 claimed', style: AuraText.cardSub.copyWith(fontSize: 12)),
+            Expanded(child: SectionBar(context.l10n.thisWeek)),
+            Text(context.l10n.claimedOfWeek(s.claimedInCycle), style: AuraText.cardSub.copyWith(fontSize: 12)),
           ],
         ),
         const SizedBox(height: 12),
@@ -177,14 +189,16 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
         ),
         const SizedBox(height: 22),
         GradientButton(
-          label: s.canClaim ? 'Claim Day ${reward.dayNumber}' : 'Come back in ${waitFor ?? 'a bit'}',
+          label: s.canClaim
+              ? context.l10n.claimDay(reward.dayNumber)
+              : context.l10n.comeBackIn(waitFor ?? context.l10n.aBit),
           enabled: s.canClaim,
           loading: _claiming,
           onPressed: () => _claim(s),
         ),
         const SizedBox(height: 14),
         Center(
-          child: Text('Claim every day to grow your streak.', style: AuraText.cardSub, textAlign: TextAlign.center),
+          child: Text(context.l10n.claimEveryDay, style: AuraText.cardSub, textAlign: TextAlign.center),
         ),
         const SizedBox(height: 10),
       ],
@@ -203,17 +217,18 @@ class _RewardHero extends StatelessWidget {
 
   bool get _gold => reward.gold > 0 || reward.tokens == 0;
 
-  String get _extras => [
-    if (_gold && reward.tokens > 0) '${formatAmount(reward.tokens)} Tokens',
-    if (reward.powerUpId != null && reward.powerUpQuantity > 0) '${reward.powerUpQuantity}× power-up',
+  String _extras(BuildContext context) => [
+    if (_gold && reward.tokens > 0) context.l10n.tokensAmount(formatAmount(reward.tokens)),
+    if (reward.powerUpId != null && reward.powerUpQuantity > 0) context.l10n.powerUpCount(reward.powerUpQuantity),
   ].join(' + ');
 
   @override
   Widget build(BuildContext context) {
     final accent = _gold ? AuraColors.amber : AuraColors.gems;
+    final extras = _extras(context);
     final note = [
-      if (_extras.isNotEmpty) '+ $_extras',
-      if (waitFor != null) 'Unlocks in $waitFor' else if (ready) "Today's reward is waiting",
+      if (extras.isNotEmpty) '+ $extras',
+      if (waitFor != null) context.l10n.unlocksIn(waitFor!) else if (ready) context.l10n.todaysRewardWaiting,
     ].join('  ·  ');
     return Container(
       height: 218,
@@ -251,11 +266,11 @@ class _RewardHero extends StatelessWidget {
                   Row(
                     children: [
                       _Pill(
-                        text: ready ? 'READY TO CLAIM' : 'NEXT REWARD',
+                        text: ready ? context.l10n.readyToClaim : context.l10n.nextReward,
                         color: ready ? AuraColors.green : AuraColors.accentGlow,
                       ),
                       const Spacer(),
-                      _Pill(text: 'DAY ${reward.dayNumber} / 7', color: Colors.white),
+                      _Pill(text: context.l10n.dayOfSeven(reward.dayNumber), color: Colors.white),
                     ],
                   ),
                   const Spacer(),
@@ -296,7 +311,7 @@ class _RewardHero extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        _gold ? 'Gold' : 'Tokens',
+                        _gold ? context.l10n.currencyGold : context.l10n.currencyTokens,
                         style: const TextStyle(color: AuraColors.textSecondary, fontSize: 15),
                       ),
                     ],
@@ -536,7 +551,7 @@ class _StreakCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      lit ? '$streak-Day Streak' : 'No streak yet',
+                      lit ? context.l10n.streakDays(streak) : context.l10n.noStreakYet,
                       style: TextStyle(
                         fontFamily: AuraText.displayFamily,
                         color: Colors.white,
@@ -546,7 +561,7 @@ class _StreakCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      lit ? "You're on a roll — keep it going!" : 'Claim today to start one.',
+                      lit ? context.l10n.onARoll : context.l10n.claimTodayToStart,
                       style: const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                   ],
@@ -662,9 +677,9 @@ class _DayTile extends StatelessWidget {
     final known = day.value != null;
 
     final label = switch (state) {
-      _DayState.today => 'TODAY',
-      _DayState.next => 'TOMORROW',
-      _ => 'DAY ${day.day}',
+      _DayState.today => context.l10n.tileToday,
+      _DayState.next => context.l10n.tileTomorrow,
+      _ => context.l10n.tileDay(day.day),
     };
     final labelColor = switch (state) {
       _DayState.today => Colors.white,
@@ -699,7 +714,7 @@ class _DayTile extends StatelessWidget {
             ),
           )
         : isClaimed
-        ? Text('Claimed', style: TextStyle(color: AuraColors.green.withValues(alpha: 0.9), fontSize: 11))
+        ? Text(context.l10n.claimed, style: TextStyle(color: AuraColors.green.withValues(alpha: 0.9), fontSize: 11))
         : locked
         ? Icon(Icons.lock_rounded, size: 12, color: Colors.white.withValues(alpha: 0.4))
         : const SizedBox.shrink();
@@ -729,9 +744,9 @@ class _DayTile extends StatelessWidget {
                     gradient: const LinearGradient(colors: [AuraColors.goldLight, AuraColors.gold]),
                     borderRadius: BorderRadius.circular(99),
                   ),
-                  child: const Text(
-                    'MEGA',
-                    style: TextStyle(color: Color(0xFF1A1206), fontSize: 8.5, fontWeight: FontWeight.w900),
+                  child: Text(
+                    context.l10n.mega,
+                    style: const TextStyle(color: Color(0xFF1A1206), fontSize: 8.5, fontWeight: FontWeight.w900),
                   ),
                 ),
               ],
@@ -879,4 +894,15 @@ class _DailySkeleton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "100 Gold", "200 Tokens + 50 Gold", "2× power-up" in the player's language.
+String rewardLabel(BuildContext context, {int tokens = 0, int gold = 0, int powerUps = 0}) {
+  final l = context.l10n;
+  final parts = [
+    if (tokens > 0) l.tokensAmount(formatAmount(tokens)),
+    if (gold > 0) '${formatAmount(gold)} ${l.currencyGold}',
+    if (powerUps > 0) l.powerUpCount(powerUps),
+  ];
+  return parts.join(' + ');
 }

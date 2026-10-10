@@ -99,5 +99,202 @@
   "errOffline": "You're offline. Check your connection and try again.",
   "errSlowServer": "The server is taking too long to respond. Check your connection and try again.",
   "errServerUnreachable": "We couldn't reach the server. Please try again in a moment.",
-  "errSlowGameServer": "The game server is taking too long to respond. Please try again."
+  "errSlowGameServer": "The game server is taking too long to respond. Please try again.",
+  "acceptTermsPrompt": "Please accept the Terms & Privacy Policy",
+  "accountCreated": "Account created — please log in",
+  "registerSubtitle": "Join the community in under a minute.",
+  "orSignUpWithEmail": "or sign up with email",
+  "usernameHint": "Username",
+  "createPasswordHint": "Create password",
+  "createAccountButton": "Create Account",
+  "alreadyHaveAccount": "Already have an account? ",
+  "logInLink": "Log in",
+  "iAgreeTo": "I agree to the ",
+  "terms": "Terms",
+  "privacyPolicyTitle": "Privacy Policy",
+  "logOutQuestion": "Log out?",
+  "logOutBody": "Your progress is saved to your account. You can sign back in anytime.",
+  "logOut": "Log out",
+  "stay": "Stay",
+  "settings": "Settings",
+  "preferences": "Preferences",
+  "soundEffects": "Sound effects",
+  "music": "Music",
+  "notifications": "Notifications",
+  "haptics": "Haptics",
+  "account": "Account",
+  "editProfile": "Edit profile",
+  "changePassword": "Change password",
+  "changeAvatar": "Change avatar",
+  "friendsAndBlocked": "Friends & blocked players",
+  "transactionsReceipts": "Transactions & receipts",
+  "inviteFriends": "Invite friends · earn rewards",
+  "gameHistory": "Game history",
+  "support": "Support",
+  "helpCenter": "Help center",
+  "helpCenterSoon": "Help center coming soon",
+  "privacyPolicy": "Privacy policy",
+  "privacyPolicySoon": "Privacy policy coming soon",
+  "appVersion": "App version",
+  "upgradeToVip": "Upgrade to VIP",
+  "vipPerks": "2× rewards, no ads & more",
+  "passwordChanged": "Password changed",
+  "passwordChangedBody": "For your security you’ve been signed out on all devices. Log in with your new password.",
+  "currentPasswordWrong": "Current password is incorrect",
+  "tooManyAttempts": "Too many attempts. Try again in a few minutes.",
+  "changePasswordNote": "You’ll be signed out on all devices after changing it.",
+  "currentPassword": "Current password",
+  "newPassword": "New password",
+  "confirmNewPassword": "Confirm new password",
+  "passwordRuleHint": "At least 8 characters, mixing letters and numbers.",
+  "updatePassword": "Update password",
+  "displayNameEmpty": "Display name can’t be empty",
+  "profileSaved": "Profile saved",
+  "editProfileTitle": "Edit Profile",
+  "displayName": "Display name",
+  "displayNameHint": "Your display name",
+  "bio": "Bio",
+  "bioHint": "Tell players about yourself",
+  "addBirthday": "Add your birthday",
+  "country": "Country",
+  "saveChanges": "Save changes",
+  "alreadyClaimed": "Already claimed today — come back tomorrow.",
+  "dailyRewards": "Daily Rewards",
+  "thisWeek": "This week",
+  "claimEveryDay": "Claim every day to grow your streak.",
+  "readyToClaim": "READY TO CLAIM",
+  "nextReward": "NEXT REWARD",
+  "profile": "Profile",
+  "gameStats": "Game stats",
+  "achievements": "Achievements",
+  "manage": "Manage",
+  "addBio": "+ Add a bio",
+  "winRate": "Win rate",
+  "last7Days": "Last 7 days",
+  "tokensWon": "Tokens won",
+  "goldWon": "Gold won",
+  "editProfileSub": "Name, bio, country",
+  "avatar": "Avatar",
+  "chooseYourLook": "Choose your look",
+  "settingsSub": "Sound, alerts, account",
+  "claimedReward": "Claimed {reward}",
+  "@claimedReward": {
+    "placeholders": {
+      "reward": {
+        "type": "String"
+      }
+    }
+  },
+  "dayStreakSuffix": " · {count}-day streak",
+  "@dayStreakSuffix": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "lessThanMinute": "less than a minute",
+  "durationHm": "{h}h {m}m",
+  "@durationHm": {
+    "placeholders": {
+      "h": {
+        "type": "int"
+      },
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "durationM": "{m}m",
+  "@durationM": {
+    "placeholders": {
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "claimedOfWeek": "{count}/7 claimed",
+  "@claimedOfWeek": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "claimDay": "Claim Day {day}",
+  "@claimDay": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "comeBackIn": "Come back in {time}",
+  "@comeBackIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "aBit": "a bit",
+  "tokensAmount": "{amount} Tokens",
+  "@tokensAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "powerUpCount": "{count}× power-up",
+  "@powerUpCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "unlocksIn": "Unlocks in {time}",
+  "@unlocksIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "todaysRewardWaiting": "Today's reward is waiting",
+  "dayOfSeven": "DAY {day} / 7",
+  "@dayOfSeven": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "currencyGold": "Gold",
+  "currencyTokens": "Tokens",
+  "streakDays": "{count}-Day Streak",
+  "@streakDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noStreakYet": "No streak yet",
+  "onARoll": "You're on a roll — keep it going!",
+  "claimTodayToStart": "Claim today to start one.",
+  "tileToday": "TODAY",
+  "tileTomorrow": "TOMORROW",
+  "tileDay": "DAY {day}",
+  "@tileDay": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "claimed": "Claimed",
+  "mega": "MEGA",
+  "dateOfBirth": "Date of birth"
 }

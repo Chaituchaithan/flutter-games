@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../../app/routes.dart';
 import '../../services/app_exception.dart';
 import '../../services/session.dart';
@@ -52,7 +53,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (_busy) return;
     if (!_validate()) return;
     if (!_agreed) {
-      showAuraToast(context, 'Please accept the Terms & Privacy Policy', kind: AuraToastKind.info);
+      showAuraToast(context, context.l10n.acceptTermsPrompt, kind: AuraToastKind.info);
       return;
     }
     FocusScope.of(context).unfocus();
@@ -65,7 +66,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           .registerAccount(name: _username.text.trim(), email: _email.text.trim(), password: _password.text);
       // Navigate only while Register is still the screen on top.
       if (mounted && ModalRoute.of(context)?.isCurrent != false) {
-        showAuraToast(context, 'Account created — please log in', kind: AuraToastKind.success);
+        showAuraToast(context, context.l10n.accountCreated, kind: AuraToastKind.success);
         Navigator.pushReplacementNamed(context, Routes.login);
       }
     } on AppException catch (e) {
@@ -95,10 +96,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 4),
-            Text('Create account', style: AuraText.headline.copyWith(fontSize: 32)),
+            Text(context.l10n.createAccount, style: AuraText.headline.copyWith(fontSize: 32)),
             const SizedBox(height: 8),
             Text(
-              'Join the community in under a minute.',
+              context.l10n.registerSubtitle,
               style: AuraText.body.copyWith(color: AuraColors.textSecondary),
             ),
             const SizedBox(height: 24),
@@ -123,10 +124,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            const _OrDivider(label: 'or sign up with email'),
+            _OrDivider(label: context.l10n.orSignUpWithEmail),
             const SizedBox(height: 20),
             AuraTextField(
-              hint: 'Username',
+              hint: context.l10n.usernameHint,
               icon: Icons.alternate_email,
               keyboardType: TextInputType.text,
               textInputAction: TextInputAction.next,
@@ -138,7 +139,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 14),
             AuraTextField(
-              hint: 'Email address',
+              hint: context.l10n.emailHint,
               icon: Icons.mail_outline,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
@@ -150,7 +151,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 14),
             AuraTextField(
-              hint: 'Create password',
+              hint: context.l10n.createPasswordHint,
               icon: Icons.lock_outline,
               obscure: _obscure,
               controller: _password,
@@ -173,20 +174,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 18),
             _TermsRow(checked: _agreed, onToggle: () => setState(() => _agreed = !_agreed)),
             const SizedBox(height: 18),
-            GradientButton(label: 'Create Account', onPressed: _create, loading: _busy),
+            GradientButton(label: context.l10n.createAccountButton, onPressed: _create, loading: _busy),
             const SizedBox(height: 24),
             Center(
               child: Text.rich(
                 TextSpan(
                   style: const TextStyle(color: AuraColors.textSecondary, fontSize: 14),
                   children: [
-                    const TextSpan(text: 'Already have an account? '),
+                    TextSpan(text: context.l10n.alreadyHaveAccount),
                     WidgetSpan(
                       alignment: PlaceholderAlignment.middle,
                       child: GestureDetector(
                         onTap: () => Navigator.pushReplacementNamed(context, Routes.login),
-                        child: const Text(
-                          'Log in',
+                        child: Text(
+                          context.l10n.logInLink,
                           style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -237,15 +238,15 @@ class _TermsRow extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.only(top: 1),
+            padding: EdgeInsets.only(top: 1),
             child: Text.rich(
               TextSpan(
-                style: const TextStyle(color: AuraColors.textSecondary, fontSize: 13.5, height: 1.4),
-                children: const [
-                  TextSpan(text: 'I agree to the '),
-                  TextSpan(text: 'Terms', style: linkStyle),
+                style: TextStyle(color: AuraColors.textSecondary, fontSize: 13.5, height: 1.4),
+                children: [
+                  TextSpan(text: context.l10n.iAgreeTo),
+                  TextSpan(text: context.l10n.terms, style: linkStyle),
                   TextSpan(text: ' & '),
-                  TextSpan(text: 'Privacy Policy', style: linkStyle),
+                  TextSpan(text: context.l10n.privacyPolicyTitle, style: linkStyle),
                 ],
               ),
             ),

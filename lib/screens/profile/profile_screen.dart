@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../../app/main_shell.dart';
 import '../../app/routes.dart';
 import '../../data/languages.dart';
@@ -36,7 +37,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Column(
       children: [
         AuraAppBar(
-          title: 'Profile',
+          title: context.l10n.profile,
           showBack: false,
           trailing: CircleActionButton(
             icon: Icons.settings,
@@ -88,13 +89,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 20),
               // 3) Game stats (per-mode coloured bars + Best streak/Tokens/Gold grid).
-              const SectionBar('Game stats'),
+              SectionBar(context.l10n.gameStats),
               const SizedBox(height: 12),
               const _GameStatsCard(),
               const SizedBox(height: 20),
               // 4) Achievements — "See all" navigates to the full list.
               SectionBar(
-                'Achievements',
+                context.l10n.achievements,
                 trailing: GestureDetector(
                   onTap: () => Navigator.pushNamed(context, Routes.achievements),
                   child: const Text(
@@ -117,7 +118,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 20),
               // 5) Manage.
-              const SectionBar('Manage'),
+              SectionBar(context.l10n.manage),
               const SizedBox(height: 12),
               _ManageCard(
                 onSettings: () => Navigator.pushNamed(context, Routes.settings),
@@ -285,8 +286,8 @@ class _HeaderCard extends StatelessWidget {
                             if (user.bio.trim().isEmpty)
                               GestureDetector(
                                 onTap: onEdit,
-                                child: const Text(
-                                  '+ Add a bio',
+                                child: Text(
+                                  context.l10n.addBio,
                                   style: TextStyle(color: AuraColors.accentGlow, fontSize: 12.5, fontWeight: FontWeight.w600),
                                 ),
                               )
@@ -492,7 +493,7 @@ class _EditProfileButton extends StatelessWidget {
                 const Icon(Icons.edit, size: 16, color: AuraColors.textPrimary),
                 const SizedBox(width: 8),
                 Text(
-                  'Edit profile',
+                  context.l10n.editProfile,
                   style: TextStyle(fontFamily: AuraText.bodyFamily, color: AuraColors.textPrimary, fontSize: 14.5, fontWeight: FontWeight.w600),
                 ),
               ],
@@ -563,7 +564,7 @@ class _WinRateCard extends StatelessWidget {
                       '68%',
                       style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 23, fontWeight: FontWeight.w700),
                     ),
-                    const Text('Win rate', style: TextStyle(color: Color(0x8CF4F1FB), fontSize: 9.5)),
+                    Text(context.l10n.winRate, style: TextStyle(color: Color(0x8CF4F1FB), fontSize: 9.5)),
                   ],
                 ),
               ),
@@ -660,7 +661,7 @@ class _WeeklyCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Last 7 days',
+                  context.l10n.last7Days,
                   style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -736,13 +737,13 @@ class _GameStatsCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Divider(height: 1, color: Colors.white.withValues(alpha: 0.14)),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           // Summary grid (mockup): Best streak / Tokens won / Gold won.
           Row(
-            children: const [
+            children: [
               Expanded(child: _MiniStat(value: '12', label: 'Best streak')),
-              Expanded(child: _MiniStat(value: '48.2k', label: 'Tokens won', valueColor: Color(0xFF67E8F9), dividers: true)),
-              Expanded(child: _MiniStat(value: '3.1k', label: 'Gold won', valueColor: Color(0xFFFBBF24))),
+              Expanded(child: _MiniStat(value: '48.2k', label: context.l10n.tokensWon, valueColor: Color(0xFF67E8F9), dividers: true)),
+              Expanded(child: _MiniStat(value: '3.1k', label: context.l10n.goldWon, valueColor: Color(0xFFFBBF24))),
             ],
           ),
         ],
@@ -918,17 +919,17 @@ class _ManageCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: _ManageTile(icon: Icons.person_outline, colors: const [Color(0xFF8B5CF6), Color(0xFFEC4899)], title: 'Edit profile', sub: 'Name, bio, country', onTap: () => Navigator.pushNamed(context, Routes.editProfile))),
+            Expanded(child: _ManageTile(icon: Icons.person_outline, colors: const [Color(0xFF8B5CF6), Color(0xFFEC4899)], title: context.l10n.editProfile, sub: context.l10n.editProfileSub, onTap: () => Navigator.pushNamed(context, Routes.editProfile))),
             const SizedBox(width: 10),
-            Expanded(child: _ManageTile(icon: Icons.face_retouching_natural, colors: const [Color(0xFF22D3EE), Color(0xFF3B82F6)], title: 'Avatar', sub: 'Choose your look', onTap: () => Navigator.pushNamed(context, Routes.avatars))),
+            Expanded(child: _ManageTile(icon: Icons.face_retouching_natural, colors: const [Color(0xFF22D3EE), Color(0xFF3B82F6)], title: context.l10n.avatar, sub: context.l10n.chooseYourLook, onTap: () => Navigator.pushNamed(context, Routes.avatars))),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: _ManageTile(icon: Icons.history_rounded, colors: const [Color(0xFF34D399), Color(0xFF14B8A6)], title: 'Game history', sub: '248 matches', onTap: () => Navigator.pushNamed(context, Routes.gameHistory))),
+            Expanded(child: _ManageTile(icon: Icons.history_rounded, colors: const [Color(0xFF34D399), Color(0xFF14B8A6)], title: context.l10n.gameHistory, sub: '248 matches', onTap: () => Navigator.pushNamed(context, Routes.gameHistory))),
             const SizedBox(width: 10),
-            Expanded(child: _ManageTile(icon: Icons.settings_outlined, colors: const [Color(0xFFFB923C), Color(0xFFF43F5E)], title: 'Settings', sub: 'Sound, alerts, account', onTap: onSettings)),
+            Expanded(child: _ManageTile(icon: Icons.settings_outlined, colors: const [Color(0xFFFB923C), Color(0xFFF43F5E)], title: context.l10n.settings, sub: context.l10n.settingsSub, onTap: onSettings)),
           ],
         ),
       ],

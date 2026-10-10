@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../../widgets/aura.dart';
 import '../../app/main_shell.dart';
 import '../../app/routes.dart';
@@ -28,10 +29,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final ok = await showAuraDialog(
       context,
       icon: Icons.logout_rounded,
-      title: 'Log out?',
-      body: 'Your progress is saved to your account. You can sign back in anytime.',
-      primaryLabel: 'Log out',
-      secondaryLabel: 'Stay',
+      title: context.l10n.logOutQuestion,
+      body: context.l10n.logOutBody,
+      primaryLabel: context.l10n.logOut,
+      secondaryLabel: context.l10n.stay,
       destructive: true,
     );
     if (ok == true && mounted) {
@@ -93,7 +94,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return AuraScaffold(
-      appBar: const AuraAppBar(title: 'Settings'),
+      appBar: AuraAppBar(title: context.l10n.settings),
       scroll: true,
       showGlow: false, // mockup Settings has no backdrop glow
       body: Column(
@@ -109,24 +110,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             },
           ),
           const SizedBox(height: 20),
-          const SectionHeader('Preferences'),
+          SectionHeader(context.l10n.preferences),
           const SizedBox(height: 10),
           _GroupCard(
             children: [
-              _ToggleRow(label: 'Sound effects', value: _sound, onChanged: (v) => setState(() => _sound = v)),
+              _ToggleRow(label: context.l10n.soundEffects, value: _sound, onChanged: (v) => setState(() => _sound = v)),
               const _RowDivider(),
-              _ToggleRow(label: 'Music', value: _music, onChanged: (v) => setState(() => _music = v)),
+              _ToggleRow(label: context.l10n.music, value: _music, onChanged: (v) => setState(() => _music = v)),
               const _RowDivider(),
               _ToggleRow(
-                label: 'Notifications',
+                label: context.l10n.notifications,
                 value: _notifications,
                 onChanged: (v) => setState(() => _notifications = v),
               ),
               const _RowDivider(),
-              _ToggleRow(label: 'Haptics', value: _haptics, onChanged: (v) => setState(() => _haptics = v)),
+              _ToggleRow(label: context.l10n.haptics, value: _haptics, onChanged: (v) => setState(() => _haptics = v)),
               const _RowDivider(),
               _NavRow(
-                label: 'Language',
+                label: context.l10n.languageTitle,
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -144,47 +145,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          const SectionHeader('Account'),
+          SectionHeader(context.l10n.account),
           const SizedBox(height: 10),
           _GroupCard(
             children: [
-              _NavRow(label: 'Edit profile', onTap: () => Navigator.pushNamed(context, Routes.editProfile)),
+              _NavRow(label: context.l10n.editProfile, onTap: () => Navigator.pushNamed(context, Routes.editProfile)),
               const _RowDivider(),
               // Guests have no password to change.
               if (!ref.watch(currentUserProvider).isGuest) ...[
-                _NavRow(label: 'Change password', onTap: () => Navigator.pushNamed(context, Routes.changePassword)),
+                _NavRow(label: context.l10n.changePassword, onTap: () => Navigator.pushNamed(context, Routes.changePassword)),
                 const _RowDivider(),
               ],
-              _NavRow(label: 'Change avatar', onTap: () => Navigator.pushNamed(context, Routes.avatars)),
+              _NavRow(label: context.l10n.changeAvatar, onTap: () => Navigator.pushNamed(context, Routes.avatars)),
               const _RowDivider(),
-              _NavRow(label: 'Friends & blocked players', onTap: () => Navigator.pushNamed(context, Routes.friends)),
+              _NavRow(label: context.l10n.friendsAndBlocked, onTap: () => Navigator.pushNamed(context, Routes.friends)),
               const _RowDivider(),
-              _NavRow(label: 'Transactions & receipts', onTap: () => Navigator.pushNamed(context, Routes.transactions)),
+              _NavRow(label: context.l10n.transactionsReceipts, onTap: () => Navigator.pushNamed(context, Routes.transactions)),
               const _RowDivider(),
               _NavRow(
-                label: 'Invite friends · earn rewards',
+                label: context.l10n.inviteFriends,
                 onTap: () => Navigator.pushNamed(context, Routes.referral),
               ),
               const _RowDivider(),
-              _NavRow(label: 'Game history', onTap: () => Navigator.pushNamed(context, Routes.gameHistory)),
+              _NavRow(label: context.l10n.gameHistory, onTap: () => Navigator.pushNamed(context, Routes.gameHistory)),
             ],
           ),
           const SizedBox(height: 20),
-          const SectionHeader('Support'),
+          SectionHeader(context.l10n.support),
           const SizedBox(height: 10),
           _GroupCard(
             children: [
               _NavRow(
-                label: 'Help center',
-                onTap: () => showAuraToast(context, 'Help center coming soon', kind: AuraToastKind.info),
+                label: context.l10n.helpCenter,
+                onTap: () => showAuraToast(context, context.l10n.helpCenterSoon, kind: AuraToastKind.info),
               ),
               const _RowDivider(),
               _NavRow(
-                label: 'Privacy policy',
-                onTap: () => showAuraToast(context, 'Privacy policy coming soon', kind: AuraToastKind.info),
+                label: context.l10n.privacyPolicy,
+                onTap: () => showAuraToast(context, context.l10n.privacyPolicySoon, kind: AuraToastKind.info),
               ),
               const _RowDivider(),
-              const _NavRow(label: 'App version', trailingText: '1.0.0'),
+              _NavRow(label: context.l10n.appVersion, trailingText: '1.0.0'),
             ],
           ),
           // Prototype-only QA shortcuts (in the mockup): debug builds only —
@@ -254,7 +255,7 @@ class _VipBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Upgrade to VIP',
+                      context.l10n.upgradeToVip,
                       style: TextStyle(
                         fontFamily: AuraText.displayFamily,
                         color: AuraColors.textPrimary,
@@ -263,7 +264,7 @@ class _VipBanner extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text('2× rewards, no ads & more', style: TextStyle(color: AuraColors.textSecondary, fontSize: 13)),
+                    Text(context.l10n.vipPerks, style: TextStyle(color: AuraColors.textSecondary, fontSize: 13)),
                   ],
                 ),
               ),
@@ -379,7 +380,7 @@ class _LogoutRow extends StatelessWidget {
               border: Border.all(color: AuraColors.dangerText.withValues(alpha: 0.4)),
             ),
             child: Text(
-              'Log out',
+              context.l10n.logOut,
               style: TextStyle(
                 fontFamily: AuraText.displayFamily,
                 color: AuraColors.dangerText,

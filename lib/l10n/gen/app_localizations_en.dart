@@ -185,4 +185,344 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errSlowGameServer =>
       'The game server is taking too long to respond. Please try again.';
+
+  @override
+  String get acceptTermsPrompt => 'Please accept the Terms & Privacy Policy';
+
+  @override
+  String get accountCreated => 'Account created — please log in';
+
+  @override
+  String get registerSubtitle => 'Join the community in under a minute.';
+
+  @override
+  String get orSignUpWithEmail => 'or sign up with email';
+
+  @override
+  String get usernameHint => 'Username';
+
+  @override
+  String get createPasswordHint => 'Create password';
+
+  @override
+  String get createAccountButton => 'Create Account';
+
+  @override
+  String get alreadyHaveAccount => 'Already have an account? ';
+
+  @override
+  String get logInLink => 'Log in';
+
+  @override
+  String get iAgreeTo => 'I agree to the ';
+
+  @override
+  String get terms => 'Terms';
+
+  @override
+  String get privacyPolicyTitle => 'Privacy Policy';
+
+  @override
+  String get logOutQuestion => 'Log out?';
+
+  @override
+  String get logOutBody =>
+      'Your progress is saved to your account. You can sign back in anytime.';
+
+  @override
+  String get logOut => 'Log out';
+
+  @override
+  String get stay => 'Stay';
+
+  @override
+  String get settings => 'Settings';
+
+  @override
+  String get preferences => 'Preferences';
+
+  @override
+  String get soundEffects => 'Sound effects';
+
+  @override
+  String get music => 'Music';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get haptics => 'Haptics';
+
+  @override
+  String get account => 'Account';
+
+  @override
+  String get editProfile => 'Edit profile';
+
+  @override
+  String get changePassword => 'Change password';
+
+  @override
+  String get changeAvatar => 'Change avatar';
+
+  @override
+  String get friendsAndBlocked => 'Friends & blocked players';
+
+  @override
+  String get transactionsReceipts => 'Transactions & receipts';
+
+  @override
+  String get inviteFriends => 'Invite friends · earn rewards';
+
+  @override
+  String get gameHistory => 'Game history';
+
+  @override
+  String get support => 'Support';
+
+  @override
+  String get helpCenter => 'Help center';
+
+  @override
+  String get helpCenterSoon => 'Help center coming soon';
+
+  @override
+  String get privacyPolicy => 'Privacy policy';
+
+  @override
+  String get privacyPolicySoon => 'Privacy policy coming soon';
+
+  @override
+  String get appVersion => 'App version';
+
+  @override
+  String get upgradeToVip => 'Upgrade to VIP';
+
+  @override
+  String get vipPerks => '2× rewards, no ads & more';
+
+  @override
+  String get passwordChanged => 'Password changed';
+
+  @override
+  String get passwordChangedBody =>
+      'For your security you’ve been signed out on all devices. Log in with your new password.';
+
+  @override
+  String get currentPasswordWrong => 'Current password is incorrect';
+
+  @override
+  String get tooManyAttempts =>
+      'Too many attempts. Try again in a few minutes.';
+
+  @override
+  String get changePasswordNote =>
+      'You’ll be signed out on all devices after changing it.';
+
+  @override
+  String get currentPassword => 'Current password';
+
+  @override
+  String get newPassword => 'New password';
+
+  @override
+  String get confirmNewPassword => 'Confirm new password';
+
+  @override
+  String get passwordRuleHint =>
+      'At least 8 characters, mixing letters and numbers.';
+
+  @override
+  String get updatePassword => 'Update password';
+
+  @override
+  String get displayNameEmpty => 'Display name can’t be empty';
+
+  @override
+  String get profileSaved => 'Profile saved';
+
+  @override
+  String get editProfileTitle => 'Edit Profile';
+
+  @override
+  String get displayName => 'Display name';
+
+  @override
+  String get displayNameHint => 'Your display name';
+
+  @override
+  String get bio => 'Bio';
+
+  @override
+  String get bioHint => 'Tell players about yourself';
+
+  @override
+  String get addBirthday => 'Add your birthday';
+
+  @override
+  String get country => 'Country';
+
+  @override
+  String get saveChanges => 'Save changes';
+
+  @override
+  String get alreadyClaimed => 'Already claimed today — come back tomorrow.';
+
+  @override
+  String get dailyRewards => 'Daily Rewards';
+
+  @override
+  String get thisWeek => 'This week';
+
+  @override
+  String get claimEveryDay => 'Claim every day to grow your streak.';
+
+  @override
+  String get readyToClaim => 'READY TO CLAIM';
+
+  @override
+  String get nextReward => 'NEXT REWARD';
+
+  @override
+  String get profile => 'Profile';
+
+  @override
+  String get gameStats => 'Game stats';
+
+  @override
+  String get achievements => 'Achievements';
+
+  @override
+  String get manage => 'Manage';
+
+  @override
+  String get addBio => '+ Add a bio';
+
+  @override
+  String get winRate => 'Win rate';
+
+  @override
+  String get last7Days => 'Last 7 days';
+
+  @override
+  String get tokensWon => 'Tokens won';
+
+  @override
+  String get goldWon => 'Gold won';
+
+  @override
+  String get editProfileSub => 'Name, bio, country';
+
+  @override
+  String get avatar => 'Avatar';
+
+  @override
+  String get chooseYourLook => 'Choose your look';
+
+  @override
+  String get settingsSub => 'Sound, alerts, account';
+
+  @override
+  String claimedReward(String reward) {
+    return 'Claimed $reward';
+  }
+
+  @override
+  String dayStreakSuffix(int count) {
+    return ' · $count-day streak';
+  }
+
+  @override
+  String get lessThanMinute => 'less than a minute';
+
+  @override
+  String durationHm(int h, int m) {
+    return '${h}h ${m}m';
+  }
+
+  @override
+  String durationM(int m) {
+    return '${m}m';
+  }
+
+  @override
+  String claimedOfWeek(int count) {
+    return '$count/7 claimed';
+  }
+
+  @override
+  String claimDay(int day) {
+    return 'Claim Day $day';
+  }
+
+  @override
+  String comeBackIn(String time) {
+    return 'Come back in $time';
+  }
+
+  @override
+  String get aBit => 'a bit';
+
+  @override
+  String tokensAmount(String amount) {
+    return '$amount Tokens';
+  }
+
+  @override
+  String powerUpCount(int count) {
+    return '$count× power-up';
+  }
+
+  @override
+  String unlocksIn(String time) {
+    return 'Unlocks in $time';
+  }
+
+  @override
+  String get todaysRewardWaiting => 'Today\'s reward is waiting';
+
+  @override
+  String dayOfSeven(int day) {
+    return 'DAY $day / 7';
+  }
+
+  @override
+  String get currencyGold => 'Gold';
+
+  @override
+  String get currencyTokens => 'Tokens';
+
+  @override
+  String streakDays(int count) {
+    return '$count-Day Streak';
+  }
+
+  @override
+  String get noStreakYet => 'No streak yet';
+
+  @override
+  String get onARoll => 'You\'re on a roll — keep it going!';
+
+  @override
+  String get claimTodayToStart => 'Claim today to start one.';
+
+  @override
+  String get tileToday => 'TODAY';
+
+  @override
+  String get tileTomorrow => 'TOMORROW';
+
+  @override
+  String tileDay(int day) {
+    return 'DAY $day';
+  }
+
+  @override
+  String get claimed => 'Claimed';
+
+  @override
+  String get mega => 'MEGA';
+
+  @override
+  String get dateOfBirth => 'Date of birth';
 }

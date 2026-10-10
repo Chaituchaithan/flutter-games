@@ -403,6 +403,624 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The game server is taking too long to respond. Please try again.'**
   String get errSlowGameServer;
+
+  /// No description provided for @acceptTermsPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Please accept the Terms & Privacy Policy'**
+  String get acceptTermsPrompt;
+
+  /// No description provided for @accountCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Account created — please log in'**
+  String get accountCreated;
+
+  /// No description provided for @registerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Join the community in under a minute.'**
+  String get registerSubtitle;
+
+  /// No description provided for @orSignUpWithEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'or sign up with email'**
+  String get orSignUpWithEmail;
+
+  /// No description provided for @usernameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get usernameHint;
+
+  /// No description provided for @createPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Create password'**
+  String get createPasswordHint;
+
+  /// No description provided for @createAccountButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Account'**
+  String get createAccountButton;
+
+  /// No description provided for @alreadyHaveAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account? '**
+  String get alreadyHaveAccount;
+
+  /// No description provided for @logInLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Log in'**
+  String get logInLink;
+
+  /// No description provided for @iAgreeTo.
+  ///
+  /// In en, this message translates to:
+  /// **'I agree to the '**
+  String get iAgreeTo;
+
+  /// No description provided for @terms.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms'**
+  String get terms;
+
+  /// No description provided for @privacyPolicyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get privacyPolicyTitle;
+
+  /// No description provided for @logOutQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Log out?'**
+  String get logOutQuestion;
+
+  /// No description provided for @logOutBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your progress is saved to your account. You can sign back in anytime.'**
+  String get logOutBody;
+
+  /// No description provided for @logOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Log out'**
+  String get logOut;
+
+  /// No description provided for @stay.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay'**
+  String get stay;
+
+  /// No description provided for @settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settings;
+
+  /// No description provided for @preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences'**
+  String get preferences;
+
+  /// No description provided for @soundEffects.
+  ///
+  /// In en, this message translates to:
+  /// **'Sound effects'**
+  String get soundEffects;
+
+  /// No description provided for @music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get music;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @haptics.
+  ///
+  /// In en, this message translates to:
+  /// **'Haptics'**
+  String get haptics;
+
+  /// No description provided for @account.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get account;
+
+  /// No description provided for @editProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit profile'**
+  String get editProfile;
+
+  /// No description provided for @changePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Change password'**
+  String get changePassword;
+
+  /// No description provided for @changeAvatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Change avatar'**
+  String get changeAvatar;
+
+  /// No description provided for @friendsAndBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends & blocked players'**
+  String get friendsAndBlocked;
+
+  /// No description provided for @transactionsReceipts.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions & receipts'**
+  String get transactionsReceipts;
+
+  /// No description provided for @inviteFriends.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends · earn rewards'**
+  String get inviteFriends;
+
+  /// No description provided for @gameHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Game history'**
+  String get gameHistory;
+
+  /// No description provided for @support.
+  ///
+  /// In en, this message translates to:
+  /// **'Support'**
+  String get support;
+
+  /// No description provided for @helpCenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Help center'**
+  String get helpCenter;
+
+  /// No description provided for @helpCenterSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Help center coming soon'**
+  String get helpCenterSoon;
+
+  /// No description provided for @privacyPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy'**
+  String get privacyPolicy;
+
+  /// No description provided for @privacyPolicySoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy coming soon'**
+  String get privacyPolicySoon;
+
+  /// No description provided for @appVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'App version'**
+  String get appVersion;
+
+  /// No description provided for @upgradeToVip.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to VIP'**
+  String get upgradeToVip;
+
+  /// No description provided for @vipPerks.
+  ///
+  /// In en, this message translates to:
+  /// **'2× rewards, no ads & more'**
+  String get vipPerks;
+
+  /// No description provided for @passwordChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Password changed'**
+  String get passwordChanged;
+
+  /// No description provided for @passwordChangedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'For your security you’ve been signed out on all devices. Log in with your new password.'**
+  String get passwordChangedBody;
+
+  /// No description provided for @currentPasswordWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password is incorrect'**
+  String get currentPasswordWrong;
+
+  /// No description provided for @tooManyAttempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again in a few minutes.'**
+  String get tooManyAttempts;
+
+  /// No description provided for @changePasswordNote.
+  ///
+  /// In en, this message translates to:
+  /// **'You’ll be signed out on all devices after changing it.'**
+  String get changePasswordNote;
+
+  /// No description provided for @currentPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password'**
+  String get currentPassword;
+
+  /// No description provided for @newPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get newPassword;
+
+  /// No description provided for @confirmNewPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm new password'**
+  String get confirmNewPassword;
+
+  /// No description provided for @passwordRuleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'At least 8 characters, mixing letters and numbers.'**
+  String get passwordRuleHint;
+
+  /// No description provided for @updatePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Update password'**
+  String get updatePassword;
+
+  /// No description provided for @displayNameEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name can’t be empty'**
+  String get displayNameEmpty;
+
+  /// No description provided for @profileSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile saved'**
+  String get profileSaved;
+
+  /// No description provided for @editProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Profile'**
+  String get editProfileTitle;
+
+  /// No description provided for @displayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get displayName;
+
+  /// No description provided for @displayNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your display name'**
+  String get displayNameHint;
+
+  /// No description provided for @bio.
+  ///
+  /// In en, this message translates to:
+  /// **'Bio'**
+  String get bio;
+
+  /// No description provided for @bioHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell players about yourself'**
+  String get bioHint;
+
+  /// No description provided for @addBirthday.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your birthday'**
+  String get addBirthday;
+
+  /// No description provided for @country.
+  ///
+  /// In en, this message translates to:
+  /// **'Country'**
+  String get country;
+
+  /// No description provided for @saveChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get saveChanges;
+
+  /// No description provided for @alreadyClaimed.
+  ///
+  /// In en, this message translates to:
+  /// **'Already claimed today — come back tomorrow.'**
+  String get alreadyClaimed;
+
+  /// No description provided for @dailyRewards.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Rewards'**
+  String get dailyRewards;
+
+  /// No description provided for @thisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get thisWeek;
+
+  /// No description provided for @claimEveryDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim every day to grow your streak.'**
+  String get claimEveryDay;
+
+  /// No description provided for @readyToClaim.
+  ///
+  /// In en, this message translates to:
+  /// **'READY TO CLAIM'**
+  String get readyToClaim;
+
+  /// No description provided for @nextReward.
+  ///
+  /// In en, this message translates to:
+  /// **'NEXT REWARD'**
+  String get nextReward;
+
+  /// No description provided for @profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profile;
+
+  /// No description provided for @gameStats.
+  ///
+  /// In en, this message translates to:
+  /// **'Game stats'**
+  String get gameStats;
+
+  /// No description provided for @achievements.
+  ///
+  /// In en, this message translates to:
+  /// **'Achievements'**
+  String get achievements;
+
+  /// No description provided for @manage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get manage;
+
+  /// No description provided for @addBio.
+  ///
+  /// In en, this message translates to:
+  /// **'+ Add a bio'**
+  String get addBio;
+
+  /// No description provided for @winRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Win rate'**
+  String get winRate;
+
+  /// No description provided for @last7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get last7Days;
+
+  /// No description provided for @tokensWon.
+  ///
+  /// In en, this message translates to:
+  /// **'Tokens won'**
+  String get tokensWon;
+
+  /// No description provided for @goldWon.
+  ///
+  /// In en, this message translates to:
+  /// **'Gold won'**
+  String get goldWon;
+
+  /// No description provided for @editProfileSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Name, bio, country'**
+  String get editProfileSub;
+
+  /// No description provided for @avatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar'**
+  String get avatar;
+
+  /// No description provided for @chooseYourLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your look'**
+  String get chooseYourLook;
+
+  /// No description provided for @settingsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Sound, alerts, account'**
+  String get settingsSub;
+
+  /// No description provided for @claimedReward.
+  ///
+  /// In en, this message translates to:
+  /// **'Claimed {reward}'**
+  String claimedReward(String reward);
+
+  /// No description provided for @dayStreakSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **' · {count}-day streak'**
+  String dayStreakSuffix(int count);
+
+  /// No description provided for @lessThanMinute.
+  ///
+  /// In en, this message translates to:
+  /// **'less than a minute'**
+  String get lessThanMinute;
+
+  /// No description provided for @durationHm.
+  ///
+  /// In en, this message translates to:
+  /// **'{h}h {m}m'**
+  String durationHm(int h, int m);
+
+  /// No description provided for @durationM.
+  ///
+  /// In en, this message translates to:
+  /// **'{m}m'**
+  String durationM(int m);
+
+  /// No description provided for @claimedOfWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}/7 claimed'**
+  String claimedOfWeek(int count);
+
+  /// No description provided for @claimDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim Day {day}'**
+  String claimDay(int day);
+
+  /// No description provided for @comeBackIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Come back in {time}'**
+  String comeBackIn(String time);
+
+  /// No description provided for @aBit.
+  ///
+  /// In en, this message translates to:
+  /// **'a bit'**
+  String get aBit;
+
+  /// No description provided for @tokensAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} Tokens'**
+  String tokensAmount(String amount);
+
+  /// No description provided for @powerUpCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}× power-up'**
+  String powerUpCount(int count);
+
+  /// No description provided for @unlocksIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlocks in {time}'**
+  String unlocksIn(String time);
+
+  /// No description provided for @todaysRewardWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s reward is waiting'**
+  String get todaysRewardWaiting;
+
+  /// No description provided for @dayOfSeven.
+  ///
+  /// In en, this message translates to:
+  /// **'DAY {day} / 7'**
+  String dayOfSeven(int day);
+
+  /// No description provided for @currencyGold.
+  ///
+  /// In en, this message translates to:
+  /// **'Gold'**
+  String get currencyGold;
+
+  /// No description provided for @currencyTokens.
+  ///
+  /// In en, this message translates to:
+  /// **'Tokens'**
+  String get currencyTokens;
+
+  /// No description provided for @streakDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}-Day Streak'**
+  String streakDays(int count);
+
+  /// No description provided for @noStreakYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No streak yet'**
+  String get noStreakYet;
+
+  /// No description provided for @onARoll.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on a roll — keep it going!'**
+  String get onARoll;
+
+  /// No description provided for @claimTodayToStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim today to start one.'**
+  String get claimTodayToStart;
+
+  /// No description provided for @tileToday.
+  ///
+  /// In en, this message translates to:
+  /// **'TODAY'**
+  String get tileToday;
+
+  /// No description provided for @tileTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'TOMORROW'**
+  String get tileTomorrow;
+
+  /// No description provided for @tileDay.
+  ///
+  /// In en, this message translates to:
+  /// **'DAY {day}'**
+  String tileDay(int day);
+
+  /// No description provided for @claimed.
+  ///
+  /// In en, this message translates to:
+  /// **'Claimed'**
+  String get claimed;
+
+  /// No description provided for @mega.
+  ///
+  /// In en, this message translates to:
+  /// **'MEGA'**
+  String get mega;
+
+  /// No description provided for @dateOfBirth.
+  ///
+  /// In en, this message translates to:
+  /// **'Date of birth'**
+  String get dateOfBirth;
 }
 
 class _AppLocalizationsDelegate

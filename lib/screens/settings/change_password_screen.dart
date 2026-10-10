@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../../app/routes.dart';
 import '../../services/app_exception.dart';
 import '../../services/session.dart';
@@ -59,9 +60,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       await showAuraDialog(
         context,
         icon: Icons.lock_reset_rounded,
-        title: 'Password changed',
-        body: 'For your security you’ve been signed out on all devices. Log in with your new password.',
-        primaryLabel: 'Log in',
+        title: context.l10n.passwordChanged,
+        body: context.l10n.passwordChangedBody,
+        primaryLabel: context.l10n.logInLink,
         tone: AuraDialogTone.success,
       );
       if (mounted) Navigator.pushNamedAndRemoveUntil(context, Routes.login, (r) => false);
@@ -69,9 +70,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       if (!mounted) return;
       switch (e.statusCode) {
         case 401:
-          setState(() => _currentError = 'Current password is incorrect');
+          setState(() => _currentError = context.l10n.currentPasswordWrong);
         case 429:
-          showAuraToast(context, 'Too many attempts. Try again in a few minutes.', kind: AuraToastKind.error);
+          showAuraToast(context, context.l10n.tooManyAttempts, kind: AuraToastKind.error);
         default:
           showAuraToast(context, e.message, kind: AuraToastKind.error);
       }
@@ -97,18 +98,18 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     return BusyGuard(
       busy: _saving,
       child: AuraScaffold(
-        appBar: const AuraAppBar(title: 'Change password'),
+        appBar: AuraAppBar(title: context.l10n.changePassword),
         scroll: true,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 4),
-            Text('You’ll be signed out on all devices after changing it.', style: AuraText.cardSub),
+            Text(context.l10n.changePasswordNote, style: AuraText.cardSub),
             const SizedBox(height: 22),
-            const SectionHeader('Current password'),
+            SectionHeader(context.l10n.currentPassword),
             const SizedBox(height: 8),
             AuraTextField(
-              hint: 'Current password',
+              hint: context.l10n.currentPassword,
               icon: Icons.lock_outline,
               obscure: !_showCurrent,
               controller: _current,
@@ -120,10 +121,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               trailing: _eye(_showCurrent, () => setState(() => _showCurrent = !_showCurrent)),
             ),
             const SizedBox(height: 20),
-            const SectionHeader('New password'),
+            SectionHeader(context.l10n.newPassword),
             const SizedBox(height: 8),
             AuraTextField(
-              hint: 'New password',
+              hint: context.l10n.newPassword,
               icon: Icons.lock_reset_rounded,
               obscure: !_showNew,
               controller: _new,
@@ -136,7 +137,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             ),
             const SizedBox(height: 12),
             AuraTextField(
-              hint: 'Confirm new password',
+              hint: context.l10n.confirmNewPassword,
               icon: Icons.lock_reset_rounded,
               obscure: !_showConfirm,
               controller: _confirm,
@@ -149,9 +150,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               trailing: _eye(_showConfirm, () => setState(() => _showConfirm = !_showConfirm)),
             ),
             const SizedBox(height: 10),
-            Text('At least 8 characters, mixing letters and numbers.', style: AuraText.cardSub.copyWith(fontSize: 12)),
+            Text(context.l10n.passwordRuleHint, style: AuraText.cardSub.copyWith(fontSize: 12)),
             const SizedBox(height: 28),
-            GradientButton(label: 'Update password', loading: _saving, onPressed: _save),
+            GradientButton(label: context.l10n.updatePassword, loading: _saving, onPressed: _save),
             const SizedBox(height: 8),
           ],
         ),

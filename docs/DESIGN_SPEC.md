@@ -120,9 +120,11 @@ shows English.
   `context.l10n.key`.
 - **Add a language:** copy `app_en.arb` to `app_<code>.arb` and translate it.
   `<code>` matches `appLanguages` in `lib/data/languages.dart`.
-- **Status:** English + Hindi (machine-drafted — needs native review). Translated
-  screens: Splash, Language, Login, Home. The other screens are still English
-  (in progress).
+- **Status (154 texts):** English + Hindi (machine-drafted — needs native review).
+  Translated: Splash, Language, Login, Register, Home, Settings, Change
+  password, Profile, Edit profile, Daily Rewards. Still English: game screens,
+  Store, Friends, Tournaments, Season Pass, Inbox, results, dialogs, and
+  validation messages (in progress).
 
 ## 4. Loading states
 

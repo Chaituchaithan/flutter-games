@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../../app/routes.dart';
 import '../../data/languages.dart';
 import '../../services/app_exception.dart';
@@ -59,7 +60,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       initialDate: _dob ?? DateTime(2000, 1, 1),
       firstDate: DateTime(1900),
       lastDate: _latestDob,
-      helpText: 'Date of birth',
+      helpText: context.l10n.dateOfBirth,
       initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
@@ -104,7 +105,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final name = _nameCtrl.text.trim();
     final bio = _bioCtrl.text.trim();
     if (name.isEmpty) {
-      showAuraToast(context, 'Display name can’t be empty', kind: AuraToastKind.error);
+      showAuraToast(context, context.l10n.displayNameEmpty, kind: AuraToastKind.error);
       return;
     }
     final changedName = name != _initial.displayName ? name : null;
@@ -134,7 +135,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             dateOfBirth: changedDob,
           );
       if (!mounted) return;
-      showAuraToast(context, 'Profile saved');
+      showAuraToast(context, context.l10n.profileSaved);
       Navigator.of(context).maybePop();
     } on AppException catch (e) {
       if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
@@ -157,7 +158,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     return BusyGuard(
       busy: _saving,
       child: AuraScaffold(
-        appBar: const AuraAppBar(title: 'Edit Profile'),
+        appBar: AuraAppBar(title: context.l10n.editProfileTitle),
         scroll: true,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -209,42 +210,42 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   ),
                   const SizedBox(height: 10),
                   // Plain label — does not navigate (use the camera button).
-                  const Text(
-                    'Change avatar',
+                  Text(
+                    context.l10n.changeAvatar,
                     style: TextStyle(color: AuraColors.accentGlow, fontSize: 14, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
-            const SectionHeader('Display name'),
+            SectionHeader(context.l10n.displayName),
             const SizedBox(height: 8),
-            AuraTextField(hint: 'Your display name', icon: Icons.person_outline, controller: _nameCtrl),
+            AuraTextField(hint: context.l10n.displayNameHint, icon: Icons.person_outline, controller: _nameCtrl),
             const SizedBox(height: 20),
-            const SectionHeader('Bio'),
+            SectionHeader(context.l10n.bio),
             const SizedBox(height: 8),
             AuraTextField(
-              hint: 'Tell players about yourself',
+              hint: context.l10n.bioHint,
               icon: Icons.edit_note_rounded,
               controller: _bioCtrl,
               maxLines: 4,
             ),
             const SizedBox(height: 20),
-            const SectionHeader('Date of birth'),
+            SectionHeader(context.l10n.dateOfBirth),
             const SizedBox(height: 8),
             _PickerField(
               icon: Icons.cake_outlined,
               value: _dob == null ? null : formatDob(_dob!),
-              hint: 'Add your birthday',
+              hint: context.l10n.addBirthday,
               trailingIcon: Icons.calendar_today_rounded,
               onTap: _pickDob,
             ),
             const SizedBox(height: 20),
-            const SectionHeader('Language'),
+            SectionHeader(context.l10n.languageTitle),
             const SizedBox(height: 8),
             _PickerField(icon: Icons.translate_rounded, value: appLanguages[_language].label, onTap: _pickLanguage),
             const SizedBox(height: 20),
-            const SectionHeader('Country'),
+            SectionHeader(context.l10n.country),
             const SizedBox(height: 10),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -269,7 +270,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               },
             ),
             const SizedBox(height: 28),
-            GradientButton(label: 'Save changes', loading: _saving, onPressed: _save),
+            GradientButton(label: context.l10n.saveChanges, loading: _saving, onPressed: _save),
             const SizedBox(height: 8),
           ],
         ),
@@ -365,7 +366,7 @@ class _LanguageSheet extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 16, 22, 8),
-                child: Text('Language', style: AuraText.title.copyWith(fontSize: 20)),
+                child: Text(context.l10n.languageTitle, style: AuraText.title.copyWith(fontSize: 20)),
               ),
               Flexible(
                 child: ListView.builder(
