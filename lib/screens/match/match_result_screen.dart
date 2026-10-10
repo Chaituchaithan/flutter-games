@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../app/game_area.dart';
 import '../../app/routes.dart';
+import '../../configs/games/games.dart';
 import '../../widgets/aura.dart';
 
 /// Match result — Victory / Defeat / Draw (mockup `MATCH RESULT`).
@@ -154,9 +158,20 @@ class MatchResultScreen extends StatelessWidget {
                       const SizedBox(height: 30),
                       GradientButton(
                         label: 'Play Again',
-                        onPressed: () => playAgain == null
-                            ? Navigator.pushReplacementNamed(context, Routes.chessSetup) // chess is the only game
-                            : Navigator.pushReplacement(context, MaterialPageRoute(builder: playAgain!)),
+                        onPressed: () {
+                          if (playAgain != null) {
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder: playAgain!));
+                            return;
+                          }
+                          // No builder: the active game's Quick Play setup.
+                          final game = ProviderScope.containerOf(context).read(activeGameProvider);
+                          final route = GameArea.practiceRoute(game);
+                          if (route != null) {
+                            Navigator.pushReplacementNamed(context, route);
+                          } else {
+                            Navigator.popUntil(context, ModalRoute.withName(Routes.home));
+                          }
+                        },
                       ),
                       const SizedBox(height: 11),
                       SecondaryButton(

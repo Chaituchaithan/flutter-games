@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 /// Central design tokens for the Aura UI.
 ///
 /// Values come from the **Aura Components** handoff sheet (the authoritative
-/// source) — see `docs/MOCKUP_AUDIT.md` §1. The palette is a glassmorphic dark
+/// source) — see docs/DESIGN_SPEC.md. The palette is a glassmorphic dark
 /// theme built on a violet→pink→orange brand gradient.
 ///
 /// Kept as a static token class (not a `ThemeExtension`) so every screen keeps

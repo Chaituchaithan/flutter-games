@@ -19,7 +19,8 @@ Future<void> showSessionExpiredDialog() async {
       context,
       icon: Icons.schedule_rounded,
       title: 'Session expired',
-      body: 'For your security you were signed out after a period of inactivity. '
+      body:
+          'For your security you were signed out after a period of inactivity. '
           'Please log in again.',
       primaryLabel: 'Log in again',
     );

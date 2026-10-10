@@ -16,7 +16,7 @@ class _Seg {
 
 /// Wheel tab — "Lucky Spin". Scrollable body only (shell provides chrome).
 /// Spins land on a wedge, reveal the win, and consume a free spin. See
-/// docs/DESIGN_SPEC.md §5.
+/// docs/DESIGN_SPEC.md.
 class WheelScreen extends StatefulWidget {
   const WheelScreen({super.key});
 

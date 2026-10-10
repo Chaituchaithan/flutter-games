@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data_config.dart';
+import '../../configs/feature_flags.dart';
 import '../models/rank_entry.dart';
 import '../sources/leaderboard_source.dart';
 import '../../services/api_client.dart';

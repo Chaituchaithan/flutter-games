@@ -1,236 +1,152 @@
-# Aura — Flutter UI Build Spec
+# Design Spec
 
-Static UI recreation of the "Aura Game UI" prototype (a stake-based multiplayer
-game). This phase is **presentation only** — real data, networking and game logic
-come later. Every screen is dark-themed, mobile-portrait, and shares one visual
-system.
+How the app looks and which shared pieces to build screens from. The **source
+of truth for visuals** is the Aura mockup (`Aura Game UI.html`); the
+**Aura Components** sheet is the UI kit for colours, sizes and styling. This
+doc records how the Flutter app implements them and every place it
+deliberately differs.
 
-**Auth / data:** currently there is **no API** — auth buttons (Log In, Create
-Account, social, Send code, Verify) just navigate. The button handlers are the
-single integration point: drop a **mock API** here now and swap in the **real
-API** later without touching the UI.
-
-## Design tokens (see `lib/theme.dart` → `AuraColors`, `AuraGradients`, `AuraText`)
-
-- **Background** `#0C0A16`, with a purple radial glow (top-left) and magenta glow
-  (bottom-right) — provided by `AuraBackground`.
-- **Brand gradient** `#8B5CF6` (purple) → `#EC4899` (pink) → `#FB923C` (orange).
-  Used on primary buttons, active pager/segments, the "You"/orb avatars, progress
-  bars, and the wheel center.
-- **Gems** = cyan diamond `#38BDF8`; **Gold/coins** = amber `#F5B301`.
-- **Accent green** `#10B981` (Quick Play, Live, wins, win-rate ring).
-- **Cards** `#17141F` on `#1A1726`, hairline border `white @ 8%`, radius 18–22.
-- **Text**: primary `#F5F3FF`, secondary `#9A93B0`, muted/skip `#6E6880`.
-- **Display font**: rounded geometric; currently system `w800` via `AuraText`
-  (single hook to swap in a bundled font later).
-
-## Shared widgets (see `lib/widgets/`)
-
-Build every screen from these — do not re-invent them:
-
-- `AuraBackground(child)` — dark bg + glows. Wrap each screen body.
-- `AuraScaffold(...)` — Scaffold + AuraBackground + SafeArea helper.
-- `GradientButton(label, onPressed, loading)` — full-width brand-gradient pill.
-  `loading: true` swaps the label for a white spinner and ignores taps (busy state).
-- `SecondaryButton(label, onPressed)` — dark outline pill (e.g. "Continue as guest").
-- `AuraTextField(hint, icon, obscure, trailing, errorText, onChanged, onSubmitted, textInputAction)`
-  — dark rounded input. `errorText` draws a red border + inline message with an icon.
-- `CurrencyPill(kind: gems|gold, amount, showPlus)` — the 10,000 / 3,000 chips.
-- `AuraAppBar(title, showBack, trailing)` — back chevron + centered title.
-- `SegmentedTabs(labels, index, onChanged)` — Store/section pill tabs.
-- `AuraBottomNav(index, onChanged)` — Home · Wheel · Store · Profile floating bar.
-- `SectionHeader(text)` — small uppercase grey label.
-- `LetterAvatar(letter, color, size, glow)` — gradient circle w/ initials.
-- `Badge(text, color)` — SOON / POPULAR / MEGA / +10% pills.
-- `AuraToggle(value, onChanged)` — gradient iOS-style switch.
-- `StatTile(value, label, valueColor)` — Profile stat block.
-
-## Routing (see `lib/app/routes.dart`, `lib/app/main_shell.dart`)
-
-- `/onboarding` → `/login` (Skip / Get Started).
-- Login ↔ Register; both → `MainShell`.
-- `MainShell` = `IndexedStack` over Home/Wheel/Store/Profile + `AuraBottomNav`.
-- Home "Online Play"/"Play" → match flow: setup(3 steps) → preview → result.
-- Profile gear → Settings.
+Values below are read from the code (`lib/theme.dart`, `lib/widgets/`), so
+treat the code as authoritative if they ever disagree.
 
 ---
 
-## Screens
+## 1. Design tokens (`lib/theme.dart`)
 
-### 1. Onboarding — DONE (`lib/onboarding/`)
-3 slides (Find your people / Share your moment / Always in sync), pager, Continue →
-Get Started.
-
-### 2. Login — "Welcome back"
-Back chevron. Aura logo (gradient ring + dot) + "Aura". Title **Welcome back**,
-sub "Log in to pick up where you left off." White **Continue with Apple** (apple
-glyph), dark **Continue with Google** (G). Divider "or log in with email". Fields:
-Email (mail icon), Password (lock icon + eye toggle). Right-aligned **Forgot
-password?** (brand color). **Log In** (gradient). **Continue as guest** (dark).
-Footer "New to Aura? **Create account**".
-
-### 3. Register — "Create account"
-Back chevron. Title **Create account**, sub "Join the community in under a minute."
-Two compact buttons side-by-side: **Apple** / **Google**. Divider "or sign up with
-email". Fields: Full name (person icon), Email (mail), Create password (lock + eye).
-Checkbox row "I agree to the **Terms** & **Privacy Policy**". **Create Account**
-(gradient). Footer "Already have an account? **Log in**".
-
-### 4. Home
-Scroll. **Profile header card**: avatar "NR" w/ level badge 7, "Nova Rider" 🇫🇷,
-@nova_rider, right side two `CurrencyPill`s (10,000 gems +, 3,000 gold +), then
-`LV 7` chip + gradient progress bar + "1,300 / 2,000".
-**Featured hero** (brand-gradient card): "FEATURED", `2P · 4P` badge, **Online
-Play**, "Stake to enter · winner takes the pot", `♦ 50 – 5K` chip, **Play →**.
-Tapping opens the match flow.
-Row of two cards: **Quick Play** (green play icon, "Free practice match") /
-**Friends** (purple people icon, "Play with a room code").
-**Tournaments** list row (gold trophy, "Bracket events · opens Friday", `SOON`).
-**Ad banner**: "AD · 320 × 50", "Banner placement", "House ad fallback · remove
-with VIP", ✕.
-**Earn rewards** header → two cards: **Daily Bonus** ("Day 3 ready", calendar) /
-**Lucky Wheel** ("3 spins left", target). **Recent matches** header + list.
-
-### 5. Wheel — "Lucky Spin"
-Title **Lucky Spin** + gems/gold pills. Chip "↻ 3 free spins left". Large
-8-segment fortune wheel with top pointer ▼; segments (clockwise from top):
-500 Tokens, 200 Gold, 1,000 Tokens, 50 Gold, 500 Gold, 2,000 Tokens, JACKPOT
-5,000, 100 Tokens. Center circular **SPIN** button (brand gradient, dark ring).
-
-### 6. Store
-`AuraAppBar` "Store" + gems/gold pills. `SegmentedTabs`: Tokens / Gold /
-Power-Ups / VIP (Tokens active). 2-col grid of packs, each: corner badge
-(+10% / POPULAR / +25% / +40% / MEGA), diamond icon, amount, blue-gradient price
-button. Packs: 1,000 $0.99 · 5,500 $3.99 (+10%) · 12,000 $7.99 (POPULAR) ·
-30,000 $14.99 (+25%) · 70,000 $29.99 (+40%) · 150,000 $49.99 (MEGA).
-
-### 7. Profile
-`AuraAppBar` "Profile" (back + gear→Settings). Big avatar "NR" (gradient) with
-edit-pencil badge. "Nova Rider 🇫🇷", "@nova_rider · Level 7 · Gold III". Three
-`StatTile`: 248 Matches / 169 Wins (green) / 7 Streak (amber). Two cards:
-**win-rate ring** 68% (green arc) + **"Last 7 days"** bar chart (M T W T F S S,
-bars brand-gradient). **Achievements** header + 4 tiles: First Win, On Fire,
-Sharpshooter, Locked (greyed). Button **View full match history**.
-
-### 8. Settings
-`AuraAppBar` "Settings". Gold **Upgrade to VIP** banner ("2× rewards, no ads &
-more", crown, chevron). `PREFERENCES` toggles: Sound effects ON, Music ON,
-Notifications ON, Haptics OFF (`AuraToggle`). `ACCOUNT` list rows: Edit profile,
-Change avatar, Game history. `SUPPORT`: Help center, Privacy policy, App version
-`1.0.0`. Destructive **Log out**.
-
-### 9–11. Match setup (bottom-sheet style, 3 steps)
-Each: drag handle, "‹ back", step pill (`1/3`, `2/3`, `3/3 · buy-in`), title, sub.
-- **1/3 How many players?** "Pick the match size" → two big option cards:
-  **2** "Players · 1v1" (2 dots), **4** "Players · free-for-all" (4 dots, selected
-  = brand border).
-- **2/3 Choose your stake** "Token or Gold buy-in" → **Tokens** (diamond, "Balance
-  10,000", selected) / **Gold** (coin, "Balance 3,000").
-- **3/3 How many tokens?** "2 Players · Tokens". `PICK A TIER` 3×2 grid: 50/pot
-  100, 100/pot 200, 200/pot 400 (selected), 500/pot 1,000, 1k/pot 2,000, 2k/pot
-  4,000. `CUSTOM AMOUNT` "min 50 · max 5,000" stepper (− 200 +). Summary: YOUR
-  STAKE 200, TOTAL POT · 2× **400** (amber). **Preview match →**.
-
-### 12. Match preview
-Drag handle, "‹ back", "preview" pill. Title **Match preview**, "Online · 2P ·
-Tokens". Card: **NR** avatar **VS** **?** avatar, "Matching you with 2 players
-online". Rows: Entry stake 200, Total prize pot **400** (amber), Format **Winner
-takes all**. **Create game** (gradient).
-
-### 13. Match result
-Centered. Big rounded icon tile (red ✕ for defeat / could be green ✓ for victory).
-Title **DEFEAT** (bold), sub "So close — run it back." Score row: **NR** "You"
-`1 : 3` **RV** "Rival". Chip "⚡ +20 XP". **Play Again** (gradient), **Back to
-Home** (text/dark).
-
----
-
-## Loading states
-
-Two distinct loading affordances:
-
-1. **Button spinner** — `GradientButton(loading: true)`: for a one-shot async
-   *action* on tap (sign in, create account, verify). Shows a spinner in place of
-   the label and blocks re-taps while the call is in flight.
-2. **Skeleton** — `LoadingSkeletonScreen` / `Shimmer` + `SkeletonBox` via `AsyncView`:
-   for screens that *fetch data on load* (lists, profiles). See INTEGRATION_PLAN §4.
-
-Button-spinner coverage (keep in sync as seams go live):
-
-| Screen | Action | Spinner |
+### Colour — `AuraColors`
+| Token | Value | Use |
 |---|---|---|
-| Login | `login()` | ✅ |
-| Register | `register()` | ✅ |
-| OTP verify | `verifyOtp()` (live) | ⏳ recommended next |
-| Settings → Sign out | `signOut()` (live, via dialog) | ◐ optional |
-| Edit profile → Save | `updateProfile()` (sync today → `PATCH /users/me` later) | ⏳ when async |
-| Store purchase / Daily reward / Welcome bonus / Player profile / Match flows | presentation-only seams | ⏳ when wired to API |
-| Language, Reset password, Force update, Maintenance, Match preview/setup/result, Avatars | pure navigation / local state | ✗ not eligible |
+| `bgDeep` | `#070510` | Deepest background (result, matchmaking) |
+| `bgBase` | `#0C0A16` | Default screen background |
+| `bgRaised` | `#1A1330` | Raised panels, dialogs |
+| `brandPurple` → `brandPink` → `brandOrange` | `#8B5CF6` → `#EC4899` → `#FB923C` | Brand gradient: primary buttons, active tabs, highlights |
+| `accentGlow` | `#C084FC` | Focus rings, links, active borders |
+| `textPrimary` / `textSecondary` / `textMuted` | `#F4F1FB` at 100 / 60 / 40 % | Text |
+| `glassStroke` | white @ 20 % | Hairline borders on glass |
+| `gems` → `gemsDeep` | `#22D3EE` → `#3B82F6` | Tokens currency |
+| `goldLight` → `gold` | `#FDE68A` → `#F59E0B` | Gold currency, VIP, premium |
+| `green` / `amber` / `danger` | `#34D399` / `#FBBF24` / `#F43F5E` | Success / warning / error |
 
-Data-load screens already covered by the skeleton: Leaderboard, Friends, Inbox,
-Game history, Tournaments, Store.
+Screen background is a radial gradient `#171130 → #0A0816 → #070510` from
+the top, plus one soft glow blob (`AuraBackground`).
+
+### Type — `AuraText`
+- **Display:** Space Grotesk (titles, numbers, buttons) — `AuraText.displayFamily`.
+- **Body:** Manrope — `AuraText.bodyFamily`.
+- Loaded at runtime with `google_fonts`; swap the family in one place to change every screen.
+
+### Shape — `AuraRadii`
+`xs 10 · sm 14 · md 16 · lg 20 · xl 28` (4 px grid). Screen headers use a
+42 px glass back button (r14); cards r16–24; pills r99.
+
+### Surfaces — `AuraGlass.decoration`
+Frosted glass: white 9 % → 3 % gradient, 1 px white hairline, soft drop
+shadow. **Rule:** a shadowed card gets an opaque fill (the glass blended onto
+the background). A Flutter `BoxShadow` under a translucent fill shows
+through as a lighter inner panel; CSS box-shadows don't, so the mockup never
+has that artefact. Coloured glows on translucent cards go on an opaque base
+layer for the same reason.
 
 ---
 
-## Required Assets
+## 2. Shared widgets (`lib/widgets/`)
 
-> **Asset rule (current policy).** Whenever a screen needs an asset (logo, badge,
-> avatar, flag, product art, etc.):
-> 1. **Record it in this table** — never introduce an undocumented asset dependency.
-> 2. **Use an online icon/image (network URL) as the placeholder for now** rather
->    than bundling a file or hand-drawing it.
-> 3. The **real asset files will be provided later** and swapped in; the online
->    sources are temporary stand-ins.
+Build every screen from these — don't re-invent them.
 
-Everything below is currently rendered with **Flutter-drawn shapes, gradients,
-Material/Cupertino icons, or online (network) images** — no bundled image files
-are needed to run the static build. This table lists what a production build would
-want, and flags where a real asset should replace a placeholder. **If you can
-provide the ★ items I'll drop them in; otherwise the online/drawn placeholders stand.**
+| Widget | File | Notes |
+|---|---|---|
+| `AuraScaffold` | components | Background + glow + SafeArea; `scroll:` for long screens |
+| `AuraAppBar` | components | Mockup header: back button + **left-aligned** 22 px title + optional trailing |
+| `GlassIconButton` | components | 42 px rounded-square glass icon button |
+| `GradientButton` / `SecondaryButton` / `LightButton` | aura_widgets / components | Primary (brand gradient, `loading`, `enabled`), outline, white/dark social |
+| `AuraTextField` | components | Glass input with focus ring and inline `errorText` (stable layout — the keyboard never closes when the error clears) |
+| `AuraCard` | components | Glass card |
+| `SegmentedTabs` | components | Dark inset pill tabs |
+| `AuraBottomNav` | components | Floating bar: Home · Wheel · Store · Profile, outline icons, pink active dot |
+| `CurrencyPill` / `CurrencyGlyph` | components | Token / Gold balances; drawn gem and coin |
+| `SectionBar` / `SectionHeader` | components | Gradient-bar section title / small uppercase label |
+| `AuraBadge`, `StatTile`, `AuraToggle` | components | Pills, stat blocks, switch |
+| `AuraAvatar`, `LetterAvatar` | aura_widgets | Conic-ring avatar with level badge; initials avatar |
+| `showAuraDialog` (`brand`/`danger`/`warning`/`success`), `showAuraToast`, `AuraOfflineBanner` | aura_overlays | Dialogs, toasts, offline banner |
+| `BusyGuard` | components | While a request runs, locks the screen: taps and back are ignored, and the tapped button shows its spinner. Use it on every screen that awaits a call and then navigates |
+| `AsyncView` (+ `Shimmer`, `SkeletonBox`) | `lib/state/` | Loading skeleton → data → error/retry for any service call |
 
-| Asset | Type | Usage | Size / Dimensions | Status |
-|---|---|---|---|---|
-| App logo "Aura" mark | SVG/Icon | Login/Register header, splash | 24–32 px | Placeholder (gradient ring + dot, drawn) |
-| App launcher icon ★ | PNG set | Android/iOS home-screen icon | 1024² (+ mipmaps) | Pending |
-| Display/rounded font ★ | Font (ttf/otf) | All titles & buttons | — | Placeholder (system `w800`) |
-| Apple glyph | Icon | Apple sign-in button | 18 px |  Placeholder (`Icons`/drawn) |
-| Google "G" logo ★ | SVG (multicolor) | Google sign-in button | 18 px | Placeholder (drawn) |
-| Country flag 🇫🇷 | Emoji/Image | Profile name row | 16–20 px | Placeholder (emoji) |
-| User avatar "NR"/"RV" | Image | Header, Profile, match VS | 40–120 px | Placeholder (initials on gradient) |
-| Gem/diamond icon | Icon/SVG | Currency pills, Store, wheel | 16–20 px | Placeholder (drawn diamond) |
-| Gold coin icon | Icon/SVG | Currency pills, wheel | 16–20 px | Placeholder (drawn coin) |
-| VIP crown icon | Icon/SVG | Settings VIP banner, Store VIP | 20–24 px | Placeholder (`Icons`) |
-| Trophy icon | Icon | Tournaments row | 20 px | Placeholder (`Icons`) |
-| Achievement badges (4) ★ | SVG/PNG | Profile achievements | 40 px | Placeholder (icon + gradient) |
-| Featured/"Online Play" art | Image (opt) | Home hero card background | full-width | Placeholder (gradient) |
-| Post image (onboarding) | Image | "Share your moment" card | ~240×118 | Placeholder (gradient) |
-| Tab bar icons (4) | Icon | Home/Wheel/Store/Profile | 24 px | Placeholder (`Icons`) |
-| Ad banner creative | Image | Home ad slot | 320×50 | Placeholder (house-ad text) |
-| Chess board + pieces ★ | SVG/PNG set | Chess game board | board + 12 piece glyphs | Placeholder (Unicode chess glyphs ♞♟ on a drawn board) — real assets to be provided |
+**Game area** (`lib/widgets/game_widgets.dart`): `GameHeader`,
+`BoardPlayerCard` (rectangular timer ring, 3 text rows, active glow),
+`BoardInfoPanel` (Last move / Turn clock), `BoardActionBar` (pinned: chat ·
+status · draw · forfeit), `showGamePaused`, `confirmMatchForfeit`,
+`showGameChatSheet`.
 
-> **Single-game note (current policy).** The app ships with **Chess** as the only
-> playable game. The other boards (Snakes & Ladders, Ludo, Othello, Scrabble,
-> Trivia) remain in the codebase but are **hidden** — the Home game-picker chips
-> were removed, and Online Play / Quick Play launch **Chess** (VS → Chess board →
-> result). Re-expose the others by restoring the game-picker and a `gameType`.
+---
 
-> **Chess board perspective (2.5D ↔ 3D) note.** The chess board
-> (`ChessBoardView` in `lib/game/chess/chess_board_view.dart`) renders with
-> Flutter-drawn beveled squares and vector-styled glyph pieces (no bundled
-> assets). It now takes a `perspective` flag (default `false`) and a `tilt`
-> angle (default `0.46` rad ≈ 26°):
-> - `perspective: false` keeps the existing flat, top-down 2.5D board unchanged.
-> - `perspective: true` wraps the whole 8×8 square `Stack` in a single
->   `Transform` with a perspective matrix (perspective divide + `rotateX(-tilt)`)
->   so the far rank recedes/shrinks and the near rank enlarges — an
->   over-the-table 3D view. Tap-to-move stays exact: Flutter runs pointer events
->   through the matrix inverse (`transformHitTests`) and the squares sit on the
->   child z = 0 plane, so taps still land on the right square with no manual
->   projection. Pieces are billboarded upright (counter-rotated by `+tilt`) and
->   scale with depth, and `flipped` (black-at-bottom) is still honoured.
->
-> It's exposed in the UI as a flat/3D toggle (a cube icon) on the **offline
-> Practice** board in `lib/screens/games/chess_online_screen.dart`
-> (`_OfflineBoard`). Online play stays on the flat default.
+## 3. Screens and deliberate differences from the mockup
 
-Legend: **Provided** = shipped file · **Pending** = waiting on you (★) · **Placeholder** = drawn/system stand-in that works today · **Online placeholder** = temporary network image/icon, to be swapped for a provided file later.
+All mockup screens are built. Differences on purpose:
+
+| Area | App | Why |
+|---|---|---|
+| Brand | "Chess" | Single-game app for now |
+| Home game chips | Chess, Snakes & Ladders and Ludo are playable; the rest show **Soon** | Only those three have a game area (see `lib/configs/games/`) |
+| Ludo / Snakes & Ladders | Quick Play vs computer (2–4 players, pick your colour); 2D/3D board toggle; animated 3D die; online play shows "coming soon" | Their socket protocols aren't integrated yet; pause / forfeit / results are the shared chess ones |
+| Online Play sheet | No "How many players?" step; 2P badges; added a **Choose your side** (White/Black) step; CTA "Find match" | Chess is always 2 players; the side is sent as the matchmaking seat |
+| Matchmaking (online) | Real search with a 60 s countdown under the empty seat; no opponent level chip | Driven by the server, not the mockup's fixed timings; a live opponent's level isn't sent |
+| Register | **Username** field (mockup: Full name) | The API requires a username |
+| Quick Play | Setup (side, difficulty, time per move) → vs computer | The mockup's Quick Play is a free online match |
+| Chess board | Neon glass board, drawn 3D pieces, 2D/3D toggle | Chosen look; no image assets |
+| Game History | All / Wins / Losses filter | Added |
+| Join room | Phone keyboard (letters + digits) | The mockup keypad can't type real codes like `AX7K2Q` |
+| Tournaments CTAs | Join → "Joined ✓", Watch → note, Past → Results | Realistic behaviour (mockup shows Join on past events) |
+| Settings | "Demo states" only in debug builds | Prototype-only shortcuts |
+
+**Behaviour rules:** everything should feel like a shipped app — realistic
+pacing (the computer's thinking time scales with difficulty; a 0.6 s hand-over
+before the next player's clock starts), state that changes after actions, and
+no prototype oddities. A screen never navigates after a request unless it is still the one on
+top, and only one action can run at a time (`BusyGuard`).
+
+---
+
+## 4. Loading states
+
+0. **App start** — native splash (dark + orb) → Flutter splash with a
+   progress bar that follows the real startup steps (`lib/app/startup.dart`:
+   fonts and saved preferences, session restore, game socket, Home data) and a
+   status line. It ends on Language (first launch), Home (saved session) or
+   Login. Offline or server errors show a message with Retry, and the saved
+   session is kept.
+
+1. **Button spinner** — `GradientButton(loading: true)` for one-shot actions
+   (Log In, Create Account, Save profile). Blocks re-taps while in flight.
+2. **Skeleton** — `AsyncView` shows mockup-style shimmering rows while a
+   screen's data is loading (Store, Tournaments, Friends, Leaderboard, Inbox,
+   Game History). Only where a real service is awaited — no fake delays.
+
+---
+
+## 5. Required assets
+
+> **Asset rule.** Whenever a screen needs an asset (logo, badge, avatar, flag,
+> product art…): record it in this table first; use a drawn shape, system
+> icon or online image as a placeholder; swap in the real file when provided.
+
+Nothing below needs a bundled file to run today.
+
+| Asset | Usage | Size | Status |
+|---|---|---|---|
+| App logo mark ★ | Login, splash | 24–150 px | Placeholder (drawn gradient ring + dot) |
+| App launcher icon ★ | Android/iOS/macOS home screen | 1024² + mipmaps | Default Flutter icon — pending |
+| Display + body fonts | All text | — | **Bundled** Space Grotesk + Manrope TTFs in `assets/google_fonts/` (Latin; other scripts use the system font) |
+| Native splash logo | Launch screen before Flutter starts | 600² / 960² (Android 12) | `assets/splash/` — the orb rendered from `AuraOrb`; regenerate with `dart run flutter_native_splash:create` |
+| Google "G" logo ★ | Google sign-in | 18 px | Placeholder (drawn) |
+| Apple glyph | Apple sign-in | 18 px | System icon |
+| Country flags | Name rows (Home, Profile) | 13–16 px | Emoji from the profile's country code |
+| User avatars | HUD, Profile, cards, lobby | 40–120 px | Initials on gradient (API `avatar_url` not used yet) |
+| Gem / coin | Currency everywhere | 14–20 px | Drawn (`CurrencyGlyph`) |
+| Chess board + pieces | Game area | board + 12 pieces | **Final:** drawn vector pieces and board (no assets will be provided) |
+| Achievement / tournament icons | Achievements, Tournaments | 30–54 px | System icons on gradient tiles |
+| Bottom-nav icons | Home/Wheel/Store/Profile | 23 px | Drawn from the mockup's SVG paths |
+| Ad banner creative | Home ad slot | 320×50 | House-ad text placeholder |
+| Snakes & Ladders / Ludo boards, pawns, die | Game areas | — | Drawn in code (`lib/game/snakes`, `lib/game/ludo`, `lib/game/common`) — no assets needed; swap in art if provided |
+| Other games' boards ★ | Othello and the rest | — | Needed when those game areas are built |
+
+★ = a real asset is wanted; send it and it replaces the placeholder.

@@ -71,7 +71,15 @@ class User {
   /// the API's `username` field.
   String get username => handle.startsWith('@') ? handle.substring(1) : handle;
 
-  User copyWith({String? displayName, String? bio, String? country, String? avatarId}) => User(
+  User copyWith({
+    String? displayName,
+    String? bio,
+    String? country,
+    String? avatarId,
+    String? preferredLanguage,
+    String? dateOfBirth,
+  }) =>
+      User(
         id: id,
         displayName: displayName ?? this.displayName,
         handle: handle,
@@ -86,8 +94,8 @@ class User {
         country: country ?? this.country,
         avatarId: avatarId ?? this.avatarId,
         avatarUrl: avatarUrl,
-        dateOfBirth: dateOfBirth,
-        preferredLanguage: preferredLanguage,
+        dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+        preferredLanguage: preferredLanguage ?? this.preferredLanguage,
         createdAt: createdAt,
       );
 
@@ -150,7 +158,7 @@ class User {
   }
 
   /// First non-null value among [keys] — tolerates snake_case or camelCase
-  /// (the API is Rust/serde snake_case; see docs/INTEGRATION_PLAN.md §7b).
+  /// (the API is Rust/serde snake_case; see docs/SERVICES_AND_REALTIME.md).
   static Object? _pick(Map<String, dynamic> j, List<String> keys) {
     for (final k in keys) {
       if (j[k] != null) return j[k];

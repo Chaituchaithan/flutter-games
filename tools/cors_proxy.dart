@@ -1,24 +1,28 @@
 // Tiny dev-only proxy so the Flutter *web* build can reach the gateway, which
 // doesn't send CORS headers. It forwards every REST request to the real gateway
 // and adds permissive CORS headers (and answers preflight OPTIONS). It ALSO
-// proxies the realtime WebSocket (`/api/v1/ws`) so the whole app can talk to a
-// single same-origin host (localhost:8899) during web dev.
+// proxies the realtime WebSockets: `/svc/<port>/ws` goes to that game service
+// (chess :31283, ludo :31285, …), so the whole app talks to a single
+// same-origin host (localhost:8899) during web dev.
 //
 // Run:   dart run tools/cors_proxy.dart        (listens on http://localhost:8899)
 // The web build auto-targets it (see api_client.dart / chess_session.dart):
 //   flutter run -d web-server --web-port=5000
 // …or point it explicitly:
 //   --dart-define=API_BASE_URL=http://localhost:8899/api/v1
-//   --dart-define=CHESS_WS_URL=ws://localhost:8899/api/v1/ws
+//   --dart-define=CHESS_WS_URL=ws://localhost:8899/svc/31283/ws
 //
 // Upstream defaults to the deployed gateway; edit the consts if the host changes.
 
 import 'dart:convert';
 import 'dart:io';
 
-const _upstreamHost = '169.58.184.121';
-const _upstreamPort = 30080;
-const _listenPort = 8899;
+// Same host/port as the app (lib/configs is pure Dart for exactly this).
+import 'package:snakeladder/configs/environment.dart';
+
+final _upstreamHost = currentEnvironment.server.host;
+final _upstreamPort = currentEnvironment.server.gatewayPort;
+const _listenPort = 8899; // keep in sync with proxyPort in lib/configs/proxy_config.dart
 
 Future<void> main() async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, _listenPort);
@@ -44,11 +48,14 @@ Future<void> _proxyWs(HttpRequest req) async {
   final headers = <String, dynamic>{
     if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
   };
+  // `/svc/<port>/<path>` → that game service (e.g. /svc/31283/ws → chess on
+  // :31283/ws). Anything else goes to the gateway port as before.
+  final svc = RegExp(r'^/svc/(\d+)(/.*)$').firstMatch(req.uri.path);
   final upUri = Uri(
     scheme: 'ws',
     host: _upstreamHost,
-    port: _upstreamPort,
-    path: req.uri.path,
+    port: svc != null ? int.parse(svc.group(1)!) : _upstreamPort,
+    path: svc != null ? svc.group(2)! : req.uri.path,
     query: req.uri.query.isEmpty ? null : req.uri.query,
   );
   final logUri = upUri.replace(queryParameters: {
@@ -101,11 +108,24 @@ Future<void> _proxyWs(HttpRequest req) async {
     },
     onDone: () {
       stdout.writeln('[proxy] ws upstream closed (${upstream.closeCode} ${upstream.closeReason})');
-      browser.close(upstream.closeCode, upstream.closeReason);
+      _safeClose(browser, upstream.closeCode, upstream.closeReason);
     },
     onError: (_) => browser.close(),
     cancelOnError: false,
   );
+}
+
+/// Closes [ws], forwarding the other side's close code only when it may be
+/// sent. 1005/1006/1015 are reserved "no code / abnormal / TLS" markers —
+/// passing them to `close()` throws, which used to crash the whole proxy when
+/// a game server dropped a connection.
+void _safeClose(WebSocket ws, int? code, String? reason) {
+  final sendable = code != null && (code == 1000 || (code >= 1001 && code <= 1003) || (code >= 1007 && code <= 1014) || (code >= 3000 && code <= 4999));
+  try {
+    sendable ? ws.close(code, reason) : ws.close();
+  } on Object catch (e) {
+    stdout.writeln('[proxy] close failed: $e');
+  }
 }
 
 /// Re-issues a refused upgrade as a plain request so we can log the gateway's
@@ -181,11 +201,14 @@ Future<void> _handle(HttpRequest req, HttpClient client) async {
   }
 
   try {
+    // `/svc/<port>/<path>` → that game service's REST API (same port as its
+    // socket), e.g. /svc/31283/health → chess :31283/health. Else the gateway.
+    final svc = RegExp(r'^/svc/(\d+)(/.*)$').firstMatch(req.uri.path);
     final uri = Uri(
       scheme: 'http',
       host: _upstreamHost,
-      port: _upstreamPort,
-      path: req.uri.path,
+      port: svc != null ? int.parse(svc.group(1)!) : _upstreamPort,
+      path: svc != null ? svc.group(2)! : req.uri.path,
       query: req.uri.query.isEmpty ? null : req.uri.query,
     );
     final up = await client.openUrl(req.method, uri);

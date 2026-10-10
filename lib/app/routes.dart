@@ -21,16 +21,9 @@ import '../screens/profile/edit_profile_screen.dart';
 import '../screens/profile/avatars_screen.dart';
 import '../screens/profile/game_history_screen.dart';
 import '../screens/profile/achievements_screen.dart';
-import '../screens/games/chess_screen.dart';
-import '../screens/games/chess_online_screen.dart';
-import '../screens/games/chess_vs_computer_screen.dart';
-import '../screens/games/chess_setup_screen.dart';
-import '../screens/games/othello_screen.dart';
-import '../screens/games/snakes_ladders_screen.dart';
-import '../screens/games/ludo_screen.dart';
-import '../screens/games/scrabble_screen.dart';
-import '../screens/games/trivia_screen.dart';
-import '../screens/games/level_up_screen.dart';
+
+import 'package:snakeladder/screens/profile/level_up_screen.dart';
+
 import '../screens/settings/settings_screen.dart';
 import '../screens/social/inbox_screen.dart';
 import '../screens/social/friends_screen.dart';
@@ -42,6 +35,8 @@ import '../screens/match/matchmaking_screen.dart';
 import '../screens/system/maintenance_screen.dart';
 import '../screens/system/force_update_screen.dart';
 import '../screens/system/loading_skeleton_screen.dart';
+import '../screens/settings/change_password_screen.dart';
+import 'app_profile.dart';
 import 'main_shell.dart';
 
 /// Named routes for the app. Screens that live inside the bottom-tab shell
@@ -77,26 +72,35 @@ class Routes {
   static const forceUpdate = '/system/update';
   static const loading = '/system/loading';
   static const editProfile = '/profile/edit';
+  static const changePassword = '/settings/change-password';
   static const avatars = '/profile/avatars';
   static const gameHistory = '/profile/history';
   static const achievements = '/profile/achievements';
-  static const chess = '/game/chess';
-  static const chessOnline = '/game/chess-online';
-  static const chessVsComputer = '/game/chess-vs-computer';
-  static const chessSetup = '/game/chess-setup';
-  static const othello = '/game/othello';
-  static const snakesLadders = '/game/snakes-ladders';
-  static const ludo = '/game/ludo';
-  static const scrabble2p = '/game/scrabble-2p';
-  static const scrabble4p = '/game/scrabble-4p';
-  static const trivia2p = '/game/trivia-2p';
-  static const trivia4p = '/game/trivia-4p';
   static const levelUp = '/game/level-up';
   static const resultVictory = '/result/victory';
   static const resultDefeat = '/result/defeat';
   static const resultDraw = '/result/draw';
 
-  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+  static Route<dynamic> onGenerateRoute(RouteSettings settings) =>
+      MaterialPageRoute(builder: (_) => pageFor(settings), settings: settings);
+
+  /// The same route as a soft cross-fade (e.g. leaving the splash).
+  static Route<dynamic> fadeRoute(String name, {Object? arguments}) {
+    final settings = RouteSettings(name: name, arguments: arguments);
+    return PageRouteBuilder<dynamic>(
+      settings: settings,
+      transitionDuration: const Duration(milliseconds: 450),
+      pageBuilder: (_, _, _) => pageFor(settings),
+      transitionsBuilder: (_, a, _, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: a, curve: Curves.easeOut),
+        child: child,
+      ),
+    );
+  }
+
+  /// The screen for [settings] (shared screens here; game screens from the
+  /// app's game modules).
+  static Widget pageFor(RouteSettings settings) {
     Widget page;
     switch (settings.name) {
       case splash:
@@ -176,6 +180,8 @@ class Routes {
         page = const ForceUpdateScreen();
       case loading:
         page = const LoadingSkeletonScreen();
+      case changePassword:
+        page = const ChangePasswordScreen();
       case editProfile:
         page = const EditProfileScreen();
       case avatars:
@@ -184,42 +190,11 @@ class Routes {
         page = const GameHistoryScreen();
       case achievements:
         page = const AchievementsScreen();
-      case chess:
-        page = const ChessScreen();
-      case chessVsComputer:
-        page = const ChessVsComputerScreen();
-      case chessSetup:
-        page = const ChessSetupScreen();
-      case chessOnline:
-        final args = settings.arguments as Map<String, dynamic>?;
-        page = ChessOnlineScreen(
-          stake: args?['stake'] as int? ?? 0,
-          tokens: args?['tokens'] as bool? ?? true,
-          mode: switch (args?['mode'] as String?) {
-            'create' => ChessEntryMode.create,
-            'join' => ChessEntryMode.join,
-            _ => ChessEntryMode.match,
-          },
-          joinCode: args?['code'] as String?,
-        );
-      case othello:
-        page = const OthelloScreen();
-      case snakesLadders:
-        page = const SnakesLaddersScreen();
-      case ludo:
-        page = const LudoScreen();
-      case scrabble2p:
-        page = const ScrabbleScreen(players: 2);
-      case scrabble4p:
-        page = const ScrabbleScreen(players: 4);
-      case trivia2p:
-        page = const TriviaScreen(players: 2);
-      case trivia4p:
-        page = const TriviaScreen(players: 4);
       default:
-        // Entry point ('/' on web maps here) — start at Splash.
-        page = const SplashScreen();
+        // A game screen owned by one of this app's game modules; otherwise
+        // the entry point ('/' on web maps here) — start at Splash.
+        page = AppProfile.current.buildRoute(settings.name, settings.arguments) ?? const SplashScreen();
     }
-    return MaterialPageRoute(builder: (_) => page, settings: settings);
+    return page;
   }
 }

@@ -4,7 +4,7 @@ import '../../app/routes.dart';
 import '../../widgets/aura.dart';
 
 /// Match preview — VS card + stake summary + "Create game". Standalone screen.
-/// Create game → Routes.matchmaking (VS → Chess board → result). See docs/DESIGN_SPEC.md §12.
+/// Create game → Routes.matchmaking (VS → Chess board → result). See docs/DESIGN_SPEC.md.
 class MatchPreviewScreen extends StatelessWidget {
   const MatchPreviewScreen({super.key});
 

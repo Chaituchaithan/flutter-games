@@ -1,28 +1,19 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../configs/configs.dart';
 import 'app_exception.dart';
-import 'dev_proxy.dart';
 
-/// API host/port. Resolution order:
-/// 1. explicit `--dart-define=API_BASE_URL=…` (wins — staging/prod/relay);
-/// 2. the local proxy (`tools/cors_proxy.dart`) when the proxy switch is ON
-///    (see `dev_proxy.dart`) — needed on web, since the gateway sends no CORS
-///    headers;
-/// 3. the dev gateway default.
-/// Point this at a staging/prod HTTPS host before release (and drop the Android
-/// cleartext rule).
-const _apiOverride = String.fromEnvironment('API_BASE_URL');
-const _remoteBaseUrl = 'http://169.58.184.121:30080/api/v1';
-final _baseUrl = _apiOverride.isNotEmpty
-    ? _apiOverride
-    : (kUseProxy ? '$kProxyHttpBase/api/v1' : _remoteBaseUrl);
+/// REST base — resolved by [AppConfig.apiBaseUrl] (`API_BASE_URL` override →
+/// dev proxy → environment server). See lib/configs.
+final _baseUrl = AppConfig.apiBaseUrl;
 
 /// Thin wrapper over Dio: attaches the auth bearer token and maps raw
 /// `DioException`s into [AppException] so repositories stay transport-agnostic.
 ///
-/// Not yet pointed at a live backend — remote sources are still off by default
-/// (repositories use their static source). See docs/INTEGRATION_PLAN.md.
+/// Auth and profile use the live API; the other data domains still read their
+/// static sources until switched on (`useRemoteSourcesProvider`). On a 401 it
+/// refreshes the token once and retries. See docs/SERVICES_AND_REALTIME.md.
 class ApiClient {
   ApiClient({Dio? dio})
       : _dio = dio ??
@@ -30,8 +21,8 @@ class ApiClient {
               // Trailing slash so a base path like `/api/v1` is preserved when a
               // relative path is appended (see [_rel]).
               baseUrl: _baseUrl.endsWith('/') ? _baseUrl : '$_baseUrl/',
-              connectTimeout: const Duration(seconds: 15),
-              receiveTimeout: const Duration(seconds: 20),
+              connectTimeout: NetworkConfig.connectTimeout,
+              receiveTimeout: NetworkConfig.receiveTimeout,
               contentType: 'application/json',
             )) {
     _dio.interceptors.add(

@@ -49,3 +49,5 @@ app.*.map.json
 
 # Claude Code machine-local settings
 .claude/settings.local.json
+
+/mockups

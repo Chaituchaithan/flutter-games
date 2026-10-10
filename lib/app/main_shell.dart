@@ -28,8 +28,7 @@ class MainShellScope extends InheritedWidget {
   /// Switch the visible bottom-tab (0 Home · 1 Wheel · 2 Store · 3 Profile).
   final void Function(int index) selectTab;
 
-  static MainShellScope? maybeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<MainShellScope>();
+  static MainShellScope? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<MainShellScope>();
 
   @override
   bool updateShouldNotify(MainShellScope oldWidget) => false;
@@ -73,19 +72,12 @@ class _MainShellState extends ConsumerState<MainShell> {
                 if (!online)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: AuraOfflineBanner(
-                      onRetry: () => ref.invalidate(connectivityProvider),
-                    ),
+                    child: AuraOfflineBanner(onRetry: () => ref.invalidate(connectivityProvider)),
                   ),
                 Expanded(
                   child: IndexedStack(
                     index: index,
-                    children: const [
-                      HomeScreen(),
-                      WheelScreen(),
-                      StoreScreen(),
-                      ProfileScreen(),
-                    ],
+                    children: const [HomeScreen(), WheelScreen(), StoreScreen(), ProfileScreen()],
                   ),
                 ),
                 AuraBottomNav(index: index, onChanged: _select),

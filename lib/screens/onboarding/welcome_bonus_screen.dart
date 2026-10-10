@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/routes.dart';
 import '../../widgets/aura.dart';
 
-/// Welcome bonus — starter pack. See docs/DESIGN_SPEC.md (v2 §Welcome bonus).
+/// Welcome bonus — starter pack. See docs/DESIGN_SPEC.md.
 class WelcomeBonusScreen extends StatelessWidget {
   const WelcomeBonusScreen({super.key});
 

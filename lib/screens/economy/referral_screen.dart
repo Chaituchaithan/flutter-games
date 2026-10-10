@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../widgets/aura.dart';
 
-/// Invite friends / referral screen. See docs/DESIGN_SPEC.md (v2 §Referral).
+/// Invite friends / referral screen. See docs/DESIGN_SPEC.md.
 class ReferralScreen extends StatelessWidget {
   const ReferralScreen({super.key});
 

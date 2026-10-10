@@ -3,7 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Best-effort persistence for the auth token pair (access + refresh). Every
 /// call is guarded so a missing platform channel (e.g. in unit tests) degrades
-/// to a no-op / null instead of throwing. See docs/INTEGRATION_PLAN.md §7b.
+/// to a no-op / null instead of throwing. See docs/SERVICES_AND_REALTIME.md.
 class TokenStore {
   const TokenStore([this._storage = const FlutterSecureStorage()]);
   final FlutterSecureStorage _storage;

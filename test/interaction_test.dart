@@ -138,7 +138,7 @@ void main() {
     }
   });
 
-  testWidgets('Online Play sheet: step through to Create game', (tester) async {
+  testWidgets('Online Play sheet: step through to Find match', (tester) async {
     await pumpScreen(
       tester,
       Builder(builder: (c) => Center(child: GradientButton(label: 'open', onPressed: () => showOnlinePlaySheet(c)))),
@@ -147,11 +147,14 @@ void main() {
     await tapText(tester, 'open', 'OnlinePlay');
     // Chess is 2-player, so the sheet opens directly on "Choose your stake".
     expect(find.text('Choose your stake'), findsOneWidget, reason: 'opens on stake');
-    await tapText(tester, 'Tokens', 'OnlinePlay currency'); // -> stake amount step
+    await tapText(tester, 'Tokens', 'OnlinePlay currency'); // -> side step
+    expect(find.text('Choose your side'), findsOneWidget, reason: 'side step');
+    await tapText(tester, 'Black', 'OnlinePlay side'); // -> stake amount step
     await tapText(tester, 'Preview match  →', 'OnlinePlay stake'); // -> preview
-    // "Create game" is reachable; tapping it launches the live online Chess
+    expect(find.text('Black'), findsWidgets, reason: 'preview shows the side');
+    // "Find match" is reachable; tapping it launches the live online Chess
     // screen (real WebSocket) which isn't exercised here — just assert it shows.
-    expect(find.text('Create game'), findsOneWidget, reason: 'OnlinePlay preview');
+    expect(find.text('Find match'), findsOneWidget, reason: 'OnlinePlay preview');
   });
 
   testWidgets('Overlays: chat / paused / dialog / balance / toast', (tester) async {

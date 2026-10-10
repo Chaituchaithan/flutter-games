@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/api_client.dart';
 import '../../widgets/aura.dart' show Currency;
-import '../data_config.dart';
+import '../../configs/feature_flags.dart';
 import '../models/store_pack.dart';
 import '../sources/store_source.dart';
 

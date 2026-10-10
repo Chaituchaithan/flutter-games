@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../widgets/aura.dart';
 
-/// Avatars picker — "Choose Avatar". See docs/DESIGN_SPEC.md (v2 §Avatars).
+/// Avatars picker — "Choose Avatar". See docs/DESIGN_SPEC.md.
 class AvatarsScreen extends StatefulWidget {
   const AvatarsScreen({super.key});
 

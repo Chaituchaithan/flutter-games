@@ -1,6 +1,7 @@
 import '../../services/api_client.dart';
 import '../../widgets/aura.dart' show AuraColors;
 import '../models/match_record.dart';
+import '../../configs/endpoints/api_endpoints.dart';
 
 /// Past-match records for the game-history screen.
 abstract class HistorySource {
@@ -31,7 +32,7 @@ class RemoteHistorySource implements HistorySource {
 
   @override
   Future<List<MatchRecord>> matches() async {
-    final data = await _api.get('/matches/history') as List<dynamic>;
+    final data = await _api.get(ApiEndpoints.myMatchHistory) as List<dynamic>;
     return data.map((e) => MatchRecord.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

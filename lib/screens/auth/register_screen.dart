@@ -8,7 +8,7 @@ import '../../utils/validators.dart';
 import '../../widgets/aura.dart';
 
 /// Register — "Create account". Creates the account via the session/AuthService.
-/// See docs/DESIGN_SPEC.md §3.
+/// See docs/DESIGN_SPEC.md.
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -55,16 +55,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       showAuraToast(context, 'Please accept the Terms & Privacy Policy', kind: AuraToastKind.info);
       return;
     }
+    FocusScope.of(context).unfocus();
     setState(() => _busy = true);
     try {
       // Create the account (no auto-sign-in), then send the user to Login to
       // sign in with their new credentials.
-      await ref.read(sessionProvider.notifier).registerAccount(
-            name: _username.text.trim(),
-            email: _email.text.trim(),
-            password: _password.text,
-          );
-      if (mounted) {
+      await ref
+          .read(sessionProvider.notifier)
+          .registerAccount(name: _username.text.trim(), email: _email.text.trim(), password: _password.text);
+      // Navigate only while Register is still the screen on top.
+      if (mounted && ModalRoute.of(context)?.isCurrent != false) {
         showAuraToast(context, 'Account created — please log in', kind: AuraToastKind.success);
         Navigator.pushReplacementNamed(context, Routes.login);
       }
@@ -84,128 +84,120 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AuraScaffold(
-      appBar: const AuraAppBar(showBack: true),
-      glowColor: AuraColors.brandPink,
-      glowAlignment: const Alignment(-1.4, -1.1),
-      scroll: true,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 4),
-          Text('Create account', style: AuraText.headline.copyWith(fontSize: 32)),
-          const SizedBox(height: 8),
-          Text(
-            'Join the community in under a minute.',
-            style: AuraText.body.copyWith(color: AuraColors.textSecondary),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: LightButton(
-                  label: 'Apple',
-                  leading: const Icon(Icons.apple, size: 20, color: Colors.black),
-                  onPressed: _oauthContinue,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: LightButton(
-                  label: 'Google',
-                  dark: true,
-                  leading: const _GoogleG(size: 18),
-                  onPressed: _oauthContinue,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const _OrDivider(label: 'or sign up with email'),
-          const SizedBox(height: 20),
-          AuraTextField(
-            hint: 'Username',
-            icon: Icons.alternate_email,
-            keyboardType: TextInputType.text,
-            textInputAction: TextInputAction.next,
-            controller: _username,
-            errorText: _usernameError,
-            onChanged: (_) {
-              if (_usernameError != null) setState(() => _usernameError = null);
-            },
-          ),
-          const SizedBox(height: 14),
-          AuraTextField(
-            hint: 'Email address',
-            icon: Icons.mail_outline,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            controller: _email,
-            errorText: _emailError,
-            onChanged: (_) {
-              if (_emailError != null) setState(() => _emailError = null);
-            },
-          ),
-          const SizedBox(height: 14),
-          AuraTextField(
-            hint: 'Create password',
-            icon: Icons.lock_outline,
-            obscure: _obscure,
-            controller: _password,
-            errorText: _passwordError,
-            textInputAction: TextInputAction.done,
-            onChanged: (_) {
-              if (_passwordError != null) setState(() => _passwordError = null);
-            },
-            onSubmitted: (_) => _create(),
-            trailing: IconButton(
-              splashRadius: 20,
-              icon: Icon(
-                _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                size: 20,
-                color: AuraColors.textSecondary,
-              ),
-              onPressed: () => setState(() => _obscure = !_obscure),
+    return BusyGuard(
+      busy: _busy,
+      child: AuraScaffold(
+        appBar: const AuraAppBar(showBack: true),
+        glowColor: AuraColors.brandPink,
+        glowAlignment: const Alignment(-1.4, -1.1),
+        scroll: true,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 4),
+            Text('Create account', style: AuraText.headline.copyWith(fontSize: 32)),
+            const SizedBox(height: 8),
+            Text(
+              'Join the community in under a minute.',
+              style: AuraText.body.copyWith(color: AuraColors.textSecondary),
             ),
-          ),
-          const SizedBox(height: 18),
-          _TermsRow(
-            checked: _agreed,
-            onToggle: () => setState(() => _agreed = !_agreed),
-          ),
-          const SizedBox(height: 18),
-          GradientButton(label: 'Create Account', onPressed: _create, loading: _busy),
-          const SizedBox(height: 24),
-          Center(
-            child: Text.rich(
-              TextSpan(
-                style: const TextStyle(
-                  color: AuraColors.textSecondary,
-                  fontSize: 14,
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: LightButton(
+                    label: 'Apple',
+                    leading: const Icon(Icons.apple, size: 20, color: Colors.black),
+                    onPressed: _oauthContinue,
+                  ),
                 ),
-                children: [
-                  const TextSpan(text: 'Already have an account? '),
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: GestureDetector(
-                      onTap: () =>
-                          Navigator.pushReplacementNamed(context, Routes.login),
-                      child: const Text(
-                        'Log in',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LightButton(
+                    label: 'Google',
+                    dark: true,
+                    leading: const _GoogleG(size: 18),
+                    onPressed: _oauthContinue,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const _OrDivider(label: 'or sign up with email'),
+            const SizedBox(height: 20),
+            AuraTextField(
+              hint: 'Username',
+              icon: Icons.alternate_email,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.next,
+              controller: _username,
+              errorText: _usernameError,
+              onChanged: (_) {
+                if (_usernameError != null) setState(() => _usernameError = null);
+              },
+            ),
+            const SizedBox(height: 14),
+            AuraTextField(
+              hint: 'Email address',
+              icon: Icons.mail_outline,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              controller: _email,
+              errorText: _emailError,
+              onChanged: (_) {
+                if (_emailError != null) setState(() => _emailError = null);
+              },
+            ),
+            const SizedBox(height: 14),
+            AuraTextField(
+              hint: 'Create password',
+              icon: Icons.lock_outline,
+              obscure: _obscure,
+              controller: _password,
+              errorText: _passwordError,
+              textInputAction: TextInputAction.done,
+              onChanged: (_) {
+                if (_passwordError != null) setState(() => _passwordError = null);
+              },
+              onSubmitted: (_) => _create(),
+              trailing: IconButton(
+                splashRadius: 20,
+                icon: Icon(
+                  _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 20,
+                  color: AuraColors.textSecondary,
+                ),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+            const SizedBox(height: 18),
+            _TermsRow(checked: _agreed, onToggle: () => setState(() => _agreed = !_agreed)),
+            const SizedBox(height: 18),
+            GradientButton(label: 'Create Account', onPressed: _create, loading: _busy),
+            const SizedBox(height: 24),
+            Center(
+              child: Text.rich(
+                TextSpan(
+                  style: const TextStyle(color: AuraColors.textSecondary, fontSize: 14),
+                  children: [
+                    const TextSpan(text: 'Already have an account? '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pushReplacementNamed(context, Routes.login),
+                        child: const Text(
+                          'Log in',
+                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-        ],
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }
@@ -219,11 +211,7 @@ class _TermsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const linkStyle = TextStyle(
-      color: AuraColors.accentGlow,
-      fontSize: 13.5,
-      fontWeight: FontWeight.w600,
-    );
+    const linkStyle = TextStyle(color: AuraColors.accentGlow, fontSize: 13.5, fontWeight: FontWeight.w600);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -243,9 +231,7 @@ class _TermsRow extends StatelessWidget {
                 width: 1.5,
               ),
             ),
-            child: checked
-                ? const Icon(Icons.check, size: 15, color: Colors.white)
-                : null,
+            child: checked ? const Icon(Icons.check, size: 15, color: Colors.white) : null,
           ),
         ),
         const SizedBox(width: 10),
@@ -254,11 +240,7 @@ class _TermsRow extends StatelessWidget {
             padding: const EdgeInsets.only(top: 1),
             child: Text.rich(
               TextSpan(
-                style: const TextStyle(
-                  color: AuraColors.textSecondary,
-                  fontSize: 13.5,
-                  height: 1.4,
-                ),
+                style: const TextStyle(color: AuraColors.textSecondary, fontSize: 13.5, height: 1.4),
                 children: const [
                   TextSpan(text: 'I agree to the '),
                   TextSpan(text: 'Terms', style: linkStyle),
@@ -288,23 +270,12 @@ class _GoogleG extends StatelessWidget {
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: SweepGradient(
-          colors: [
-            Color(0xFF4285F4),
-            Color(0xFF34A853),
-            Color(0xFFFBBC05),
-            Color(0xFFEA4335),
-            Color(0xFF4285F4),
-          ],
+          colors: [Color(0xFF4285F4), Color(0xFF34A853), Color(0xFFFBBC05), Color(0xFFEA4335), Color(0xFF4285F4)],
         ),
       ),
       child: Text(
         'G',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: size * 0.62,
-          fontWeight: FontWeight.w800,
-          height: 1,
-        ),
+        style: TextStyle(color: Colors.white, fontSize: size * 0.62, fontWeight: FontWeight.w800, height: 1),
       ),
     );
   }
@@ -322,10 +293,7 @@ class _OrDivider extends StatelessWidget {
         const Expanded(child: Divider(color: AuraColors.cardBorder, thickness: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            label,
-            style: const TextStyle(color: AuraColors.skip, fontSize: 12.5),
-          ),
+          child: Text(label, style: const TextStyle(color: AuraColors.skip, fontSize: 12.5)),
         ),
         const Expanded(child: Divider(color: AuraColors.cardBorder, thickness: 1)),
       ],

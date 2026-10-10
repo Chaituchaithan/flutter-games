@@ -1,5 +1,6 @@
 import '../../services/api_client.dart';
 import '../models/inbox_message.dart';
+import '../../configs/endpoints/api_endpoints.dart';
 
 /// Inbox notifications.
 abstract class InboxSource {
@@ -28,7 +29,7 @@ class RemoteInboxSource implements InboxSource {
 
   @override
   Future<List<InboxMessage>> messages() async {
-    final data = await _api.get('/inbox') as List<dynamic>;
+    final data = await _api.get(ApiEndpoints.inbox) as List<dynamic>;
     return data.map((e) => InboxMessage.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

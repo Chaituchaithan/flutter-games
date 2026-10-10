@@ -54,9 +54,31 @@ class Validators {
   static String? newPassword(String value) {
     if (value.isEmpty) return 'Please create a password';
     if (value.length < 8) return 'Use at least 8 characters';
+    if (value.length > 128) return 'Use at most 128 characters';
     if (!RegExp(r'[A-Za-z]').hasMatch(value) || !RegExp(r'\d').hasMatch(value)) {
       return 'Mix letters and numbers';
     }
+    return null;
+  }
+
+  /// Change password: current password is required (the server checks it).
+  static String? currentPassword(String value) {
+    if (value.isEmpty) return 'Please enter your current password';
+    return null;
+  }
+
+  /// Change password: same strength rules as register, and not the old one.
+  static String? changedPassword(String value, {required String current}) {
+    final base = newPassword(value);
+    if (base != null) return value.isEmpty ? 'Please enter a new password' : base;
+    if (value == current) return 'Choose a password different from your current one';
+    return null;
+  }
+
+  /// Change password: the confirmation must match the new password.
+  static String? confirmPassword(String value, {required String password}) {
+    if (value.isEmpty) return 'Please re-enter the new password';
+    if (value != password) return 'Passwords don’t match';
     return null;
   }
 }

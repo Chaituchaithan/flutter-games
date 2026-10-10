@@ -1,6 +1,7 @@
 import '../../services/api_client.dart';
 import '../../widgets/aura.dart' show AuraColors;
 import '../models/rank_entry.dart';
+import '../../configs/endpoints/api_endpoints.dart';
 
 /// Leaderboard entries for a scope (global/friends/weekly).
 abstract class LeaderboardSource {
@@ -31,7 +32,7 @@ class RemoteLeaderboardSource implements LeaderboardSource {
 
   @override
   Future<List<RankEntry>> entries(String scope) async {
-    final data = await _api.get('/leaderboard', query: {'scope': scope}) as List<dynamic>;
+    final data = await _api.get(ApiEndpoints.leaderboard, query: {'scope': scope}) as List<dynamic>;
     return data.map((e) => RankEntry.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

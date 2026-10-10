@@ -1,26 +1,28 @@
-# How to Run & Test
+# How to Run, Test & Build
 
 How to run the Chess app on **Web (Chrome)** and the **Android emulator**, with
-or without the dev proxy, and how to debug the realtime socket.
+or without the dev proxy, how to debug the realtime socket, and how to test and
+build release APKs. Settings live in `lib/configs` (§11).
 
-_Last updated: 2026-10-09_
+_Last updated: 2026-10-10_
 
 ---
 
 ## 1. Overview
 
-The app talks to one server, `169.58.184.121:30080`, in two ways:
+The app talks to one host, `169.58.184.121`: the **API gateway** on `:31294` (login, register, profile …) and **one service per game** on its own port (REST + socket on the same port):
 
 - **REST API** — login, profile, data (`/api/v1/...`). ✅ Working.
-- **WebSocket** — live chess (match, moves, chat). ❌ Not working yet: the
-  server returns **404** for the socket path (see §9).
+- **WebSocket** — one service per game on ports 31281–31292 (chess `:31283/ws`).
+  **ON:** after the API login the app signs in to the socket and opens Home
+  only on `auth.login_success` (see §3, §9).
 
 You can run the app in two modes, chosen by one switch:
 
 | Mode | API goes to | Socket goes to | Use it for |
 |---|---|---|---|
-| **Proxy ON** (current default) | `http://localhost:8899/api/v1` → proxy → server | `ws://localhost:8899/api/v1/ws` → proxy → server | Web (Chrome); emulator when you want proxy logs |
-| **Proxy OFF** (original) | `http://169.58.184.121:30080/api/v1` directly | `ws://169.58.184.121:30080/api/v1/ws` directly | Android emulator / real phone |
+| **Proxy ON** (current default) | `http://localhost:8899/api/v1` → proxy → server | `ws://localhost:8899/svc/31283/ws` → proxy → chess service | Web (Chrome); emulator when you want proxy logs |
+| **Proxy OFF** (original) | `http://169.58.184.121:31294/api/v1` directly | `ws://169.58.184.121:31283/ws` directly (chess) | Android emulator / real phone |
 
 The proxy is `tools/cors_proxy.dart`. Chrome **needs** it because the server
 sends no CORS headers, so the browser blocks direct calls. The proxy also
@@ -37,7 +39,12 @@ All commands run from the project folder:
 cd /Applications/Workspace/Flutter/snakeladder
 ```
 
-- **Flutter** installed (`flutter doctor` clean for Chrome and Android).
+- **Flutter** 3.47.4+ (Dart ^3.13) — `flutter doctor` clean for Chrome and Android.
+- **JDK 17** for Android builds. On this machine it's already wired to Flutter:
+  `flutter config --jdk-dir="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"`
+  and `flutter config --android-sdk "$HOME/Library/Android/sdk"`.
+- Dependencies: `flutter pub get` (after changing `pubspec.yaml`; `flutter clean`
+  first if a build acts stale).
 - **Android emulators**: `Samsung_Galaxy_S23`, `Moto_G_5G`.
   List with `flutter emulators`; see running devices with `flutter devices`.
 - **A test account** on the server. Log in with the account's **email**
@@ -49,17 +56,17 @@ cd /Applications/Workspace/Flutter/snakeladder
 
 ## 3. Proxy switch (ON / OFF)
 
-One setting decides the mode — `_proxyEnabled` in `lib/services/dev_proxy.dart`.
+One setting decides the mode — `proxyEnabledByDefault` in `lib/configs/proxy_config.dart`.
 It is currently **`true` (proxy ON)**.
 
 ```dart
 /// MASTER SWITCH: true = proxy testing, false = direct (original) HTTP/WS.
-const bool _proxyEnabled = true;
+const bool proxyEnabledByDefault = true;
 ```
 
 Three ways to choose the mode:
 
-1. **Change the default** — set `_proxyEnabled` to `true` / `false`
+1. **Change the default** — set `proxyEnabledByDefault` to `true` / `false`
    (or ask Claude: "turn on proxy" / "turn off proxy").
 2. **Override for one run, no code change** — add
    `--dart-define=USE_PROXY=true` or `--dart-define=USE_PROXY=false`.
@@ -70,18 +77,23 @@ When the proxy is ON the app picks the proxy address automatically:
 `localhost:8899` on Chrome/iOS, `10.0.2.2:8899` on the Android emulator
 (the emulator's name for your Mac).
 
-### Socket switch (bypass)
+### Socket switch
 
-While the chess socket URL is unknown, the socket is **bypassed** —
-`_socketEnabled = false` in `lib/services/socket/app_socket.dart`:
+The socket is **ON** — `socketEnabledByDefault = true` in
+`lib/configs/feature_flags.dart`:
 
-- Login → Home with the API only (no socket connection).
-- Online Play / Play With Friends open the **offline practice board** instead
-  of matchmaking.
+1. API login (`POST /auth/login`, then `/users/me` + profile).
+2. Open the active game's socket (chess `ws://…:31283/ws`) → server sends
+   `connection.established`.
+3. Send `{"id", "event": "auth.login", "data": {"token", "username"}}`.
+4. **Only on `auth.login_success`** → Home. On `auth.login_error` or no
+   connection you stay on Login with a message, and the half-open socket is closed.
 
-Turn it back on with `_socketEnabled = true`, or for one run with
-`--dart-define=SOCKET_ENABLED=true` (or ask Claude: "turn on socket").
-The `[SOCKET]` logs in §7 only appear when the socket is ON.
+Log out sends `auth.logout` and closes the socket.
+
+To bypass it (login → Home with the API only; Online Play opens the practice
+board): `socketEnabledByDefault = false`, or one run with
+`--dart-define=SOCKET_ENABLED=false` (or ask Claude: "turn off socket").
 
 ---
 
@@ -93,7 +105,7 @@ Web **only works with the proxy**.
    ```
    dart run tools/cors_proxy.dart
    ```
-   You should see: `CORS proxy: http://localhost:8899  ->  http://169.58.184.121:30080`
+   You should see: `CORS proxy: http://localhost:8899  ->  http://169.58.184.121:31294`
 2. Terminal 2 — run the app:
    ```
    flutter run -d chrome
@@ -129,7 +141,7 @@ No proxy needed — the app calls the server directly.
 flutter run -d emulator-5554 --dart-define=USE_PROXY=false
 ```
 
-(Or set `_proxyEnabled = false` and just run `flutter run -d emulator-5554`.)
+(Or set `proxyEnabledByDefault = false` and just run `flutter run -d emulator-5554`.)
 
 On native, the app sends the login token as an `Authorization: Bearer <token>`
 header when it opens the socket.
@@ -157,8 +169,8 @@ Play With Friends → create / join by room code.
 | Define | What it does | Example |
 |---|---|---|
 | `USE_PROXY` | Proxy ON/OFF for this run | `--dart-define=USE_PROXY=false` |
-| `API_BASE_URL` | Exact REST base URL (wins over proxy switch) | `--dart-define=API_BASE_URL=http://169.58.184.121:30080/api/v1` |
-| `CHESS_WS_URL` | Exact socket URL (wins over proxy switch) | `--dart-define=CHESS_WS_URL=ws://169.58.184.121:30080/<path>` |
+| `API_BASE_URL` | Exact REST base URL (wins over proxy switch) | `--dart-define=API_BASE_URL=http://169.58.184.121:31294/api/v1` |
+| `CHESS_WS_URL` | Exact socket URL (wins over proxy switch) | `--dart-define=CHESS_WS_URL=ws://169.58.184.121:31283/ws` |
 | `PROXY_HOST` | Where the proxy listens, if not the default | `--dart-define=PROXY_HOST=192.168.1.10:8899` |
 | `SOCKET_ENABLED` | Socket ON/OFF for this run (OFF = bypass) | `--dart-define=SOCKET_ENABLED=true` |
 | `SOCKET_USERNAME` | Fallback socket username when the account has none | `--dart-define=SOCKET_USERNAME=test2` |
@@ -176,7 +188,7 @@ Shown in the `flutter run` console (emulator) or browser DevTools console (web).
 
 **Success looks like:**
 ```
-[SOCKET] opening WS → ws://169.58.184.121:30080/<path>
+[SOCKET] opening WS → ws://169.58.184.121:31283/ws
 [SOCKET] recv connection.established {...}
 [SOCKET] send auth.login { token: eyJ0eX…, username: <name> }
 [SOCKET] recv auth.login_success {...}
@@ -194,7 +206,7 @@ Shown in the `flutter run` console (emulator) or browser DevTools console (web).
 
 ```
 [proxy] POST /api/v1/auth/login -> 200 body: {"access_token":"eyJ0eX…",...}   (tokens masked)
-[proxy] ws open  /api/v1/ws  <->  ws://169.58.184.121:30080/...                 socket connected
+[proxy] ws open  /svc/31283/ws  <->  ws://169.58.184.121:31283/ws                 socket connected
 [proxy] ws >> {...}        message app → server
 [proxy] ws << {...}        message server → app
 [proxy] ws upstream REFUSED ... -> 404 ...                                      server rejected the socket
@@ -214,62 +226,59 @@ Tokens and passwords are masked in all proxy logs, so they are safe to share.
 
 ---
 
-## 8. Socket diagnostics — `tools/ws_probe.dart`
-
-Tries many socket paths on the server with your token and reports what each
-returns. On a **101** it also runs `connection.established → auth.login` and
-prints the reply.
-
-Run it in **your own terminal** (so the password isn't shared anywhere):
+## 8. Quick service checks (no account needed)
 
 ```
-TOKEN=$(curl -s -X POST http://169.58.184.121:30080/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"<your email>","password":"<your password>"}' \
-  | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
-dart run tools/ws_probe.dart "$TOKEN"
+curl http://169.58.184.121:31294/health          # API gateway  → "api-gateway" ok
+curl http://169.58.184.121:31283/health          # chess        → "chess-service" ok
+curl http://169.58.184.121:31283/health/deep     # chess DB + cache → postgres/redis ok
+curl http://localhost:8899/health                # through the proxy (if running)
+curl http://localhost:8899/svc/31283/health      # a game through the proxy
 ```
-
-The token lasts **15 minutes** — run the probe right after getting it.
-
-How to read it:
-
-| Result | Meaning |
-|---|---|
-| `101` | ✅ That path is the socket — use it in `CHESS_WS_URL` |
-| `404` | Nothing at that path |
-| `401 ... missing authorization header` | Token sent the wrong way (the gateway only accepts the header, not `?token=`) |
+Any game: swap `31283` for its port (§9). For the full chess flow with two
+real accounts, run `tools/chess_flow_test.dart` (§9).
 
 ---
 
-## 9. Current socket status & what to ask the server team
+## 9. Game socket services
 
-**Status (2026-10-09):**
+**Status (2026-10-10):** every game service runs on its own port on
+`169.58.184.121`, socket path `/ws`. All 12 return `health: ok`, accept the
+WebSocket, and send `connection.established` first.
 
-- API login on `:30080` works.
-- Socket on `ws://169.58.184.121:30080/api/v1/ws` returns **404** even with a
-  valid token. Also 404: `/ws`, `/api/v1/chess/ws`, `/api/v1/games/chess/ws`,
-  `/api/v1/realtime`, `/api/v1/socket`, `/chess/ws`.
-- Port `3112` (the chess service port in Chess API.pdf, written as
-  `ws://localhost:3112/ws`) is not reachable from outside.
-- Other games' socket services are reachable directly and do send
-  `connection.established`: 30081 bingo, 30082 checkers, 30083 ludo,
-  30084 othello, 30085 poker, 30086 snake-and-ladder. Chess has none.
-- None of the three documents (Portal Gateway API, Chess API, SOCKET_HOOKS.md)
-  give the deployed socket URL.
+| Port | Service | Port | Service |
+|---|---|---|---|
+| 31281 | Bingo | 31287 | Poker |
+| 31282 | Checkers | 31288 | Racing |
+| 31283 | **Chess** | 31289 | Roulette |
+| 31284 | Crash | 31290 | Rummy |
+| 31285 | Ludo | 31291 | Scrabble |
+| 31286 | Othello | 31292 | Snakes & Ladders |
 
-**Message to send the server team:**
+Health / metrics: `http://169.58.184.121:<port>/health` and `/metrics`.
+These live in `lib/configs/games/<game>/<game>_config.dart`.
 
-> Login API works on port 30080. But opening the chess WebSocket on 30080
-> returns **404** for both `/ws` and `/api/v1/ws` (we send the token as
-> `Authorization: Bearer <token>`). Please share the **full WebSocket URL for
-> chess**, e.g. `ws://169.58.184.121:30080/????`.
+**Through the proxy** the app dials `ws://localhost:8899/svc/<port>/ws`; the
+proxy forwards it to `169.58.184.121:<port>/ws`. Restart the proxy after
+pulling these changes.
 
-Once you have it, test immediately with:
+**The socket is ON by default.** Run normally and watch the console:
 ```
-flutter run -d emulator-5554 --dart-define=USE_PROXY=false \
-  --dart-define=CHESS_WS_URL=ws://169.58.184.121:<port>/<path>
+flutter run -d emulator-5554 --dart-define=USE_PROXY=false
 ```
+Watch for `[SOCKET] recv auth.login_success`.
+
+**Full chess check from the terminal** (two real accounts, a free game, no
+wallet change): logs both in through the gateway, then plays create → join →
+ready → e2-e4 → e7-e5 → resign → completed, printing ✅/❌ per step.
+Passwords are asked at a hidden prompt.
+```
+dart run tools/chess_flow_test.dart <emailA> <emailB>
+```
+Verified without an account (2026-10-10): chess `/health`, `/health/deep`
+(Postgres + Redis ok) and `/metrics`; the socket sends `connection.established`;
+`auth.login` uses the **token** (a username alone is rejected outside debug mode,
+and when both are sent the token wins).
 
 ---
 
@@ -286,3 +295,101 @@ flutter run -d emulator-5554 --dart-define=USE_PROXY=false \
 | `auth.login_error` | Socket open but login refused | Check token and username in the `[SOCKET] send auth.login` line |
 | Code change not visible on web | Browser cache | Hard refresh (Cmd+Shift+R) |
 | Proxy changes not taking effect | Old proxy still running | `pkill -f tools/cors_proxy.dart; dart run tools/cors_proxy.dart` |
+
+---
+
+## 11. Configuration (`lib/configs`)
+
+All configuration lives in `lib/configs` — no IPs, ports or `--dart-define`
+reads anywhere else. Import `package:snakeladder/configs/configs.dart`.
+
+| File | What to change there |
+|---|---|
+| `environment.dart` | Server host + gateway port per environment (`APP_ENV=dev/staging/prod`) |
+| `server_config.dart` | How REST/socket URLs are built (http/https, ws/wss) |
+| `proxy_config.dart` | Proxy on/off (`proxyEnabledByDefault`), proxy port |
+| `feature_flags.dart` | Socket on/off (`socketEnabledByDefault`), remote data/auth |
+| `network_config.dart` | Timeouts, socket ping/backoff |
+| `build_overrides.dart` | Every `--dart-define` the app reads |
+| `endpoints/api_endpoints.dart` | Shared REST paths |
+| `games/<game>/<game>_config.dart` | A game's port (REST + socket), socket path, players, turn time, `<GAME>_WS_URL` override |
+| `games/core/` | `GameId`, `GameConfig`, `GameRegistry` (the list of games), active game |
+
+**Switch game (all-games build):** tap a game chip on Home, or start on one
+with `--dart-define=GAME=chess`. Only games in the running app can be selected.
+
+### Apps — one game per app
+
+Each game is a self-contained module; each app is an entry point listing the
+modules it ships (`AppProfile`). A single-game app contains only its own
+game's code, shows no game picker, and uses the game's name as its brand.
+
+| App | Entry point | Run |
+|---|---|---|
+| All games (development) | `lib/main.dart` | `flutter run` |
+| Chess | `lib/main_chess.dart` | `flutter run -t lib/main_chess.dart` |
+| Ludo | `lib/main_ludo.dart` | `flutter run -t lib/main_ludo.dart` |
+| Snakes & Ladders | `lib/main_snakes.dart` | `flutter run -t lib/main_snakes.dart` |
+
+Any combination is one more entry file, e.g. a "Ludo + Snakes" app:
+`AppProfile(appName: '…', modules: [ludoModule, snakesModule])`.
+
+**Rules (enforced by `test/game_isolation_test.dart`):**
+- A game's code lives in `lib/game/<game>/` (rules, board, screens, its
+  `<game>_module.dart`). Code shared by several games lives in `lib/game/common/`
+  (dice, pawn, player strip, setup screen, pause/forfeit/result flow).
+- Games never import each other; shared app code never imports a game — it
+  asks the active module through `GameArea` / `AppProfile`.
+- Each `main_<game>.dart` imports only its own game.
+
+**Add a game:** its config in `lib/configs/games/<game>/`, its code in
+`lib/game/<game>/` with a `GameModule` (routes, Quick Play / online routes,
+online sides), then list the module in the apps that should ship it.
+
+---
+
+## 12. Tests & quality checks
+
+Run before every commit/build:
+
+```
+flutter analyze          # static analysis — must be "No issues found!"
+flutter test             # full suite
+flutter test test/configs_test.dart      # one file
+flutter test --plain-name "Game history" # one test by name
+```
+
+Tests can't download Google Fonts, so you'll see font-fetch errors in the
+output — expected and harmless (tests filter them).
+
+---
+
+## 13. Build & install
+
+| Build | Command | Output |
+|---|---|---|
+| Release APK (universal) | `flutter build apk --release` | `build/app/outputs/flutter-apk/app-release.apk` |
+| Smaller per-ABI APKs | `flutter build apk --release --split-per-abi` | `app-arm64-v8a-release.apk`, … |
+| Debug APK | `flutter build apk --debug` | quick install for testing |
+| Play Store bundle | `flutter build appbundle --release` | `build/app/outputs/bundle/release/app-release.aab` |
+| Web | `flutter build web` | `build/web/` |
+| iOS (needs Xcode) | `flutter build ios --release` | — |
+
+Build a single-game app with `-t`, e.g. `flutter build apk --release -t lib/main_ludo.dart`.
+
+> **Separate store listings (later):** to install the apps side by side they
+> also need their own application id, name and icon — add Android
+> `productFlavors` / iOS schemes per app (e.g. `--flavor ludo -t
+> lib/main_ludo.dart`). Not set up yet; to be done once the app list is final.
+
+Any `--dart-define` from §6 works on builds too, e.g.
+`flutter build apk --release --dart-define=USE_PROXY=false`.
+
+Install on a plugged-in device: `adb install -r build/app/outputs/flutter-apk/app-release.apk`
+(`adb devices` to list them).
+
+> **Release signing:** before publishing, add `android/key.properties` + a
+> keystore and reference it in `android/app/build.gradle`. Debug-signed builds
+> install for testing but can't go to the Play Store. Also switch the
+> environment to an HTTPS host (`APP_ENV=prod` in `lib/configs/environment.dart`)
+> and remove the Android cleartext exception.

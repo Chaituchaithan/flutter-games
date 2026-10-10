@@ -1,5 +1,5 @@
 // Locks in the API-tolerance added when configuring Auth Services against the
-// live backend (snake_case Rust/serde). See docs/INTEGRATION_PLAN.md §7b.
+// live backend (snake_case Rust/serde). See docs/SERVICES_AND_REALTIME.md.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:snakeladder/data/models/user.dart';

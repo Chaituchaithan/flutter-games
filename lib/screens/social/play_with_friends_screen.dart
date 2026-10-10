@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../configs/feature_flags.dart';
 import '../../app/routes.dart';
 import '../../data/repositories/store_repository.dart';
 import '../../services/session.dart';
-import '../../services/socket/app_socket.dart';
 import '../../widgets/aura.dart';
+import '../../app/game_area.dart';
+import '../../configs/games/core/active_game.dart';
 
 /// Play with Friends — menu → create room / join room → room lobby → match.
 /// Mirrors the mockup's `isFriends` (frMenu / frCreate / frJoin / frLobby).
@@ -120,7 +122,8 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
   void _createRoom() {
     if (kSocketEnabled) {
       // Live: the server creates the room and shows its code while waiting.
-      Navigator.pushNamed(context, Routes.chessOnline, arguments: {'mode': 'create', 'stake': _stake, 'tokens': _tokens});
+      final route = GameArea.onlineRoute(ref.read(activeGameProvider));
+      if (route != null) Navigator.pushNamed(context, route, arguments: {'mode': 'create', 'stake': _stake, 'tokens': _tokens});
       return;
     }
     const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -140,7 +143,8 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
     if (!_joinReady) return;
     FocusScope.of(context).unfocus();
     if (kSocketEnabled) {
-      Navigator.pushNamed(context, Routes.chessOnline, arguments: {'mode': 'join', 'code': _joinCode});
+      final route = GameArea.onlineRoute(ref.read(activeGameProvider));
+      if (route != null) Navigator.pushNamed(context, route, arguments: {'mode': 'join', 'code': _joinCode});
       return;
     }
     _roomCode = _joinCode;

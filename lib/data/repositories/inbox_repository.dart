@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/api_client.dart';
-import '../data_config.dart';
+import '../../configs/feature_flags.dart';
 import '../models/inbox_message.dart';
 import '../sources/inbox_source.dart';
 

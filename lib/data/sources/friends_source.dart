@@ -1,10 +1,11 @@
 import '../../services/api_client.dart';
 import '../../widgets/aura.dart' show AuraColors;
 import '../models/friend.dart';
+import '../../configs/endpoints/api_endpoints.dart';
 
 /// Reads social lists. Implemented twice: [StaticFriendsSource] (bundled data,
 /// today's behaviour) and [RemoteFriendsSource] (live API). The repository
-/// picks one; see docs/INTEGRATION_PLAN.md §2.
+/// picks one; see docs/SERVICES_AND_REALTIME.md.
 abstract class FriendsSource {
   Future<List<Friend>> friends();
   Future<List<Friend>> requests();
@@ -39,7 +40,7 @@ class StaticFriendsSource implements FriendsSource {
 }
 
 /// Live-API implementation. Wired but unused until remote sources are switched
-/// on (`useRemoteSourcesProvider`). Endpoints per docs/INTEGRATION_PLAN.md §3.
+/// on (`useRemoteSourcesProvider`). Endpoints per docs/SERVICES_AND_REALTIME.md.
 class RemoteFriendsSource implements FriendsSource {
   const RemoteFriendsSource(this._api);
   final ApiClient _api;
@@ -50,11 +51,11 @@ class RemoteFriendsSource implements FriendsSource {
   }
 
   @override
-  Future<List<Friend>> friends() => _list('/friends');
+  Future<List<Friend>> friends() => _list(ApiEndpoints.friends);
 
   @override
-  Future<List<Friend>> requests() => _list('/friends/requests');
+  Future<List<Friend>> requests() => _list(ApiEndpoints.friendRequests);
 
   @override
-  Future<List<Friend>> suggested() => _list('/friends/suggested');
+  Future<List<Friend>> suggested() => _list(ApiEndpoints.friendSuggestions);
 }

@@ -6,7 +6,7 @@ import '../widgets/aura.dart';
 
 /// Renders a Riverpod [AsyncValue] with the app's shared loading / error / data
 /// states, so every migrated screen handles async the same way.
-/// See docs/INTEGRATION_PLAN.md §4.
+/// See docs/SERVICES_AND_REALTIME.md.
 class AsyncView<T> extends StatelessWidget {
   const AsyncView({
     super.key,

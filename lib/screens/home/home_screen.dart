@@ -1,16 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/main_shell.dart';
 import '../../app/routes.dart';
+import '../../data/repositories/daily_bonus_repository.dart';
 import '../../data/repositories/store_repository.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
 import '../match/online_play_sheet.dart';
+import '../../app/app_profile.dart';
+import '../../app/game_area.dart';
+import '../../configs/games/games.dart';
 
 /// Home tab (v2). Body only — MainShell provides the background, SafeArea and
 /// bottom nav. The HUD header is a fixed (sticky) block; everything below it
-/// scrolls. See docs/DESIGN_SPEC.md §4.
+/// scrolls. See docs/DESIGN_SPEC.md.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -21,7 +27,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _adClosed = false;
 
-  void _openMatchFlow() => showOnlinePlaySheet(context, onBuyMore: () => _selectTab(2));
+  void _openMatchFlow() {
+    if (!_hasOnline()) return;
+    showOnlinePlaySheet(context, onBuyMore: () => _selectTab(2));
+  }
+
+  /// Online play / rooms exist for the active game; otherwise say so (Quick
+  /// Play still works) instead of doing nothing.
+  bool _hasOnline() {
+    final game = ProviderScope.containerOf(context).read(activeGameConfigProvider);
+    if (GameArea.onlineRoute(game.id) != null) return true;
+    showAuraToast(context, 'Online ${game.displayName} is coming soon — try Quick Play', kind: AuraToastKind.info);
+    return false;
+  }
 
   /// Switch bottom-tab via the shell (no-op outside MainShell, e.g. in tests).
   void _selectTab(int i) => MainShellScope.maybeOf(context)?.selectTab(i);
@@ -44,8 +62,11 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
             children: [
-              // Game-picker chips removed: Chess is the only available game, so
-              // play launches directly via Online Play / Quick Play below.
+              // Mockup game chips: pick the active game (registry-driven).
+              // Games without a built game area show as "Soon".
+              // A single-game app has no game picker.
+              if (!AppProfile.current.singleGame) const _GameChips(),
+              const SizedBox(height: 14),
               _FeaturedHero(onTap: _openMatchFlow),
               const SizedBox(height: 14),
               Row(
@@ -57,7 +78,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: 'Quick Play',
                       sub: 'Play vs computer',
                       minHeight: 122,
-                      onTap: () => Navigator.pushNamed(context, Routes.chessSetup),
+                      onTap: () {
+                        // The active game's practice / vs-computer setup.
+                        final route = GameArea.practiceRoute(ProviderScope.containerOf(context).read(activeGameProvider));
+                        if (route != null) Navigator.pushNamed(context, route);
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -69,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       sub: 'Play with a room code',
                       minHeight: 122,
                       onTap: () async {
+                        if (!_hasOnline()) return;
                         // Play with Friends pops 'store' from its "Buy more".
                         final r = await Navigator.pushNamed(context, Routes.playFriends);
                         if (r == 'store') _selectTab(2);
@@ -103,19 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _RewardTile(
-                      icon: Icons.calendar_today_rounded,
-                      iconGradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-                      ),
-                      glowColor: AuraColors.brandPurple,
-                      title: 'Daily Bonus',
-                      sub: 'Day 3 ready',
-                      chipColor: AuraColors.accentGlow,
-                      onTap: () => Navigator.pushNamed(context, Routes.dailyRewards),
-                    ),
+                    child: const _DailyBonusTile(),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -345,12 +359,13 @@ class _ProgressBar extends StatelessWidget {
   }
 }
 
-class _FeaturedHero extends StatelessWidget {
+class _FeaturedHero extends ConsumerWidget {
   const _FeaturedHero({required this.onTap});
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final game = ref.watch(activeGameConfigProvider);
     return AuraCard(
       gradient: AuraGradients.brandDeep,
       onTap: onTap,
@@ -384,14 +399,14 @@ class _FeaturedHero extends StatelessWidget {
                       letterSpacing: 1.5,
                     ),
                   ),
-                  const AuraBadge('2P', color: Colors.white), // chess is always 2 players
+                  AuraBadge(game.playersLabel, color: Colors.white),
                 ],
               ),
               const SizedBox(height: 10),
               Text('Online Play', style: AuraText.title.copyWith(color: Colors.white)),
               const SizedBox(height: 6),
               Text(
-                'Chess · stake to enter, winner takes the pot',
+                '${game.displayName} · stake to enter, winner takes the pot',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 13.5),
               ),
               const SizedBox(height: 14),
@@ -486,6 +501,75 @@ class _QuickTile extends StatelessWidget {
   }
 }
 
+/// Daily Bonus tile, from the daily-bonus status: "Day N ready" (with a dot)
+/// when claimable, else when the next one opens. Refreshes itself the moment
+/// the next claim becomes available.
+class _DailyBonusTile extends ConsumerStatefulWidget {
+  const _DailyBonusTile();
+
+  @override
+  ConsumerState<_DailyBonusTile> createState() => _DailyBonusTileState();
+}
+
+class _DailyBonusTileState extends ConsumerState<_DailyBonusTile> {
+  Timer? _reopen;
+  DateTime? _scheduledFor;
+
+  @override
+  void dispose() {
+    _reopen?.cancel();
+    super.dispose();
+  }
+
+  /// Re-read the status when the next claim opens (Home stays alive).
+  void _scheduleRefresh(DateTime? at) {
+    if (at == _scheduledFor) return;
+    _scheduledFor = at;
+    _reopen?.cancel();
+    if (at == null) return;
+    final wait = at.difference(DateTime.now());
+    _reopen = Timer(wait.isNegative ? Duration.zero : wait + const Duration(seconds: 2),
+        () => ref.invalidate(dailyBonusStatusProvider));
+  }
+
+  static String _until(DateTime at) {
+    final d = at.difference(DateTime.now());
+    if (d.inMinutes < 60) return '${d.inMinutes.clamp(1, 59)}m';
+    return '${d.inHours}h';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = ref.watch(dailyBonusStatusProvider);
+    final s = status.asData?.value;
+    if (s != null) _scheduleRefresh(s.canClaim ? null : s.nextClaimAt);
+    final ready = s?.canClaim ?? false;
+    final next = s?.nextClaimAt;
+    final String sub;
+    if (s == null) {
+      sub = status.isLoading ? 'Checking…' : 'Open rewards';
+    } else if (ready) {
+      sub = 'Day ${s.nextReward.dayNumber} ready';
+    } else {
+      sub = next != null ? 'Next in ${_until(next)}' : 'Claimed today';
+    }
+    return _RewardTile(
+      icon: Icons.calendar_today_rounded,
+      iconGradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+      ),
+      glowColor: AuraColors.brandPurple,
+      title: 'Daily Bonus',
+      sub: sub,
+      chipColor: ready ? AuraColors.green : AuraColors.accentGlow,
+      dot: ready,
+      onTap: () => Navigator.pushNamed(context, Routes.dailyRewards),
+    );
+  }
+}
+
 /// Reward tile (Daily Bonus / Lucky Wheel). Matches the mockup exactly: glass
 /// box (r20) with a radial glow bleeding from the top-right corner, a solid
 /// gradient icon chip (46×46, r14) with a coloured glow, title, and a pill.
@@ -498,7 +582,11 @@ class _RewardTile extends StatelessWidget {
     required this.sub,
     required this.onTap,
     this.chipColor,
+    this.dot = false,
   });
+
+  /// Red "something to collect" dot on the icon chip.
+  final bool dot;
 
   final IconData icon;
 
@@ -541,7 +629,27 @@ class _RewardTile extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 24),
+                if (dot)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: AuraColors.danger,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF15102A), width: 2),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           const Spacer(),
           Text(title, style: AuraText.cardTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -831,3 +939,102 @@ class _SeasonPassCard extends StatelessWidget {
   }
 }
 
+/// Mockup game-chip row: every registered game. The active one is highlighted;
+/// tapping a playable game switches to it, others show "Soon" and a toast.
+class _GameChips extends ConsumerWidget {
+  const _GameChips();
+
+  /// This app's games, then (dev build) the not-yet-built ones as "Soon".
+  static List<GameConfig> get _chips {
+    final profile = AppProfile.current;
+    return [
+      for (final m in profile.modules) m.config,
+      if (profile.showComingSoon)
+        for (final g in GameRegistry.homeChips)
+          if (!profile.includes(g.id)) g,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final active = ref.watch(activeGameProvider);
+    return LayoutBuilder(
+      builder: (context, c) {
+        // Mockup: 3 columns of game chips.
+        const gap = 8.0;
+        final w = (c.maxWidth - gap * 2) / 3;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final g in _chips)
+              SizedBox(
+                width: w,
+                child: _GameChip(
+                  game: g,
+                  selected: g.id == active,
+                  onTap: () {
+                    if (GameRegistry.isAvailable(g.id)) {
+                      ref.read(activeGameProvider.notifier).select(g.id);
+                    } else {
+                      showAuraToast(context, '${g.displayName} is coming soon', kind: AuraToastKind.info);
+                    }
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _GameChip extends StatelessWidget {
+  const _GameChip({required this.game, required this.selected, required this.onTap});
+  final GameConfig game;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Opacity(
+        opacity: GameRegistry.isAvailable(game.id) ? 1 : 0.55,
+        child: Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            gradient: selected ? AuraGradients.brand : null,
+            color: selected ? null : Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: Colors.white.withValues(alpha: selected ? 0.4 : 0.16)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(game.icon, style: const TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  game.chipName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 11.5, color: Colors.white),
+                ),
+              ),
+              if (!GameRegistry.isAvailable(game.id)) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+                  child: const Text('Soon', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

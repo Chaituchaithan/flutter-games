@@ -3,6 +3,7 @@
 library;
 
 export '../theme.dart';
+export 'aura_orb.dart';
 export 'aura_widgets.dart';
 export 'aura_overlays.dart';
 export 'components.dart';

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 
 /// Shared feedback overlays — dialog, toast, offline banner.
-/// See docs/MOCKUP_AUDIT.md §1.8 and VERIFICATION_AUDIT.md §C.
+/// See docs/DESIGN_SPEC.md.
 
 // ─────────────────────────── Dialog ───────────────────────────
 

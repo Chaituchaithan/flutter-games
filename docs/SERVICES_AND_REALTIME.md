@@ -1,176 +1,187 @@
-# Services & Realtime Flow
+# Services & Realtime
 
-How the app talks to the backend: the **REST API** and the **realtime WebSocket**,
-and the exact call sequence for the two flows that matter most — **Login → Home**
-and **Online Play**. Grounded in the current code (file paths cited inline).
+How the app talks to the backend: the **REST API** and the **realtime
+WebSocket**, where their settings live, and the exact call sequence for
+sign-in, profile and online play. Grounded in the current code (file paths
+cited inline).
 
-## The two services
-
-| Service | Class | Transport | Default endpoint | Auth |
-|---|---|---|---|---|
-| REST API | `ApiClient` (`lib/services/api_client.dart`) | HTTP (Dio) | `http://169.58.184.121:30080/api/v1` | `Authorization: Bearer <jwt>` |
-| Realtime | `AppSocket` → `SocketClient` (`lib/services/socket/`) | WebSocket | `ws://169.58.184.121:30080/api/v1/ws` | `auth.login {token, username}` first frame |
-
-Both are overridable at build time:
-
-```
---dart-define=API_BASE_URL=http://host:port/api/v1
---dart-define=CHESS_WS_URL=ws://host:port/api/v1/ws
-```
-
-- There is **one** app-wide socket (`appSocketProvider`), opened right after login
-  and **reused** everywhere (the Online Play screen attaches to it rather than
-  opening a second connection).
-- Envelope protocol: every frame is `{ id?, event, data, error? }`. A request
-  carries an `id` and gets a correlated reply with the same `id`; broadcasts have
-  no `id`. Keepalive is `connection.ping` / `connection.pong` (~20 s).
+Reference documents: *Portal Gateway API* (REST), *Chess API* and
+`SOCKET_HOOKS.md` (socket protocol). The most complete endpoint list is the
+API Lab catalog (`api-lab/src/endpoints.json`).
 
 ---
 
-## Flow 1 — Login → Home
+## 1. Configuration — `lib/configs`
 
-Code path: `login_screen._signIn → session.login → RemoteAuthService.login →
-_finish`, then `_connectSocketThenHome → appSocket.connect`, then navigate.
+Every host, port, path and `--dart-define` lives here; services never build a
+URL themselves. Import `package:snakeladder/configs/configs.dart`.
 
-### Phase A — REST (ApiClient)
-1. **`POST /auth/login`** `{ email, password }` → `access_token` + `refresh_token`
-   (and sometimes an embedded user).
-2. **Store tokens** — access token set as the Bearer on `ApiClient` **and**
-   persisted to secure storage (`tokenStore.save`).
-3. **`GET /users/me`** (Bearer) → the authoritative profile: **`username`**,
-   level, tier, etc. The username from here becomes the socket identity.
-4. Session state = that `User`.
+| What | Where | Value today |
+|---|---|---|
+| Server host + gateway port | `environment.dart` (`devServer`) | `169.58.184.121:31294` (api-gateway) |
+| REST base | `AppConfig.apiBaseUrl` | `…:31294/api/v1` (or the proxy, or `API_BASE_URL`) |
+| A game's REST API | `GameEndpoints.apiBase` / `health` / `metrics` | same port as its socket, e.g. `http://…:31283/health` |
+| REST paths | `endpoints/api_endpoints.dart` | `/auth/login`, `/users/me`, … |
+| A game's socket | `games/<game>/<game>_config.dart` + `GameEndpoints` | own port per game, `/ws` (chess `:31283`) — via proxy `/svc/<port>/ws` |
+| Proxy on/off | `proxy_config.dart` (`proxyEnabledByDefault`) | ON |
+| Socket on/off | `feature_flags.dart` (`socketEnabledByDefault`) | **ON** |
+| Live auth / live data | `feature_flags.dart` providers | auth live; other data static |
+| Timeouts, ping, backoff | `network_config.dart` | 15 s / 20 s REST · 8 s socket requests · 20 s ping |
 
-### Phase B — WebSocket (AppSocket)
-5. Read the access token back from `tokenStore`.
-6. **Open WS** → `GET …/api/v1/ws` (no auth at the upgrade itself).
-7. Server pushes **`connection.established`** → `connect()` resolves; keepalive
-   ping starts.
-8. Client sends **`auth.login`** `{ token, username }` — `username` is the real
-   one from `/users/me`.
-9. Server replies **`auth.login_success`** → socket status = *authenticated*.
+**Resolution order** for every URL: `--dart-define` override → dev proxy (when
+ON) → environment default.
 
-### Phase C — Navigate
-10. **Only if the socket authenticated** → `Navigator.pushReplacement` to **Home**
-    (strict gating: a WS failure shows a toast and keeps you on login). The
-    demo/OAuth path has no token, so it skips Phase B.
-
-**On Home:** no further API or socket calls fire on load — the HUD/profile use the
-`User` fetched in step 3. The socket stays open and idle (ping/pong only) until you
-open Online Play.
-
-Compact list:
-
-```
-POST /auth/login          (REST)
-GET  /users/me            (REST)
-WS   connect → connection.established   (socket)
-WS   auth.login → auth.login_success    (socket)
-```
-
-**Variants** (same `_finish` pipeline, so each also calls `/users/me`):
-- **Guest:** `POST /guest/create` instead of `/auth/login`.
-- **Register:** `POST /auth/register` `{ username, email, password }` →
-  **no auto-sign-in** → navigates to Login.
-- **Token refresh:** `POST /auth/refresh` `{ refresh_token }`.
+| Service | Class | Transport | Auth |
+|---|---|---|---|
+| REST API | `ApiClient` (`lib/services/api_client.dart`) | HTTP (Dio) | `Authorization: Bearer <jwt>` |
+| Realtime | `AppSocket` → `SocketClient` (`lib/services/socket/`) | WebSocket | Bearer at upgrade (native) or `?token=` (via proxy) + `auth.login {token, username}` |
 
 ---
 
-## Flow 2 — Online Play
+## 2. Sign-in → Home
 
-Entirely over the one shared WebSocket — **no REST** during a match. Code path:
+Code path: `login_screen._signIn → session.login → RemoteAuthService.login → _finish`.
+
+1. **`POST /auth/login`** `{ email, password }` → `access_token` (15 min) + `refresh_token` (7 days).
+2. Tokens are set on `ApiClient` and saved to secure storage (`TokenStore`).
+3. **`GET /users/me`** → account (`id`, `username`, `email`, `role`, `created_at`).
+4. **`GET /users/{id}/profile`** → `display_name`, `bio`, `country`, `avatar_*`, … (a missing profile isn't fatal — the username stands in).
+5. `User.fromApi(me, profile)` becomes the session user: Home HUD, Profile, everywhere.
+6. **Socket step:** open the active game's socket (chess `:31283/ws`), wait for
+   `connection.established`, send `auth.login {token, username}`, and enter
+   **Home only after `auth.login_success`**. Any failure keeps the player on
+   Login with a plain message (details in the `[SOCKET]` log) and closes the
+   half-open socket. Log out sends `auth.logout` and closes it.
+
+Variants through the same `_finish`: **guest** (`POST /guest/create`),
+**register** (`POST /auth/register` `{ username, email, password }` → then log in),
+**refresh** (`POST /auth/refresh`).
+
+### Expired tokens
+The access token lasts 15 minutes. On a **401** (any call except auth paths)
+`ApiClient` refreshes once via `POST /auth/refresh` and retries the request;
+parallel calls share one refresh. Only a 401 that survives the refresh signs
+the player out ("Session expired"). A **403** is a permission error — shown as
+a message, never a sign-out.
+
+---
+
+## 3. Profile
+
+| Action | Call | Notes |
+|---|---|---|
+| Open Profile tab / pull to refresh | `GET /users/me` + `GET /users/{id}/profile` | `session.reloadProfile()`. Login already fetched both, so opening the tab within a minute of a fetch skips the call. Pull-to-refresh always fetches. All tabs are built at Home, so there is no fetch until the tab is opened |
+| Edit profile → Save | `PATCH /users/me/profile` | Sends only changed fields: `display_name`, `bio`, `country`, `preferred_language` (ISO code, e.g. `en`), `date_of_birth` (`YYYY-MM-DD`, age 13+). The response updates the screen |
+| Settings → Change password | `POST /auth/change-password` `{current_password, new_password}` → 204 | Validation: current password required; new password 8–128 characters, mixing letters and numbers, and different from the current one; the confirmation must match. A 401 means the current password is wrong (shown on that field, never a sign-out). On success the server revokes every session, so the app clears it locally and goes to Log in. Hidden for guests |
+| Language | `PATCH … {preferred_language}` | At login, if the profile has no language, the first-launch pick is saved. A Settings → Language change is saved too. A saved profile language becomes the app language |
+
+Not wired yet (endpoints exist in the catalog): `PATCH /users/me`
+(username/email), `POST /guest/convert` (guest → account),
+`GET /matches/my-history`, `GET /progression/{game_id}/stats`.
+
+---
+
+### Daily rewards
+| Action | Call | Notes |
+|---|---|---|
+| Open Daily Rewards | `GET /sensitive/daily-bonus/status` → `{current_streak, can_claim, next_reward{day_number, reward_tokens, reward_gold, power_up_id, power_up_quantity}, last_claimed_at, next_claim_available_at, total_claims}` | Amounts arrive as strings. `next_reward` is today's reward when `can_claim`, otherwise tomorrow's. Days before it show as claimed. Only that one day's amount is known; the others show a gift icon. Loading skeleton while it loads |
+| Claim | `POST /sensitive/daily-bonus/claim` → `{tokens_awarded, gold_awarded, power_up_id, power_up_quantity, new_streak, total_claims}` | The toast shows the actual payout. A 409 means it was already claimed. Status and wallet refresh afterwards |
+
+`/sensitive` routes need the bearer token plus the device fingerprint saved at login. Signed out (demo build), a local demo source is used.
+
+---
+
+## 4. Online play (socket)
+
+One shared WebSocket — **no REST during a match**. Code path:
 `ChessOnlineScreen._connect → _matchmake → ChessSession.* → _onBroadcast`.
+Every game's session implements the shared `GameSession` contract
+(`lib/services/game_session.dart`), so matchmaking, rooms, the lobby,
+pause/forfeit and results are game-independent.
 
-### 1. Connect
-Reuses the authenticated app socket (`attachAuthenticated`); only opens its own and
-re-runs `auth.login` if not already connected.
+### Envelope
+`{ id?, event, data, error? }` — requests carry an `id` and get a reply with the
+same `id`; broadcasts have none. Keepalive `connection.ping` / `connection.pong`.
 
-### 2. Matchmaking (by how you entered)
-
-| Mode | Client → (request) | ← Server |
-|---|---|---|
-| Quick match | `match.find` `{ game_type:"chess", currency, bet_amount }` | `match.searching`, then broadcast `match.found` `{ room_code, seat, color }` |
-| Create room | `room.create` `{ currency, bet_amount }` | `room.created` `{ room_code, seat:0, color:"white" }` |
-| Join by code | `room.join` `{ room_code }` | `room.joined` `{ room_code, seat:1, color:"black" }` |
-
-→ phase = **inRoom**; your `seat`/`color` are stored.
-
-### 3. Ready-up (automatic)
-- Server pushes **`room.user_joined`** `{ room_full:true, countdown_seconds }`.
-- Screen auto-sends **`player.ready`**. When both are ready, server pushes
-  **`game.started`** `{ state:{ match_id, players[] } }` → phase = **inGame**.
-
-### 4. In-game loop
-- **Turn clock:** server pushes **`game.turn_start`**
-  `{ color, user_id, time_limit_ms, deadline_ms }` each turn — drives the UI timer.
-- **Your move:** **`game.action`** `{ action_type:"move", from, to, promotion? }` →
-  reply **`game.action_ack`**.
-- **Opponent move:** broadcast **`game.state_update`**
-  `{ last_action:{ from, to, algebraic, user_id } }` → mirrored into the engine
-  (your own echo ignored via `user_id`).
-- **Chat (optional):** `chat.send` `{ message }` ↔ `chat.message`.
-- **Draws (optional):** `game.action` `{ action_type:"offer_draw"|"accept_draw"|"decline_draw" }`
-  ↔ `game.draw_offered` / `game.draw_declined`.
-
-### 5. Game end
-- **Resign:** `game.action` `{ action_type:"resign" }`.
-- **Timeout:** server pushes **`game.turn_timeout`** `{ color, user_id }`.
-- Either way → broadcast **`game.completed`** `{ result, winner_id }` →
-  phase = **completed**, result shown in place on the board.
-
-### Compact event list (quick match, happy path)
+### Flow (happy path, quick match)
 ```
-→ match.find            ← match.searching
-                        ← match.found        {room_code, seat, color}
-                        ← room.user_joined   {room_full, countdown_seconds}
+WS open                 ← connection.established        (server sends first)
+→ auth.login {token, username}
+                        ← auth.login_success
+→ match.find {game_type, player_count, currency, bet_amount, seat}
+                        ← match.searching / match.found {room_code, seat, color}
+                        ← room.user_joined {room_full, countdown_seconds}   (opponent in)
 → player.ready
-                        ← game.started       {state:{match_id, players}}
-                        ← game.turn_start    {color, time_limit_ms, ...}
-→ game.action (move)    ← game.action_ack
-                        ← game.state_update  {last_action}   (opponent move)
-                        ← game.turn_start    {color:..., turn:n+1}
+                        ← game.started {state:{match_id, players}}
+                        ← game.turn_start {color, time_limit_ms, …}
+→ game.action {action_type:"move", from, to, promotion?}
+                        ← game.action_ack
+                        ← game.state_update {last_action}     (opponent move)
    … repeat …
-                        ← game.completed     {result, winner_id}
+                        ← game.completed {result, winner_id}
+                        ← game.wallet_update {winner_id, payout, rake}   (wagered)
 ```
-`→` client request · `←` server push/response.
+**Quick match (Online Play sheet):** the player picks currency (`token` /
+`gold`), side and stake. The side goes out as `seat`: **0 = White, 1 = Black**
+(`ChessSeats`). Example:
+`{"game_type":"chess","player_count":2,"currency":"token","bet_amount":100,"seat":1}`.
+The matchmaking screen then searches for up to **60 s**
+(`ChessOnlineScreen.searchTimeout`). When an opponent joins (`room_full` or
+`game.started`) it reveals them and the board opens. Otherwise, at 60 s or on
+the server's `match.timeout`, it sends `match.cancel`, shows a "No match
+found" toast and returns Home. Cancel search also sends `match.cancel`.
+The 60 s clock starts once the socket is connected and the search is queued.
+After the reveal, a **Leave match** button sends `room.leave`. If the game
+hasn't started 20 s after the reveal, the app also sends `room.leave`, shows
+"The match didn't start" and returns Home.
+
+Rooms: `room.create {currency, bet_amount}` → `room.created {room_code}`;
+`room.join {room_code}` → `room.joined`. The creator gets seat 0 (White) and the joiner seat 1 (Black).
+Cancel, or backing out of a room that hasn't started, sends `room.leave`.
+`room.create_error` / `room.join_error` (`not_found`, `full`,
+`already_in_room`, `insufficient_balance`) show a plain message. A joiner takes
+the stake from `bet_amount`/`currency` in `room.joined` or `game.started` when
+the server sends them. Draws: `offer_draw` / `accept_draw` /
+`decline_draw`. Forfeit: `resign`. Chat: `chat.send` ↔ `chat.message`.
+
+### Status
+Each game service has its own socket on `169.58.184.121`, path `/ws`: 31281
+bingo · 31282 checkers · **31283 chess** · 31284 crash · 31285 ludo · 31286
+othello · 31287 poker · 31288 racing · 31289 roulette · 31290 rummy · 31291
+scrabble · 31292 snakes & ladders. All verified (health ok, WebSocket accepted,
+`connection.established` received). The socket is **ON** in the app; `auth.login`
+uses the gateway token (a username alone is refused outside debug mode).
 
 ---
 
-## Reference
+## 5. Switching games
 
-### REST endpoints used
-| Method | Path | Purpose |
-|---|---|---|
-| POST | `/auth/login` | Email + password sign-in |
-| POST | `/auth/register` | Create account `{ username, email, password }` |
-| POST | `/auth/refresh` | Rotate tokens with the refresh token |
-| POST | `/auth/logout` | Invalidate the session |
-| POST | `/guest/create` | Anonymous guest session |
-| GET  | `/users/me` | Current user profile (username, level, …) |
+Each app ships the game modules listed in its `AppProfile` (see
+docs/RUN_AND_TEST.md §11 "Apps"). The active game (`activeGameProvider`)
+is one of them. It decides the socket port and path (from its config), which
+screens open (`GameArea`, answered by the module), and which session runs. In
+the all-games build, switch it with the Home game chips or
+`--dart-define=GAME=<id>`. A single-game app has no picker.
 
-### Socket events (catalog in `lib/services/socket/socket_events.dart`)
-- **Connection:** `connection.established`, `connection.ping`, `connection.pong`, `connection.kicked`
-- **Auth:** `auth.login` → `auth.login_success` / `auth.login_error`; `auth.token_refreshed`; `auth.session_expired`
-- **Room:** `room.create`/`room.created`, `room.join`/`room.joined`, `room.leave`/`room.left`, `room.user_joined`, `room.full`
-- **Match:** `match.find`, `match.searching`, `match.found`, `match.timeout`, `match.cancel`
-- **Game:** `player.ready`, `game.started`, `game.turn_start`, `game.action` / `game.action_ack` / `game.action_error`, `game.state_update`, `game.turn_timeout`, `game.completed`
-- **Chat:** `chat.send`, `chat.message`
+Ludo and Snakes & Ladders are Quick Play only (local rules + computer
+players in `lib/game/ludo`, `lib/game/snakes`). Online Play / Friends for
+them shows "coming soon", and login keeps signing in to the **chess** socket
+while one of them is active (`GameArea.socketGame`).
 
-### Key files
-- `lib/services/api_client.dart` — REST client, Bearer, base URL.
-- `lib/services/auth_service.dart` — `login/register/refresh`; `_finish` fetches `/users/me`.
-- `lib/services/session.dart` — `SessionController` (holds `User`, token persistence).
-- `lib/services/socket/socket_client.dart` — envelope protocol, request/broadcast, keepalive, reconnect.
-- `lib/services/socket/app_socket.dart` — the single shared socket; `auth.login` identity.
-- `lib/services/socket/chess_session.dart` — bridges socket events ↔ the chess engine/UI.
-- `lib/screens/auth/login_screen.dart` — login → socket → Home (strict gating).
-- `lib/screens/games/chess_online_screen.dart` — the Online Play screen.
+---
 
-### Notes / current state
-- `game.turn_start` / `game.turn_timeout` are the **server-driven per-move clock**
-  (30 s). `socket_client.dart` has a temporary `kLogClockFrames` flag that prints
-  `[CLOCK-CAPTURE] <event> :: <raw>` so the live gateway's payload can be confirmed
-  against the field names the client reads (`color`, `time_limit_ms`).
-- For local two-player testing without the gateway, see
-  `tools/chess_relay_server.dart` (implements this same protocol subset, including
-  the turn clock).
+## 6. Key files
+
+| File | Role |
+|---|---|
+| `lib/configs/` | All configuration (above) |
+| `lib/services/api_client.dart` | REST client: Bearer, error mapping, 401 refresh-and-retry |
+| `lib/services/auth_service.dart` | Login / register / guest / refresh, `fetchMe`, `updateProfile` |
+| `lib/services/session.dart` | `SessionController`: the signed-in `User`, tokens, reload/update profile |
+| `lib/services/socket/socket_client.dart` | Envelope protocol, request/reply, keepalive, reconnect |
+| `lib/services/socket/app_socket.dart` | The shared app socket and its `auth.login` identity |
+| `lib/services/socket/chess_session.dart` | Chess `GameSession`: socket events ↔ chess engine/UI |
+| `lib/services/game_session.dart` | The per-game session contract |
+| `lib/app/game_area.dart` | GameId → practice / online screens |
+| `tools/cors_proxy.dart` | Dev proxy (CORS + WS, logs frames, masks tokens) |
+| `tools/chess_flow_test.dart` | End-to-end chess check with two real accounts (free game) |

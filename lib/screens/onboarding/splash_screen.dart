@@ -1,39 +1,60 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
+import '../../app/startup.dart';
+import '../../app/app_profile.dart';
 import '../../widgets/aura.dart';
 
-/// Splash — Aura orb logo + tagline. Auto-advances to Language.
-/// See docs/DESIGN_SPEC.md (v2 §Splash).
-class SplashScreen extends StatefulWidget {
+/// Splash — the app's loading screen. Runs the real startup work
+/// ([StartupController]: fonts, saved session, game socket, Home data) while
+/// showing a breathing orb, a progress bar that follows the actual steps and
+/// a status line; then fades into Language (first launch), Home (signed in)
+/// or Login. Offline / server problems show a message with Retry.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
   bool _navigated = false;
+  late final AnimationController _orb = AnimationController(vsync: this, duration: const Duration(seconds: 4))
+    ..repeat();
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1400), _goNext);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(startupProvider.notifier).run();
+    });
   }
 
-  void _goNext() {
+  @override
+  void dispose() {
+    _orb.dispose();
+    super.dispose();
+  }
+
+  void _go(String route) {
     if (_navigated || !mounted) return;
     // Only advance when Splash is actually the visible route — prevents a
     // Splash sitting at the bottom of a deep-linked stack from hijacking nav.
     if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
     _navigated = true;
-    Navigator.pushReplacementNamed(context, Routes.language);
+    Navigator.pushReplacement(context, Routes.fadeRoute(route));
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<StartupState>(startupProvider, (_, next) {
+      final d = next.destination;
+      if (d != null) _go(d);
+    });
+    final st = ref.watch(startupProvider);
     return AuraScaffold(
       glowColor: AuraColors.accentGlow,
       glowAlignment: Alignment.center,
@@ -44,16 +65,28 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const _AuraOrb(size: 150),
+                  // Breathing, slowly turning orb.
+                  AnimatedBuilder(
+                    animation: _orb,
+                    builder: (_, child) {
+                      final t = _orb.value * 2 * math.pi;
+                      return Transform.scale(
+                        scale: 1 + 0.035 * math.sin(t * 2),
+                        child: Transform.rotate(angle: t / 2, child: child),
+                      );
+                    },
+                    child: const AuraOrb(size: 150),
+                  ),
                   const SizedBox(height: 34),
                   Text(
-                    'Chess',
+                    AppProfile.current.appName,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: AuraText.displayFamily,
                       color: Colors.white,
-                      fontSize: 46,
+                      fontSize: 42,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 6,
+                      letterSpacing: 5,
                       height: 1,
                     ),
                   ),
@@ -66,85 +99,83 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
           ),
-          // Loading bar.
           Padding(
-            padding: const EdgeInsets.only(bottom: 48),
-            child: Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(99),
-                child: Container(
-                  width: 150,
-                  height: 3,
-                  color: Colors.white.withValues(alpha: 0.12),
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: 0.45,
-                    child: Container(decoration: const BoxDecoration(gradient: AuraGradients.brand)),
-                  ),
-                ),
-              ),
+            padding: const EdgeInsets.fromLTRB(32, 0, 32, 44),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: st.error != null ? _error(st) : _progress(st),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-/// Large Aura orb: brand-gradient ring, near-black inner circle, glowing dot.
-class _AuraOrb extends StatelessWidget {
-  const _AuraOrb({required this.size});
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(painter: _AuraOrbPainter()),
+  /// Progress bar that eases to the real progress + the current step.
+  Widget _progress(StartupState st) {
+    return Column(
+      key: const ValueKey('progress'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 200,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: Container(
+              height: 4,
+              color: Colors.white.withValues(alpha: 0.12),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(end: st.progress.clamp(0.0, 1.0)),
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeOutCubic,
+                builder: (_, v, _) => FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: v,
+                  child: Container(decoration: const BoxDecoration(gradient: AuraGradients.brand)),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 18,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Text(st.message, key: ValueKey(st.message), style: AuraText.cardSub.copyWith(fontSize: 12.5)),
+          ),
+        ),
+      ],
     );
   }
-}
 
-class _AuraOrbPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final center = rect.center;
-    final ringWidth = size.width * 0.09;
-    final ringRadius = (size.width - ringWidth) / 2;
-
-    // Brand-gradient ring stroke (full circle, swept gradient).
-    final ringPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = ringWidth
-      ..shader = const SweepGradient(
-        colors: [
-          AuraColors.brandPurple,
-          AuraColors.brandPink,
-          AuraColors.brandOrange,
-          AuraColors.brandPurple,
-        ],
-        startAngle: 0,
-        endAngle: math.pi * 2,
-      ).createShader(rect);
-    canvas.drawCircle(center, ringRadius, ringPaint);
-
-    // Near-black inner circle.
-    final innerRadius = ringRadius - ringWidth * 0.75;
-    final innerPaint = Paint()..color = const Color(0xFF0A0812);
-    canvas.drawCircle(center, innerRadius, innerPaint);
-
-    // Glowing pink dot in the centre.
-    final glowPaint = Paint()
-      ..color = AuraColors.brandPink.withValues(alpha: 0.55)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-    canvas.drawCircle(center, size.width * 0.12, glowPaint);
-
-    final dotPaint = Paint()..color = AuraColors.brandPink;
-    canvas.drawCircle(center, size.width * 0.075, dotPaint);
+  /// Startup stopped: why, plus Retry (and "Log in again" for session issues).
+  Widget _error(StartupState st) {
+    return Column(
+      key: const ValueKey('error'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.cloud_off_rounded, color: AuraColors.amber, size: 30),
+        const SizedBox(height: 10),
+        Text(
+          st.error!,
+          textAlign: TextAlign.center,
+          style: AuraText.body.copyWith(color: AuraColors.textSecondary, fontSize: 14),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: 200,
+          child: GradientButton(label: 'Retry', onPressed: () => ref.read(startupProvider.notifier).run()),
+        ),
+        if (st.canSignOut)
+          TextButton(
+            onPressed: () => ref.read(startupProvider.notifier).signOutAndContinue(),
+            child: const Text(
+              'Log in again',
+              style: TextStyle(color: AuraColors.accentGlow, fontWeight: FontWeight.w600),
+            ),
+          ),
+      ],
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

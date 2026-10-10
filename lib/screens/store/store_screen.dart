@@ -10,7 +10,7 @@ import '../system/loading_skeleton_screen.dart' show Shimmer, SkeletonBox;
 
 /// Store tab (v2). Body only — the shell provides scaffold + nav.
 /// Wallet + packs come from `storeRepositoryProvider` (static source today; live
-/// API when remote sources are switched on). See docs/MOCKUP_AUDIT.md §3.
+/// API when remote sources are switched on). See docs/DESIGN_SPEC.md.
 /// Active Store sub-tab (0 Tokens · 1 Gold · 2 Power-Ups · 3 VIP). A provider
 /// so other screens can deep-link, e.g. Settings → "Upgrade to VIP".
 class StoreTabController extends Notifier<int> {

@@ -1,6 +1,7 @@
 import '../../services/api_client.dart';
 import '../../widgets/aura.dart' show Currency;
 import '../models/store_pack.dart';
+import '../../configs/endpoints/api_endpoints.dart';
 
 /// Wallet balance + purchasable packs.
 abstract class StoreSource {
@@ -43,11 +44,11 @@ class RemoteStoreSource implements StoreSource {
 
   @override
   Future<Wallet> wallet() async =>
-      Wallet.fromJson(await _api.get('/wallet') as Map<String, dynamic>);
+      Wallet.fromJson(await _api.get(ApiEndpoints.wallet) as Map<String, dynamic>);
 
   @override
   Future<List<StorePack>> packs(Currency kind) async {
-    final data = await _api.get('/store/packs', query: {'currency': kind.name}) as List<dynamic>;
+    final data = await _api.get(ApiEndpoints.storePacks, query: {'currency': kind.name}) as List<dynamic>;
     return data.map((e) => StorePack.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

@@ -7,10 +7,10 @@ import '../../app/main_shell.dart';
 import '../../app/routes.dart';
 import '../store/store_screen.dart';
 import '../../services/session.dart';
-import '../games/level_up_screen.dart';
+import 'package:snakeladder/screens/profile/level_up_screen.dart';
 import '../onboarding/language_screen.dart';
 
-/// Settings — standalone screen. See docs/DESIGN_SPEC.md §8.
+/// Settings — standalone screen. See docs/DESIGN_SPEC.md.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -35,8 +35,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       destructive: true,
     );
     if (ok == true && mounted) {
+      // Capture the navigator first: logging out must always end on Login,
+      // even if this screen was closed while the request was running.
+      final nav = Navigator.of(context);
       await ref.read(sessionProvider.notifier).signOut();
-      if (mounted) Navigator.pushNamedAndRemoveUntil(context, Routes.login, (r) => false);
+      nav.pushNamedAndRemoveUntil(Routes.login, (r) => false);
     }
   }
 
@@ -62,19 +65,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _demoMatchCancelled() => showAuraDialog(
-        context,
-        icon: Icons.flag_outlined,
-        title: 'Match cancelled',
-        body: 'Your opponent left before the match started. Your stake has been refunded.',
-        primaryLabel: 'OK',
-      );
+    context,
+    icon: Icons.flag_outlined,
+    title: 'Match cancelled',
+    body: 'Your opponent left before the match started. Your stake has been refunded.',
+    primaryLabel: 'OK',
+  );
 
   Future<void> _demoSessionExpired() async {
     await showAuraDialog(
       context,
       icon: Icons.schedule_rounded,
       title: 'Session expired',
-      body: 'For your security you were signed out after a period of inactivity. '
+      body:
+          'For your security you were signed out after a period of inactivity. '
           'Please log in again.',
       primaryLabel: 'Log in again',
     );
@@ -82,11 +86,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) Navigator.pushNamedAndRemoveUntil(context, Routes.login, (r) => false);
   }
 
-  void _demoToast() =>
-      showAuraToast(context, 'Daily reward is ready to claim!', kind: AuraToastKind.success);
+  void _demoToast() => showAuraToast(context, 'Daily reward is ready to claim!', kind: AuraToastKind.success);
 
-  void _demoLockScreenNotif() =>
-      showAuraToast(context, 'ZeroCool challenged you to a match', kind: AuraToastKind.info);
+  void _demoLockScreenNotif() => showAuraToast(context, 'ZeroCool challenged you to a match', kind: AuraToastKind.info);
 
   @override
   Widget build(BuildContext context) {
@@ -111,17 +113,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 10),
           _GroupCard(
             children: [
-              _ToggleRow(
-                label: 'Sound effects',
-                value: _sound,
-                onChanged: (v) => setState(() => _sound = v),
-              ),
+              _ToggleRow(label: 'Sound effects', value: _sound, onChanged: (v) => setState(() => _sound = v)),
               const _RowDivider(),
-              _ToggleRow(
-                label: 'Music',
-                value: _music,
-                onChanged: (v) => setState(() => _music = v),
-              ),
+              _ToggleRow(label: 'Music', value: _music, onChanged: (v) => setState(() => _music = v)),
               const _RowDivider(),
               _ToggleRow(
                 label: 'Notifications',
@@ -129,11 +123,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onChanged: (v) => setState(() => _notifications = v),
               ),
               const _RowDivider(),
-              _ToggleRow(
-                label: 'Haptics',
-                value: _haptics,
-                onChanged: (v) => setState(() => _haptics = v),
-              ),
+              _ToggleRow(label: 'Haptics', value: _haptics, onChanged: (v) => setState(() => _haptics = v)),
               const _RowDivider(),
               _NavRow(
                 label: 'Language',
@@ -160,14 +150,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               _NavRow(label: 'Edit profile', onTap: () => Navigator.pushNamed(context, Routes.editProfile)),
               const _RowDivider(),
+              // Guests have no password to change.
+              if (!ref.watch(currentUserProvider).isGuest) ...[
+                _NavRow(label: 'Change password', onTap: () => Navigator.pushNamed(context, Routes.changePassword)),
+                const _RowDivider(),
+              ],
               _NavRow(label: 'Change avatar', onTap: () => Navigator.pushNamed(context, Routes.avatars)),
               const _RowDivider(),
               _NavRow(label: 'Friends & blocked players', onTap: () => Navigator.pushNamed(context, Routes.friends)),
               const _RowDivider(),
-              _NavRow(
-                label: 'Transactions & receipts',
-                onTap: () => Navigator.pushNamed(context, Routes.transactions),
-              ),
+              _NavRow(label: 'Transactions & receipts', onTap: () => Navigator.pushNamed(context, Routes.transactions)),
               const _RowDivider(),
               _NavRow(
                 label: 'Invite friends · earn rewards',
@@ -198,28 +190,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Prototype-only QA shortcuts (in the mockup): debug builds only —
           // a shipped app doesn't expose them.
           if (kDebugMode) ...[
-          const SizedBox(height: 20),
-          const SectionHeader('Demo states'),
-          const SizedBox(height: 10),
-          _GroupCard(
-            children: [
-              _NavRow(label: 'Toggle offline banner', onTap: _demoOfflineBanner),
-              const _RowDivider(),
-              _NavRow(label: 'Match cancelled dialog', onTap: _demoMatchCancelled),
-              const _RowDivider(),
-              _NavRow(label: 'Level-up celebration', onTap: () => showLevelUp(context)),
-              const _RowDivider(),
-              _NavRow(label: 'Session expired dialog', onTap: _demoSessionExpired),
-              const _RowDivider(),
-              _NavRow(label: 'Toast / snackbar', onTap: _demoToast),
-              const _RowDivider(),
-              _NavRow(label: 'Lock-screen notifications', onTap: _demoLockScreenNotif),
-              const _RowDivider(),
-              _NavRow(label: 'Maintenance screen', onTap: () => Navigator.pushNamed(context, Routes.maintenance)),
-              const _RowDivider(),
-              _NavRow(label: 'Force-update screen', onTap: () => Navigator.pushNamed(context, Routes.forceUpdate)),
-            ],
-          ),
+            const SizedBox(height: 20),
+            const SectionHeader('Demo states'),
+            const SizedBox(height: 10),
+            _GroupCard(
+              children: [
+                _NavRow(label: 'Toggle offline banner', onTap: _demoOfflineBanner),
+                const _RowDivider(),
+                _NavRow(label: 'Match cancelled dialog', onTap: _demoMatchCancelled),
+                const _RowDivider(),
+                _NavRow(label: 'Level-up celebration', onTap: () => showLevelUp(context)),
+                const _RowDivider(),
+                _NavRow(label: 'Session expired dialog', onTap: _demoSessionExpired),
+                const _RowDivider(),
+                _NavRow(label: 'Toast / snackbar', onTap: _demoToast),
+                const _RowDivider(),
+                _NavRow(label: 'Lock-screen notifications', onTap: _demoLockScreenNotif),
+                const _RowDivider(),
+                _NavRow(label: 'Maintenance screen', onTap: () => Navigator.pushNamed(context, Routes.maintenance)),
+                const _RowDivider(),
+                _NavRow(label: 'Force-update screen', onTap: () => Navigator.pushNamed(context, Routes.forceUpdate)),
+              ],
+            ),
           ],
           const SizedBox(height: 20),
           _LogoutRow(onTap: _confirmLogout),
@@ -253,10 +245,7 @@ class _VipBanner extends StatelessWidget {
               Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(
-                  gradient: AuraGradients.goldCoin,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: BoxDecoration(gradient: AuraGradients.goldCoin, borderRadius: BorderRadius.circular(12)),
                 child: const Icon(Icons.workspace_premium, color: Color(0xFF7C2D12), size: 22),
               ),
               const SizedBox(width: 14),
@@ -274,10 +263,7 @@ class _VipBanner extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '2× rewards, no ads & more',
-                      style: TextStyle(color: AuraColors.textSecondary, fontSize: 13),
-                    ),
+                    Text('2× rewards, no ads & more', style: TextStyle(color: AuraColors.textSecondary, fontSize: 13)),
                   ],
                 ),
               ),
@@ -307,8 +293,7 @@ class _RowDivider extends StatelessWidget {
   const _RowDivider();
 
   @override
-  Widget build(BuildContext context) =>
-      const Divider(height: 1, thickness: 1, color: AuraColors.cardBorder);
+  Widget build(BuildContext context) => const Divider(height: 1, thickness: 1, color: AuraColors.cardBorder);
 }
 
 class _ToggleRow extends StatelessWidget {
@@ -326,11 +311,7 @@ class _ToggleRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: AuraColors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: AuraColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
             ),
           ),
           AuraToggle(value: value, onChanged: onChanged),
@@ -353,13 +334,9 @@ class _NavRow extends StatelessWidget {
     if (trailing != null) {
       trailingWidget = trailing!;
     } else if (trailingText != null) {
-      trailingWidget = Text(
-        trailingText!,
-        style: const TextStyle(color: AuraColors.textSecondary, fontSize: 14),
-      );
+      trailingWidget = Text(trailingText!, style: const TextStyle(color: AuraColors.textSecondary, fontSize: 14));
     } else {
-      trailingWidget =
-          const Icon(Icons.chevron_right, color: AuraColors.textSecondary, size: 22);
+      trailingWidget = const Icon(Icons.chevron_right, color: AuraColors.textSecondary, size: 22);
     }
     final row = SizedBox(
       height: 56,
@@ -368,11 +345,7 @@ class _NavRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: AuraColors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: AuraColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
             ),
           ),
           trailingWidget,

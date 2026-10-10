@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:snakeladder/app/routes.dart';
 import 'package:snakeladder/game/chess/chess_board_view.dart';
 import 'package:snakeladder/game/chess/chess_engine.dart';
-import 'package:snakeladder/screens/games/chess_vs_computer_screen.dart';
+import 'package:snakeladder/game/chess/screens/chess_vs_computer_screen.dart';
 
 bool _isFontError(Object e) {
   final s = e.toString();

@@ -1,0 +1,3 @@
+Space Grotesk and Manrope are licensed under the SIL Open Font License,
+Version 1.1 (https://openfontlicense.org). Bundled so text renders with the
+right font on first launch, offline.

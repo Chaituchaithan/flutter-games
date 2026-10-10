@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../widgets/aura.dart';
 
-/// Transactions history. See docs/DESIGN_SPEC.md (v2 §Transactions).
+/// Transactions history. See docs/DESIGN_SPEC.md.
 class TransactionsScreen extends StatelessWidget {
   const TransactionsScreen({super.key});
 

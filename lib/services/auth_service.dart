@@ -2,13 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/data_config.dart';
+import '../configs/configs.dart';
 import '../data/models/user.dart';
 import 'api_client.dart';
 
 /// Result of a successful auth call: the player + their token pair.
 /// The API issues an HS256 JWT access token (15 min) plus an opaque refresh
-/// token (7 days, rotated via /auth/refresh). See docs/INTEGRATION_PLAN.md §7b.
+/// token (7 days, rotated via /auth/refresh). See docs/SERVICES_AND_REALTIME.md.
 class AuthResult {
   const AuthResult(this.user, {this.accessToken = '', this.refreshToken});
   final User user;
@@ -25,6 +25,9 @@ abstract class AuthService {
   Future<AuthResult> refresh(String refreshToken);
   Future<AuthResult> verifyOtp({required String code});
   Future<void> resetPassword({required String email, required String code, required String newPassword});
+
+  /// POST /auth/change-password. The server then revokes every session.
+  Future<void> changePassword({required String currentPassword, required String newPassword});
   Future<void> logout();
 
   /// The signed-in player: GET /users/me + GET /users/{id}/profile.
@@ -32,7 +35,7 @@ abstract class AuthService {
 
   /// PATCH /users/me/profile with the changed fields; returns the updated
   /// player. Only non-null arguments are sent.
-  Future<User> updateProfile(User current, {String? displayName, String? bio, String? country});
+  Future<User> updateProfile(User current, {String? displayName, String? bio, String? country, String? preferredLanguage, String? dateOfBirth});
 }
 
 class StaticAuthService implements AuthService {
@@ -62,14 +65,22 @@ class StaticAuthService implements AuthService {
   Future<void> resetPassword({required String email, required String code, required String newPassword}) async {}
 
   @override
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {}
+
+  @override
   Future<void> logout() async {}
 
   @override
   Future<User> fetchMe() async => User.demo;
 
   @override
-  Future<User> updateProfile(User current, {String? displayName, String? bio, String? country}) async =>
-      current.copyWith(displayName: displayName, bio: bio, country: country);
+  Future<User> updateProfile(User current, {String? displayName, String? bio, String? country, String? preferredLanguage, String? dateOfBirth}) async =>
+      current.copyWith(
+          displayName: displayName,
+          bio: bio,
+          country: country,
+          preferredLanguage: preferredLanguage,
+          dateOfBirth: dateOfBirth);
 }
 
 class RemoteAuthService implements AuthService {
@@ -139,24 +150,24 @@ class RemoteAuthService implements AuthService {
 
   @override
   Future<AuthResult> login({required String email, required String password}) async =>
-      _finish(await _api.post('/auth/login', body: {'email': email, 'password': password}));
+      _finish(await _api.post(ApiEndpoints.authLogin, body: {'email': email, 'password': password}));
 
   @override
   Future<AuthResult> register({required String name, required String email, required String password}) async =>
-      _finish(await _api.post('/auth/register', body: {'username': name, 'email': email, 'password': password}));
+      _finish(await _api.post(ApiEndpoints.authRegister, body: {'username': name, 'email': email, 'password': password}));
 
   @override
-  Future<AuthResult> loginGuest() async => _finish(await _api.post('/guest/create'));
+  Future<AuthResult> loginGuest() async => _finish(await _api.post(ApiEndpoints.guestCreate));
 
   @override
   Future<AuthResult> refresh(String refreshToken) async =>
-      _finish(await _api.post('/auth/refresh', body: {'refresh_token': refreshToken}));
+      _finish(await _api.post(ApiEndpoints.authRefresh, body: {'refresh_token': refreshToken}));
 
   @override
   Future<AuthResult> verifyOtp({required String code}) async {
     // OTP is bearer-scoped (post-auth) and stubbed (503 outside debug); verifying
     // just re-reads the current account. No token change.
-    await _api.post('/otp/verify', body: {'code': code, 'purpose': 'email_verification'});
+    await _api.post(ApiEndpoints.otpVerify, body: {'code': code, 'purpose': 'email_verification'});
     return AuthResult(await fetchMe());
   }
 
@@ -168,8 +179,14 @@ class RemoteAuthService implements AuthService {
   }
 
   @override
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    await _api.post(ApiEndpoints.authChangePassword,
+        body: {'current_password': currentPassword, 'new_password': newPassword});
+  }
+
+  @override
   Future<void> logout() async {
-    await _api.post('/auth/logout');
+    await _api.post(ApiEndpoints.authLogout);
   }
 
   /// Account from /users/me, then its profile. A missing/failed profile is not
@@ -177,12 +194,12 @@ class RemoteAuthService implements AuthService {
   /// stands in for the display name.
   @override
   Future<User> fetchMe() async {
-    final me = _unwrap(await _api.get('/users/me'));
+    final me = _unwrap(await _api.get(ApiEndpoints.usersMe));
     Map<String, dynamic>? profile;
     final id = me['id']?.toString();
     if (id != null && id.isNotEmpty) {
       try {
-        profile = _unwrap(await _api.get('/users/$id/profile'));
+        profile = _unwrap(await _api.get(ApiEndpoints.userProfile(id)));
       } on Object catch (_) {
         profile = null;
       }
@@ -191,16 +208,23 @@ class RemoteAuthService implements AuthService {
   }
 
   @override
-  Future<User> updateProfile(User current, {String? displayName, String? bio, String? country}) async {
+  Future<User> updateProfile(User current, {String? displayName, String? bio, String? country, String? preferredLanguage, String? dateOfBirth}) async {
     final body = <String, dynamic>{
       'display_name': ?displayName,
       'bio': ?bio,
       'country': ?country,
+      'preferred_language': ?preferredLanguage,
+      'date_of_birth': ?dateOfBirth,
     };
-    final res = await _api.patch('/users/me/profile', body: body);
+    final res = await _api.patch(ApiEndpoints.usersMeProfile, body: body);
     // The API returns the updated profile; if it sends no body, apply locally.
     if (res is Map) return current.withProfile(_unwrap(res));
-    return current.copyWith(displayName: displayName, bio: bio, country: country);
+    return current.copyWith(
+        displayName: displayName,
+        bio: bio,
+        country: country,
+        preferredLanguage: preferredLanguage,
+        dateOfBirth: dateOfBirth);
   }
 }
 

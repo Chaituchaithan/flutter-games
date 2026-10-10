@@ -5,7 +5,7 @@ import '../../app/routes.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
-/// OTP — verify email. Verifying establishes the session. See docs/DESIGN_SPEC.md (v2 §OTP).
+/// OTP — verify email. Verifying establishes the session. See docs/DESIGN_SPEC.md.
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
 
@@ -17,11 +17,19 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   static const _length = 6;
   String _code = '482'; // Prefilled for show.
 
+  bool _busy = false;
+
   Future<void> _verify() async {
+    if (_busy) return;
+    setState(() => _busy = true);
     try {
       await ref.read(sessionProvider.notifier).verifyOtp(_code);
-    } on Object catch (_) {/* static phase never throws */}
-    if (mounted) Navigator.pushReplacementNamed(context, Routes.welcomeBonus);
+    } on Object catch (_) {
+      /* static phase never throws */
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (ModalRoute.of(context)?.isCurrent != false) Navigator.pushReplacementNamed(context, Routes.welcomeBonus);
   }
 
   void _append(String digit) {
@@ -36,77 +44,71 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AuraScaffold(
-      appBar: const AuraAppBar(showBack: true),
-      scroll: true,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AuraColors.brandPurple.withValues(alpha: 0.28),
-                    AuraColors.brandPink.withValues(alpha: 0.18),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AuraColors.accentGlow.withValues(alpha: 0.4)),
-              ),
-              child: const Icon(Icons.mail_outline, color: AuraColors.accentGlow, size: 30),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text('Verify your email', style: AuraText.headline.copyWith(fontSize: 30)),
-          const SizedBox(height: 8),
-          Text(
-            'Enter the 6-digit code we just sent to your inbox.',
-            style: AuraText.body.copyWith(color: AuraColors.textSecondary),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(_length, (i) {
-              final filled = i < _code.length;
-              final active = i == _code.length;
-              return _CodeBox(
-                digit: filled ? _code[i] : '',
-                active: active,
-              );
-            }),
-          ),
-          const SizedBox(height: 16),
-          Text.rich(
-            TextSpan(
-              style: AuraText.cardSub,
-              children: const [
-                TextSpan(text: "Didn't get a code? "),
-                TextSpan(
-                  text: 'Resend in 0:24',
-                  style: TextStyle(
-                    color: AuraColors.accentGlow,
-                    fontWeight: FontWeight.w700,
+    return BusyGuard(
+      busy: _busy,
+      child: AuraScaffold(
+        appBar: const AuraAppBar(showBack: true),
+        scroll: true,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AuraColors.brandPurple.withValues(alpha: 0.28),
+                      AuraColors.brandPink.withValues(alpha: 0.18),
+                    ],
                   ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AuraColors.accentGlow.withValues(alpha: 0.4)),
                 ),
-              ],
+                child: const Icon(Icons.mail_outline, color: AuraColors.accentGlow, size: 30),
+              ),
             ),
-          ),
-          const SizedBox(height: 22),
-          _Keypad(onDigit: _append, onBackspace: _backspace),
-          const SizedBox(height: 22),
-          GradientButton(
-            label: 'Verify & Continue',
-            onPressed: _verify,
-          ),
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 20),
+            Text('Verify your email', style: AuraText.headline.copyWith(fontSize: 30)),
+            const SizedBox(height: 8),
+            Text(
+              'Enter the 6-digit code we just sent to your inbox.',
+              style: AuraText.body.copyWith(color: AuraColors.textSecondary),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(_length, (i) {
+                final filled = i < _code.length;
+                final active = i == _code.length;
+                return _CodeBox(digit: filled ? _code[i] : '', active: active);
+              }),
+            ),
+            const SizedBox(height: 16),
+            Text.rich(
+              TextSpan(
+                style: AuraText.cardSub,
+                children: const [
+                  TextSpan(text: "Didn't get a code? "),
+                  TextSpan(
+                    text: 'Resend in 0:24',
+                    style: TextStyle(color: AuraColors.accentGlow, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+            _Keypad(onDigit: _append, onBackspace: _backspace),
+            const SizedBox(height: 22),
+            GradientButton(label: 'Verify & Continue', onPressed: _verify, loading: _busy),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
@@ -172,8 +174,7 @@ class _Keypad extends StatelessWidget {
         return _KeypadButton(
           onTap: () => isBackspace ? onBackspace() : onDigit(k),
           child: isBackspace
-              ? const Icon(Icons.backspace_outlined,
-                  color: AuraColors.textPrimary, size: 22)
+              ? const Icon(Icons.backspace_outlined, color: AuraColors.textPrimary, size: 22)
               : Text(
                   k,
                   style: TextStyle(

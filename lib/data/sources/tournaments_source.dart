@@ -2,6 +2,7 @@ import 'package:flutter/painting.dart';
 
 import '../../services/api_client.dart';
 import '../models/tournament.dart';
+import '../../configs/endpoints/api_endpoints.dart';
 
 /// Tournament events for a given state.
 abstract class TournamentsSource {
@@ -38,7 +39,7 @@ class RemoteTournamentsSource implements TournamentsSource {
 
   @override
   Future<List<Tournament>> events(TournamentState state) async {
-    final data = await _api.get('/tournaments', query: {'state': state.name}) as List<dynamic>;
+    final data = await _api.get(ApiEndpoints.tournaments, query: {'state': state.name}) as List<dynamic>;
     return data.map((e) => Tournament.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

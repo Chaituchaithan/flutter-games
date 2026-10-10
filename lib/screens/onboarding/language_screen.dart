@@ -2,20 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
+import '../../data/languages.dart';
+import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
-/// The chosen app language (index into the picker list). Settings shows it;
-/// the picker reads and writes it.
-class LanguageController extends Notifier<int> {
-  @override
-  int build() => 0; // English
-  void select(int index) => state = index;
-}
-
-final languageProvider = NotifierProvider<LanguageController, int>(LanguageController.new);
-
-/// "🇬🇧 English" for the Settings row.
-String languageLabel(int index) => '${_languages[index].flag} ${_languages[index].english}';
+export '../../data/languages.dart' show languageProvider, languageLabel;
 
 /// Language picker (mockup `language`). First launch: globe hero +
 /// "Choose your language", Continue → onboarding. From Settings
@@ -30,33 +21,19 @@ class LanguageScreen extends ConsumerStatefulWidget {
   ConsumerState<LanguageScreen> createState() => _LanguageScreenState();
 }
 
-class _Language {
-  const _Language(this.native, this.english, this.flag);
-  final String native;
-  final String english;
-  final String flag;
-}
-
-const _languages = <_Language>[
-  _Language('English', 'English', '🇬🇧'),
-  _Language('Español', 'Spanish', '🇪🇸'),
-  _Language('Français', 'French', '🇫🇷'),
-  _Language('Deutsch', 'German', '🇩🇪'),
-  _Language('Português', 'Portuguese', '🇧🇷'),
-  _Language('हिन्दी', 'Hindi', '🇮🇳'),
-  _Language('العربية', 'Arabic', '🇸🇦'),
-  _Language('日本語', 'Japanese', '🇯🇵'),
-  _Language('한국어', 'Korean', '🇰🇷'),
-  _Language('Bahasa Indonesia', 'Indonesian', '🇮🇩'),
-  _Language('Türkçe', 'Turkish', '🇹🇷'),
-  _Language('Русский', 'Russian', '🇷🇺'),
-];
 
 class _LanguageScreenState extends ConsumerState<LanguageScreen> {
   late int _selected = ref.read(languageProvider);
 
   void _continue() {
     ref.read(languageProvider.notifier).select(_selected);
+    // Signed in: keep the profile's preferred_language in step (best effort).
+    if (ref.read(sessionProvider) != null) {
+      ref
+          .read(sessionProvider.notifier)
+          .updateProfile(preferredLanguage: appLanguages[_selected].code)
+          .catchError((Object _) {});
+    }
     if (widget.fromSettings) {
       Navigator.of(context).pop();
     } else {
@@ -108,11 +85,11 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
               return Wrap(
                 spacing: gap,
                 runSpacing: gap,
-                children: List.generate(_languages.length, (i) {
+                children: List.generate(appLanguages.length, (i) {
                   return SizedBox(
                     width: itemWidth,
                     child: _LanguageCard(
-                      language: _languages[i],
+                      language: appLanguages[i],
                       selected: i == _selected,
                       onTap: () => setState(() => _selected = i),
                     ),
@@ -137,7 +114,7 @@ class _LanguageCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final _Language language;
+  final AppLanguage language;
   final bool selected;
   final VoidCallback onTap;
 

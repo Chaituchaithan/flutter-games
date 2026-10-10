@@ -4,7 +4,7 @@ import '../../app/routes.dart';
 import '../../widgets/aura.dart';
 
 /// Reset password — 4-step flow: email → code → new password → done.
-/// Mirrors the mockup's `isForgot` (fp1..fp4). See docs/VERIFICATION_AUDIT.md §C.4.
+/// Mirrors the mockup's `isForgot` (fp1..fp4). See docs/DESIGN_SPEC.md.
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
 

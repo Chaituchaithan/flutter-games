@@ -4,7 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/game_area.dart';
 import '../../app/routes.dart';
+import '../../configs/games/games.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
@@ -17,6 +19,15 @@ import '../../widgets/aura.dart';
 /// expanding from the empty opponent seat.
 ///
 /// Set [autoStart] false to hold the searching state (tests).
+///
+/// **Live mode** ([searchTimeout] set — online quick match): the screen is
+/// driven by the real search instead of the demo timings. It counts down
+/// [searchTimeout] while searching and calls [onTimeout] at zero; when the
+/// host sets [found] it reveals the opponent and waits there (the host swaps
+/// in the board once the game starts). The clock only runs while
+/// [clockRunning] (not while still connecting). If the game hasn't started
+/// [startTimeout] after the reveal, [onStartTimeout] fires; a Leave button
+/// ([onCancel]) stays available meanwhile.
 class MatchmakingScreen extends ConsumerStatefulWidget {
   const MatchmakingScreen({
     super.key,
@@ -26,6 +37,14 @@ class MatchmakingScreen extends ConsumerStatefulWidget {
     this.tokens = true,
     this.label = 'Friends room',
     this.opponentName = 'ZeroCool',
+    this.searchTimeout,
+    this.found = false,
+    this.clockRunning = true,
+    this.startTimeout = const Duration(seconds: 20),
+    this.onStartTimeout,
+    this.statusText,
+    this.onTimeout,
+    this.onCancel,
   });
 
   final bool autoStart;
@@ -38,6 +57,27 @@ class MatchmakingScreen extends ConsumerStatefulWidget {
   /// Top-left pill, shown as "<LABEL> · CHESS".
   final String label;
   final String opponentName;
+
+  /// Live mode: how long to search before [onTimeout] (null = demo flow).
+  final Duration? searchTimeout;
+
+  /// Live mode: an opponent has joined → reveal them.
+  final bool found;
+
+  /// Live mode: the search has really started (connected and queued).
+  final bool clockRunning;
+
+  /// Live mode: how long to wait for the game to start after the reveal.
+  final Duration startTimeout;
+  final VoidCallback? onStartTimeout;
+
+  /// Live mode: status line while searching (e.g. "Connecting…").
+  final String? statusText;
+
+  final VoidCallback? onTimeout;
+
+  /// "Cancel search" (default: pop).
+  final VoidCallback? onCancel;
 
   @override
   ConsumerState<MatchmakingScreen> createState() => _MatchmakingScreenState();
@@ -52,14 +92,34 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
 
   late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(seconds: 3));
   late final AnimationController _spin = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
-  late final AnimationController _radar = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+  late final AnimationController _radar = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  );
 
   // Opponent level (mockup: 4–12).
   final int _oppLevel = 4 + math.Random().nextInt(9);
 
+  bool get _live => widget.searchTimeout != null;
+
+  /// Live mode: whole seconds left in the search.
+  late int _remaining = widget.searchTimeout?.inSeconds ?? 0;
+
   @override
   void initState() {
     super.initState();
+    if (_live) {
+      _pulse.repeat();
+      if (widget.found) {
+        _phase = _Phase.reveal;
+        _startWatchdog();
+        return;
+      }
+      _spin.repeat();
+      _radar.repeat();
+      if (widget.clockRunning) _startSearchClock();
+      return;
+    }
     if (!widget.autoStart) return;
     _pulse.repeat();
     _spin.repeat();
@@ -73,6 +133,46 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
     });
   }
 
+  @override
+  void didUpdateWidget(MatchmakingScreen old) {
+    super.didUpdateWidget(old);
+    if (!_live) return;
+    if (widget.found && !old.found) {
+      _reveal();
+    } else if (!widget.found && widget.clockRunning && _timer == null) {
+      _startSearchClock();
+    }
+  }
+
+  /// Live mode: count the search down once per second → [onTimeout] at zero.
+  void _startSearchClock() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _remaining--);
+      if (_remaining <= 0) {
+        t.cancel();
+        widget.onTimeout?.call();
+      }
+    });
+  }
+
+  /// Live mode: the game should start soon after the reveal; if it doesn't,
+  /// hand back to the host instead of waiting forever.
+  void _startWatchdog() {
+    _timer?.cancel();
+    _timer = Timer(widget.startTimeout, () {
+      if (mounted) widget.onStartTimeout?.call();
+    });
+  }
+
+  /// Live mode: opponent joined → stop the search clock and show them.
+  void _reveal() {
+    _spin.stop();
+    _radar.stop();
+    _startWatchdog();
+    setState(() => _phase = _Phase.reveal);
+  }
+
   /// Mockup vsTick: 3 → shows 2 (0.9s) → 1 (0.9s) → GO! (0.6s) → game.
   void _tick() {
     if (!mounted) return;
@@ -82,7 +182,14 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
         _count = 0;
       });
       _timer = Timer(const Duration(milliseconds: 600), () {
-        if (mounted) Navigator.pushReplacementNamed(context, Routes.chess);
+        if (!mounted) return;
+        // The active game's board (the offline demo flow).
+        final route = GameArea.demoBoardRoute(ref.read(activeGameProvider));
+        if (route != null) {
+          Navigator.pushReplacementNamed(context, route);
+        } else {
+          Navigator.popUntil(context, ModalRoute.withName(Routes.home));
+        }
       });
       return;
     }
@@ -109,11 +216,11 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
   Currency get _currency => widget.tokens ? Currency.gems : Currency.gold;
 
   String get _status => switch (_phase) {
-        _Phase.search => 'Finding players…',
-        _Phase.reveal => 'Opponents found!',
-        _Phase.count => 'Match starts in',
-        _Phase.go => 'GO!',
-      };
+    _Phase.search => widget.statusText ?? 'Finding players…',
+    _Phase.reveal => _live ? 'Opponent found — get ready!' : 'Opponents found!',
+    _Phase.count => 'Match starts in',
+    _Phase.go => 'GO!',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +260,10 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
-                        colors: [AuraColors.brandPurple.withValues(alpha: 0.28), AuraColors.brandPurple.withValues(alpha: 0)],
+                        colors: [
+                          AuraColors.brandPurple.withValues(alpha: 0.28),
+                          AuraColors.brandPurple.withValues(alpha: 0),
+                        ],
                         stops: const [0, 0.62],
                       ),
                     ),
@@ -179,7 +289,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
                               border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                             ),
                             child: Text(
-                              '${widget.label} · Chess'.toUpperCase(),
+                              '${widget.label} · ${ref.watch(activeGameConfigProvider).displayName}'.toUpperCase(),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -225,7 +335,15 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
                           // YOU
                           _YouAvatar(initials: me.initials),
                           const SizedBox(height: 8),
-                          Text(me.displayName, style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 16, color: Colors.white)),
+                          Text(
+                            me.displayName,
+                            style: TextStyle(
+                              fontFamily: AuraText.displayFamily,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           _LevelChip('LV ${me.level}', const Color(0xFFFBBF24), const Color(0xFFFBBF24)),
                           const SizedBox(height: 18),
@@ -245,7 +363,11 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
                                   child: switch (_phase) {
                                     _Phase.count => Text('$_count', key: ValueKey(_count), style: _badgeText(40)),
                                     _Phase.go => Text('GO!', key: const ValueKey('go'), style: _badgeText(24)),
-                                    _ => Text('VS', key: const ValueKey('vs'), style: _badgeText(26).copyWith(letterSpacing: 1)),
+                                    _ => Text(
+                                      'VS',
+                                      key: const ValueKey('vs'),
+                                      style: _badgeText(26).copyWith(letterSpacing: 1),
+                                    ),
                                   },
                                 ),
                               ],
@@ -268,42 +390,66 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
                     Text(
                       _status,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 18, color: Colors.white),
+                      style: TextStyle(
+                        fontFamily: AuraText.displayFamily,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     FittedBox(
                       fit: BoxFit.scaleDown, // never overflow on narrow phones
                       child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CurrencyGlyph(kind: _currency, size: 14),
-                        const SizedBox(width: 6),
-                        Text('Stake ', style: _metaText),
-                        Text(_stakeFmt, style: _metaText.copyWith(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, color: Colors.white)),
-                        if (_hasStake) ...[
-                          const SizedBox(width: 18),
-                          const Icon(Icons.emoji_events_outlined, size: 14, color: Color(0xFFFBBF24)),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CurrencyGlyph(kind: _currency, size: 14),
                           const SizedBox(width: 6),
-                          Text('Winner takes ', style: _metaText),
-                          Text(_potFmt, style: _metaText.copyWith(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, color: const Color(0xFFFBBF24))),
+                          Text('Stake ', style: _metaText),
+                          Text(
+                            _stakeFmt,
+                            style: _metaText.copyWith(
+                              fontFamily: AuraText.displayFamily,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          if (_hasStake) ...[
+                            const SizedBox(width: 18),
+                            const Icon(Icons.emoji_events_outlined, size: 14, color: Color(0xFFFBBF24)),
+                            const SizedBox(width: 6),
+                            Text('Winner takes ', style: _metaText),
+                            Text(
+                              _potFmt,
+                              style: _metaText.copyWith(
+                                fontFamily: AuraText.displayFamily,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFFFBBF24),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                    ),
-                    if (searching) ...[
+                    if (searching || (_live && _phase == _Phase.reveal)) ...[
                       const SizedBox(height: 20),
                       SizedBox(
                         height: 50,
                         child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).maybePop(),
+                          onPressed: widget.onCancel ?? () => Navigator.of(context).maybePop(),
                           style: OutlinedButton.styleFrom(
                             backgroundColor: Colors.white.withValues(alpha: 0.06),
                             side: BorderSide(color: Colors.white.withValues(alpha: 0.24), width: 1.5),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
                           child: Text(
-                            'Cancel search',
-                            style: TextStyle(fontFamily: AuraText.bodyFamily, fontWeight: FontWeight.w600, fontSize: 15, color: Colors.white.withValues(alpha: 0.85)),
+                            searching ? 'Cancel search' : 'Leave match',
+                            style: TextStyle(
+                              fontFamily: AuraText.bodyFamily,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: Colors.white.withValues(alpha: 0.85),
+                            ),
                           ),
                         ),
                       ),
@@ -318,7 +464,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
     );
   }
 
-  TextStyle get _pillText => TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 12.5, color: Colors.white);
+  TextStyle get _pillText =>
+      TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 12.5, color: Colors.white);
   TextStyle get _metaText => TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.65));
   TextStyle _badgeText(double size) =>
       TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: size, color: Colors.white);
@@ -354,9 +501,29 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
           ),
         ),
         const SizedBox(height: 8),
-        Text('Searching…', style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 16, color: Colors.white.withValues(alpha: 0.7))),
+        Text(
+          'Searching…',
+          style: TextStyle(
+            fontFamily: AuraText.displayFamily,
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+            color: Colors.white.withValues(alpha: 0.7),
+          ),
+        ),
         const SizedBox(height: 6),
-        Text('1,284 players online', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.45))),
+        if (_live)
+          Text(
+            '${_remaining ~/ 60}:${(_remaining % 60).toString().padLeft(2, '0')}',
+            key: const ValueKey('search-countdown'),
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: AuraColors.accentGlow,
+            ),
+          )
+        else
+          Text('1,284 players online', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.45))),
       ],
     );
   }
@@ -371,7 +538,10 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
           child: Container(
             width: 112,
             height: 112,
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color.withValues(alpha: 0.5), width: 2)),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
+            ),
           ),
         ),
       ),
@@ -390,16 +560,38 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> with Tick
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFF43F5E), Color(0xFFFB7185)]),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFF43F5E), Color(0xFFFB7185)],
+            ),
             border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 3),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 30, spreadRadius: -10, offset: const Offset(0, 14))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.8),
+                blurRadius: 30,
+                spreadRadius: -10,
+                offset: const Offset(0, 14),
+              ),
+            ],
           ),
           child: Text(initials, style: _badgeText(26)),
         ),
         const SizedBox(height: 7),
-        Text(name, style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 14, color: Colors.white)),
-        const SizedBox(height: 7),
-        _LevelChip('LV $_oppLevel', const Color(0xFF67E8F9), const Color(0xFF22D3EE)),
+        Text(
+          name,
+          style: TextStyle(
+            fontFamily: AuraText.displayFamily,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            color: Colors.white,
+          ),
+        ),
+        // The level is demo-only — a live opponent's level isn't sent.
+        if (!_live) ...[
+          const SizedBox(height: 7),
+          _LevelChip('LV $_oppLevel', const Color(0xFF67E8F9), const Color(0xFF22D3EE)),
+        ],
       ],
     );
   }
@@ -418,7 +610,9 @@ class _YouAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        gradient: SweepGradient(colors: [AuraColors.brandPurple, AuraColors.brandPink, Color(0xFFFB923C), AuraColors.brandPurple]),
+        gradient: SweepGradient(
+          colors: [AuraColors.brandPurple, AuraColors.brandPink, Color(0xFFFB923C), AuraColors.brandPurple],
+        ),
       ),
       child: Container(
         padding: const EdgeInsets.all(3),
@@ -427,10 +621,22 @@ class _YouAvatar extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AuraColors.brandPurple, AuraColors.brandPink]),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AuraColors.brandPurple, AuraColors.brandPink],
+            ),
             border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
           ),
-          child: Text(initials, style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 30, color: Colors.white)),
+          child: Text(
+            initials,
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
+              fontWeight: FontWeight.w700,
+              fontSize: 30,
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
     );
@@ -452,7 +658,10 @@ class _LevelChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(99),
         border: Border.all(color: tint.withValues(alpha: 0.35)),
       ),
-      child: Text(text, style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 11, color: fg)),
+      child: Text(
+        text,
+        style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 11, color: fg),
+      ),
     );
   }
 }
@@ -482,7 +691,10 @@ class _VsBadge extends StatelessWidget {
       ),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 260),
-        transitionBuilder: (c, a) => ScaleTransition(scale: Tween(begin: 1.6, end: 1.0).animate(CurvedAnimation(parent: a, curve: Curves.easeOutBack)), child: FadeTransition(opacity: a, child: c)),
+        transitionBuilder: (c, a) => ScaleTransition(
+          scale: Tween(begin: 1.6, end: 1.0).animate(CurvedAnimation(parent: a, curve: Curves.easeOutBack)),
+          child: FadeTransition(opacity: a, child: c),
+        ),
         child: child,
       ),
     );
@@ -517,7 +729,13 @@ class _DashedCirclePainter extends CustomPainter {
     final r = size.width / 2 - 1;
     const dashes = 22;
     for (var i = 0; i < dashes; i++) {
-      canvas.drawArc(Rect.fromCircle(center: size.center(Offset.zero), radius: r), (i / dashes) * 2 * math.pi, math.pi / dashes, false, paint);
+      canvas.drawArc(
+        Rect.fromCircle(center: size.center(Offset.zero), radius: r),
+        (i / dashes) * 2 * math.pi,
+        math.pi / dashes,
+        false,
+        paint,
+      );
     }
   }
 

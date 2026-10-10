@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../configs/network_config.dart';
 import 'socket_events.dart';
 import 'ws_connect.dart';
 
@@ -67,9 +68,9 @@ class SocketClient {
   SocketClient({
     required this.url,
     ChannelFactory? channelFactory,
-    this.pingInterval = const Duration(seconds: 20),
+    this.pingInterval = NetworkConfig.socketPingInterval,
     this.requestTimeout = const Duration(seconds: 15),
-    this.maxBackoff = const Duration(seconds: 30),
+    this.maxBackoff = NetworkConfig.socketMaxBackoff,
     Map<String, dynamic>? headers,
   }) : _channelFactory = channelFactory ?? ((u) => connectWs(u, headers: headers));
 

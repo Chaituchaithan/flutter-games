@@ -5,7 +5,7 @@ import '../../widgets/aura.dart';
 
 /// Match setup — a 3-step flow (players → stake → buy-in) presented as a
 /// standalone screen. On completion navigate to Routes.matchPreview.
-/// See docs/DESIGN_SPEC.md §9-11.
+/// See docs/DESIGN_SPEC.md.
 class MatchSetupScreen extends StatefulWidget {
   const MatchSetupScreen({super.key});
 

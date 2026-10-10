@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/routes.dart';
 import '../../data/repositories/store_repository.dart';
 import '../../widgets/aura.dart';
+import '../../app/game_area.dart';
+import '../../app/game_module.dart';
+import '../../configs/games/core/active_game.dart';
 
 /// Online Play — the mockup's `opOpen` flow as a single modal bottom sheet:
-/// players → currency → stake → preview → Create game. See docs/VERIFICATION_AUDIT.md §C.1.
+/// currency → side (White/Black) → stake → preview → Find match (no players
+/// step: chess is 2P).
+/// See docs/DESIGN_SPEC.md.
 ///
 /// [onBuyMore] fires when the player taps "Buy more" on the insufficient-balance
 /// dialog (the sheet is already closed) — the caller routes to the Store.
@@ -31,9 +35,15 @@ class OnlinePlaySheet extends ConsumerStatefulWidget {
 class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
   // Chess is always 2-player, so the "How many players?" step (0) is skipped —
   // the sheet opens directly on "Choose your stake" (step 1).
-  int _step = 1; // 1 currency ("Choose your stake") · 2 amount · 3 preview
+  int _step = 1; // 1 currency ("Choose your stake") · 2 side · 3 amount · 4 preview
   final int _players = 2;
   bool _isTokens = true;
+  /// The active game's online side options (chess: White / Black); empty =
+  /// no side step.
+  late final List<OnlineSide> _sides = GameArea.onlineSides(ref.read(activeGameProvider));
+  int _sideIdx = 0;
+  bool get _hasSides => _sides.isNotEmpty;
+  String get _sideLabel => _hasSides ? _sides[_sideIdx].label : '';
   int _stake = 200;
 
   static const _minStake = 50;
@@ -54,10 +64,9 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
   /// Wallet balance for a currency, read from the shared wallet (falls back to
   /// the demo balances while it loads).
   int _walletBalance(bool tokens) {
-    final s = ref.read(walletProvider).maybeWhen(
-          data: (w) => tokens ? w.gems : w.gold,
-          orElse: () => tokens ? '5,000' : '2,000',
-        );
+    final s = ref
+        .read(walletProvider)
+        .maybeWhen(data: (w) => tokens ? w.gems : w.gold, orElse: () => tokens ? '5,000' : '2,000');
     return int.tryParse(s.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
   }
 
@@ -75,14 +84,21 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
     }
     if (!mounted) return;
     Navigator.of(context).pop();
-    // Launch online Chess (the only game): connect → matchmake → live board.
-    Navigator.pushNamed(context, Routes.chessOnline, arguments: {'stake': _stake, 'tokens': _isTokens});
+    // The active game's online screen: connect → matchmake → live board.
+    final route = GameArea.onlineRoute(ref.read(activeGameProvider));
+    if (route == null) return;
+    Navigator.pushNamed(context, route, arguments: {
+      'stake': _stake,
+      'tokens': _isTokens,
+      if (_hasSides) 'color': _sides[_sideIdx].value,
+    });
   }
 
   void _back() {
     // Step 1 ("Choose your stake") is the first step now — back from it closes.
     if (_step > 1) {
-      setState(() => _step--);
+      // No side step: stake (3) goes straight back to currency (1).
+      setState(() => _step = (_step == 3 && !_hasSides) ? 1 : _step - 1);
     } else {
       Navigator.of(context).maybePop();
     }
@@ -101,14 +117,15 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
   }
 
   (String, String, String) get _headerText => switch (_step) {
-        1 => ('1/2', 'Choose your stake', 'Token or Gold buy-in'),
-        2 => (
-            '2/2 · buy-in',
-            _isTokens ? 'How many tokens?' : 'How much gold?',
-            '$_players Players · $_currency',
-          ),
-        _ => ('preview', 'Match preview', 'Online · ${_players}P · $_currency'),
-      };
+    1 => (_hasSides ? '1/3' : '1/2', 'Choose your stake', 'Token or Gold buy-in'),
+    2 => ('2/3 · side', 'Choose your side', _sides.first.sub),
+    3 => (
+      _hasSides ? '3/3 · buy-in' : '2/2 · buy-in',
+      _isTokens ? 'How many tokens?' : 'How much gold?',
+      '$_players Players · $_currency',
+    ),
+    _ => ('preview', 'Match preview', ['Online', '${_players}P', _currency, if (_hasSides) _sideLabel].join(' · ')),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +175,11 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                         behavior: HitTestBehavior.opaque,
                         child: Text(
                           _step == 0 ? '‹ close' : '‹ back',
-                          style: const TextStyle(color: AuraColors.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            color: AuraColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       Container(
@@ -185,7 +206,8 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                     child: SingleChildScrollView(
                       child: switch (_step) {
                         1 => _currency_(),
-                        2 => _stake_(),
+                        2 => _side_(),
+                        3 => _stake_(),
                         _ => _preview_(),
                       },
                     ),
@@ -206,7 +228,10 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
         Expanded(
           child: _OptCard(
             selected: _isTokens,
-            onTap: () => setState(() { _isTokens = true; _step = 2; }),
+            onTap: () => setState(() {
+              _isTokens = true;
+              _step = _hasSides ? 2 : 3;
+            }),
             child: _currencyContent(Currency.gems, 'Tokens', 'Balance ${_fmt(_walletBalance(true))}'),
           ),
         ),
@@ -214,7 +239,10 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
         Expanded(
           child: _OptCard(
             selected: !_isTokens,
-            onTap: () => setState(() { _isTokens = false; _step = 2; }),
+            onTap: () => setState(() {
+              _isTokens = false;
+              _step = _hasSides ? 2 : 3;
+            }),
             child: _currencyContent(Currency.gold, 'Gold', 'Balance ${_fmt(_walletBalance(false))}'),
           ),
         ),
@@ -237,7 +265,36 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
     );
   }
 
-  // ── Step 2: stake ──
+  // ── Step 2: side (the game's options, e.g. chess White / Black) ──
+  Widget _side_() {
+    return Row(
+      children: [
+        for (var i = 0; i < _sides.length; i++) ...[
+          if (i > 0) const SizedBox(width: 12),
+          Expanded(
+            child: _OptCard(
+              selected: _sideIdx == i,
+              onTap: () => setState(() {
+                _sideIdx = i;
+                _step = 3;
+              }),
+              child: Column(
+                children: [
+                  _sides[i].icon(48),
+                  const SizedBox(height: 10),
+                  Text(_sides[i].label, style: AuraText.cardTitle.copyWith(fontSize: 17)),
+                  const SizedBox(height: 4),
+                  Text(_sides[i].sub, style: AuraText.cardSub.copyWith(fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ── Step 3: stake ──
   Widget _stake_() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -261,8 +318,15 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(amt >= 1000 ? '${amt ~/ 1000}k' : '$amt',
-                        style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                    Text(
+                      amt >= 1000 ? '${amt ~/ 1000}k' : '$amt',
+                      style: TextStyle(
+                        fontFamily: AuraText.displayFamily,
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 3),
                     Text(pot, style: AuraText.cardSub.copyWith(fontSize: 10, color: AuraColors.textMuted)),
                   ],
@@ -288,8 +352,15 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                 height: 52,
                 alignment: Alignment.center,
                 decoration: AuraGlass.decoration(radius: 14, shadow: false),
-                child: Text(_fmt(_stake),
-                    style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700)),
+                child: Text(
+                  _fmt(_stake),
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -317,7 +388,7 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
           ),
         ),
         const SizedBox(height: 18),
-        GradientButton(label: 'Preview match  →', onPressed: () => setState(() => _step = 3)),
+        GradientButton(label: 'Preview match  →', onPressed: () => setState(() => _step = 4)),
       ],
     );
   }
@@ -345,12 +416,20 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
       children: [
         Expanded(child: Text(label, style: AuraText.cardSub.copyWith(letterSpacing: 0.3))),
         const SizedBox(width: 8),
-        Text(value, style: TextStyle(fontFamily: AuraText.displayFamily, color: valueColor, fontSize: 18, fontWeight: FontWeight.w700)),
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: AuraText.displayFamily,
+            color: valueColor,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }
 
-  // ── Step 3: preview ──
+  // ── Step 4: preview ──
   Widget _preview_() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -365,7 +444,16 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                 children: [
                   const LetterAvatar(letter: 'NR', color: AuraColors.brandPurple, size: 56, glow: true),
                   const SizedBox(width: 20),
-                  Text('VS', style: TextStyle(fontFamily: AuraText.displayFamily, color: AuraColors.textSecondary, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: 3)),
+                  Text(
+                    'VS',
+                    style: TextStyle(
+                      fontFamily: AuraText.displayFamily,
+                      color: AuraColors.textSecondary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 3,
+                    ),
+                  ),
                   const SizedBox(width: 20),
                   Container(
                     width: 56,
@@ -376,7 +464,15 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2),
                     ),
-                    child: Text('?', style: TextStyle(fontFamily: AuraText.displayFamily, color: AuraColors.textSecondary, fontSize: 24, fontWeight: FontWeight.w700)),
+                    child: Text(
+                      '?',
+                      style: TextStyle(
+                        fontFamily: AuraText.displayFamily,
+                        color: AuraColors.textSecondary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -391,6 +487,10 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
           decoration: AuraGlass.decoration(radius: AuraRadii.lg),
           child: Column(
             children: [
+              if (_hasSides) ...[
+                _infoRow('Your side', _sideLabel),
+                _divider(),
+              ],
               _infoRow('Entry stake', _fmt(_stake)),
               _divider(),
               _infoRow('Total prize pot', _fmt(_stake * _players), valueColor: AuraColors.amber),
@@ -400,22 +500,30 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
           ),
         ),
         const SizedBox(height: 20),
-        GradientButton(label: 'Create game', onPressed: _createGame),
+        GradientButton(label: 'Find match', onPressed: _createGame),
       ],
     );
   }
 
   Widget _divider() => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Divider(color: Colors.white.withValues(alpha: 0.12), height: 1),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Divider(color: Colors.white.withValues(alpha: 0.12), height: 1),
+  );
 
   Widget _infoRow(String label, String value, {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: AuraText.body.copyWith(color: AuraColors.textSecondary)),
-        Text(value, style: TextStyle(fontFamily: AuraText.displayFamily, color: valueColor ?? Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: AuraText.displayFamily,
+            color: valueColor ?? Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }

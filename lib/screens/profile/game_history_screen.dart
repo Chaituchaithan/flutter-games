@@ -7,7 +7,7 @@ import '../../state/async_view.dart';
 import '../../widgets/aura.dart';
 
 /// Game history. Reads via `matchHistoryProvider` (static source today; live API
-/// when remote sources are switched on). See docs/DESIGN_SPEC.md (v2 §Game history).
+/// when remote sources are switched on). See docs/DESIGN_SPEC.md.
 class GameHistoryScreen extends ConsumerStatefulWidget {
   const GameHistoryScreen({super.key});
 

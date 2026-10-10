@@ -35,8 +35,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
-  # Aura display (Chakra Petch) + body (Manrope) fonts, fetched at runtime.
-  # Kept behind AuraText so the display face stays swappable. See docs/MOCKUP_AUDIT.md §1.1.
+  # Aura display (Space Grotesk) + body (Manrope) fonts. The files are bundled in
+  # assets/google_fonts/ (used first, offline, no first-launch font jump);
+  # google_fonts only fetches a weight that isn't bundled. Kept behind AuraText.
   google_fonts: ^6.2.1
   flutter_riverpod: ^3.4.3
   dio: ^5.11.1
@@ -56,6 +57,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_native_splash: ^2.4.8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -67,6 +69,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/google_fonts/
+    - assets/splash/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -98,3 +104,15 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Native launch screen (shown before Flutter starts) — same dark background and
+# orb as the Flutter splash, so the two blend into one. Regenerate after
+# changing: dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#070510"
+  image: assets/splash/logo.png
+  android_12:
+    color: "#070510"
+    image: assets/splash/logo_android12.png
+  web: true
+  fullscreen: false

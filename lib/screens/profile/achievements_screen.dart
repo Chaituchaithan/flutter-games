@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../widgets/aura.dart';
 
-/// Achievements — "Trophy Room". See docs/DESIGN_SPEC.md (v2 §Achievements).
+/// Achievements — "Trophy Room". See docs/DESIGN_SPEC.md.
 class AchievementsScreen extends StatelessWidget {
   const AchievementsScreen({super.key});
 

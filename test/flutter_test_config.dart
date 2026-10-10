@@ -1,11 +1,13 @@
 import 'dart:async';
 
-import 'package:google_fonts/google_fonts.dart';
+import 'package:snakeladder/app/app_profile.dart';
+import 'package:snakeladder/configs/games/games.dart';
+import 'package:snakeladder/main.dart' show allGamesApp;
 
-/// Auto-loaded before any test in this directory. Disables google_fonts runtime
-/// HTTP fetching so tests never depend on the network (they fall back to the
-/// default font instead of throwing). The real app still fetches at runtime.
+/// Every test runs inside the all-games app (as `lib/main.dart` would set
+/// it up). Tests of a single-game app set [AppProfile.current] themselves.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
-  GoogleFonts.config.allowRuntimeFetching = false;
+  AppProfile.current = allGamesApp;
+  GameRegistry.setAppGames([for (final m in allGamesApp.modules) m.id]);
   await testMain();
 }

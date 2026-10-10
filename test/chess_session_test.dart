@@ -4,8 +4,9 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'package:snakeladder/configs/configs.dart';
 import 'package:snakeladder/game/chess/chess_engine.dart';
-import 'package:snakeladder/services/socket/chess_session.dart';
+import 'package:snakeladder/game/chess/chess_session.dart';
 import 'package:snakeladder/services/socket/socket_client.dart';
 import 'package:snakeladder/services/socket/socket_events.dart';
 
@@ -186,5 +187,105 @@ void main() {
     expect(session.chat.length, 1);
     expect(session.chat.first.message, 'Nice move');
     expect(session.chat.first.mine, isFalse);
+  });
+
+  test('stake failure on ready (game.start_error reply) shows why instead of waiting', () async {
+    await boot();
+    final f = session.ready();
+    await Future<void>.delayed(Duration.zero);
+    final readyId = fake.sent.lastWhere((m) => m['event'] == SocketEvent.playerReady)['id'];
+    fake.serverSend({
+      'id': readyId,
+      'event': 'game.start_error',
+      'error': {'code': 'insufficient_balance', 'message': 'insufficient balance'},
+    });
+    await f;
+    expect(session.phase, ChessPhase.error);
+    expect(session.startFailed, isTrue);
+    expect(session.lastError, contains('Not enough balance'));
+  });
+
+  test('game.start_error broadcast also ends the wait', () async {
+    await boot();
+    fake.serverSend({'event': 'game.start_error', 'error': {'code': 'invalid_state', 'message': 'stake debit failed'}});
+    await Future<void>.delayed(Duration.zero);
+    expect(session.phase, ChessPhase.error);
+    expect(session.lastError, 'stake debit failed');
+  });
+
+  test('room.create sends the backend currency value ("token")', () async {
+    await boot();
+    final f = session.createRoom(currency: 'token', betAmount: 0);
+    await Future<void>.delayed(Duration.zero);
+    final req = fake.sent.lastWhere((m) => m['event'] == SocketEvent.roomCreate);
+    expect(req['data'], {'currency': 'token', 'bet_amount': 0});
+    fake.serverSend({'id': req['id'], 'event': SocketEvent.roomCreated, 'data': {'room_code': 'AX7K2Q', 'seat': 0, 'color': 'white'}});
+    await f;
+    expect(session.roomCode, 'AX7K2Q');
+  });
+
+  test('match.find sends {game_type, player_count, currency, bet_amount, seat}', () async {
+    await boot();
+    final f = session.findMatch(currency: 'token', betAmount: 100, seat: ChessSeats.black);
+    await Future<void>.delayed(Duration.zero);
+    final req = fake.sent.lastWhere((m) => m['event'] == SocketEvent.matchFind);
+    expect(req['data'], {'game_type': 'chess', 'player_count': 2, 'currency': 'token', 'bet_amount': 100, 'seat': 1});
+    fake.serverSend({'id': req['id'], 'event': SocketEvent.matchSearching, 'data': {}});
+    await f;
+    expect(session.phase, ChessPhase.searching);
+  });
+
+  test('seat 0 = White, seat 1 = Black', () async {
+    expect(ChessSeats.white, 0);
+    expect(ChessSeats.black, 1);
+    await boot();
+    fake.serverSend({'event': SocketEvent.matchFound, 'data': {'room_code': 'R1', 'seat': 1}});
+    await Future<void>.delayed(Duration.zero);
+    expect(session.myColor, PieceColor.black);
+    expect(session.opponentJoined, isFalse); // room open, nobody else yet
+  });
+
+  test('room full marks the opponent as joined; match.timeout flags the search', () async {
+    await boot();
+    fake.serverSend({'event': SocketEvent.roomUserJoined, 'data': {'user_id': 'bob', 'username': 'bob', 'room_full': true}});
+    await Future<void>.delayed(Duration.zero);
+    expect(session.opponentJoined, isTrue);
+    expect(session.opponentName, 'bob');
+
+    fake.serverSend({'event': SocketEvent.matchTimeout, 'data': {}});
+    await Future<void>.delayed(Duration.zero);
+    expect(session.searchTimedOut, isTrue);
+  });
+
+  test('cancelMatch sends match.cancel and never throws', () async {
+    await boot();
+    final f = session.cancelMatch();
+    await Future<void>.delayed(Duration.zero);
+    final req = fake.sent.lastWhere((m) => m['event'] == SocketEvent.matchCancel);
+    fake.serverSend({'id': req['id'], 'event': SocketEvent.matchCancelled, 'data': {}});
+    await f;
+  });
+
+  test('room.join_error shows a plain reason instead of hanging', () async {
+    await boot();
+    final f = session.joinRoom('ZZZZZZ');
+    await Future<void>.delayed(Duration.zero);
+    final req = fake.sent.lastWhere((m) => m['event'] == SocketEvent.roomJoin);
+    fake.serverSend({'id': req['id'], 'event': 'room.join_error', 'error': {'code': 'not_found', 'message': 'no room'}});
+    await f;
+    expect(session.phase, ChessPhase.error);
+    expect(session.roomFailed, isTrue);
+    expect(session.lastError, contains('No room with that code'));
+  });
+
+  test("a joiner picks up the host's stake when the server sends it", () async {
+    await boot();
+    final f = session.joinRoom('AX7K2Q');
+    await Future<void>.delayed(Duration.zero);
+    final req = fake.sent.lastWhere((m) => m['event'] == SocketEvent.roomJoin);
+    fake.serverSend({'id': req['id'], 'event': SocketEvent.roomJoined, 'data': {'room_code': 'AX7K2Q', 'seat': 1, 'currency': 'gold', 'bet_amount': 300}});
+    await f;
+    expect(session.betAmount, 300);
+    expect(session.currency, 'gold');
   });
 }

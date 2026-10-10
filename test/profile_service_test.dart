@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:snakeladder/data/models/user.dart';
 import 'package:snakeladder/services/api_client.dart';
+import 'package:snakeladder/services/app_exception.dart';
 import 'package:snakeladder/services/auth_service.dart';
 
 class _Req {
@@ -101,6 +102,45 @@ void main() {
     expect(u.bio, 'Chess fan');
     expect(u.country, 'IN');
     expect(u.displayName, 'chaitu01');
+  });
+
+  test('language + date of birth go out as preferred_language / date_of_birth', () async {
+    final a = _FakeAdapter({
+      'PATCH /api/v1/users/me/profile': (r) {
+        final b = r.body as Map;
+        return (200, {..._profile(), 'preferred_language': b['preferred_language'], 'date_of_birth': b['date_of_birth']});
+      },
+    });
+    final api = _client(a)..authToken = 'tok';
+    final current = User.fromApi(_me, _profile());
+    final u = await RemoteAuthService(api).updateProfile(current, preferredLanguage: 'es', dateOfBirth: '1998-03-12');
+    expect(a.log.single.body, {'preferred_language': 'es', 'date_of_birth': '1998-03-12'});
+    expect(u.preferredLanguage, 'es');
+    expect(u.dateOfBirth, '1998-03-12');
+  });
+
+  test('changePassword = POST /auth/change-password {current_password, new_password}', () async {
+    final a = _FakeAdapter({'POST /api/v1/auth/change-password': (_) => (204, null)});
+    final api = _client(a)..authToken = 'tok';
+    await RemoteAuthService(api).changePassword(currentPassword: 'Old12345', newPassword: 'New12345');
+    expect(a.log.single.body, {'current_password': 'Old12345', 'new_password': 'New12345'});
+    expect(a.log.single.auth, 'Bearer tok');
+  });
+
+  test('wrong current password (401) is an error, not a sign-out', () async {
+    final a = _FakeAdapter({
+      'POST /api/v1/auth/change-password': (_) => (401, {'error': 'INVALID_CREDENTIALS', 'message': 'invalid credentials'}),
+    });
+    var signedOut = false;
+    final api = _client(a)
+      ..authToken = 'tok'
+      ..onUnauthorized = () => signedOut = true;
+    await expectLater(
+      RemoteAuthService(api).changePassword(currentPassword: 'bad', newPassword: 'New12345'),
+      throwsA(isA<AppException>().having((e) => e.statusCode, 'status', 401)),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(signedOut, isFalse);
   });
 
   test('expired token: 401 → refresh → PATCH retried once with the new token', () async {

@@ -58,13 +58,7 @@ class AuraScaffold extends StatelessWidget {
 
 /// Back chevron + centered title + optional trailing widget.
 class AuraAppBar extends StatelessWidget {
-  const AuraAppBar({
-    super.key,
-    this.title,
-    this.showBack = true,
-    this.onBack,
-    this.trailing,
-  });
+  const AuraAppBar({super.key, this.title, this.showBack = true, this.onBack, this.trailing});
 
   final String? title;
   final bool showBack;
@@ -95,7 +89,12 @@ class AuraAppBar extends StatelessWidget {
                   title!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 22, color: Colors.white),
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 22,
+                    color: Colors.white,
+                  ),
                 ),
               )
             else
@@ -169,12 +168,7 @@ enum Currency { gems, gold }
 
 /// The "10,000 +" / "3,000 +" pills seen in headers.
 class CurrencyPill extends StatelessWidget {
-  const CurrencyPill({
-    super.key,
-    required this.kind,
-    required this.amount,
-    this.showPlus = true,
-  });
+  const CurrencyPill({super.key, required this.kind, required this.amount, this.showPlus = true});
 
   final Currency kind;
   final String amount;
@@ -215,10 +209,7 @@ class CurrencyPill extends StatelessWidget {
             Container(
               width: 18,
               height: 18,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.25),
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.25), shape: BoxShape.circle),
               child: const Icon(Icons.add, size: 13, color: Colors.white),
             ),
           ],
@@ -261,18 +252,11 @@ class _CurrencyPainter extends CustomPainter {
         ..lineTo(w * 0.5, h * 0.92)
         ..lineTo(w * 0.05, h * 0.40)
         ..close();
-      canvas.drawPath(
-        p,
-        Paint()..shader = AuraGradients.token.createShader(rect),
-      );
+      canvas.drawPath(p, Paint()..shader = AuraGradients.token.createShader(rect));
     } else {
       final c = rect.center;
       canvas.drawCircle(c, size.width * 0.5, Paint()..color = const Color(0xFFB45309));
-      canvas.drawCircle(
-        c,
-        size.width * 0.42,
-        Paint()..shader = AuraGradients.goldCoin.createShader(rect),
-      );
+      canvas.drawCircle(c, size.width * 0.42, Paint()..shader = AuraGradients.goldCoin.createShader(rect));
     }
   }
 
@@ -346,28 +330,16 @@ class _AuraTextFieldState extends State<AuraTextField> {
         borderRadius: BorderRadius.circular(AuraRadii.md),
         border: Border.all(color: borderColor, width: 1.5),
         boxShadow: hasError
-            ? [
-                BoxShadow(
-                  color: AuraColors.danger.withValues(alpha: 0.18),
-                  spreadRadius: 3,
-                  blurRadius: 0,
-                ),
-              ]
+            ? [BoxShadow(color: AuraColors.danger.withValues(alpha: 0.18), spreadRadius: 3, blurRadius: 0)]
             : focused
-                ? [
-                    BoxShadow(
-                      color: AuraColors.accentGlow.withValues(alpha: 0.18),
-                      spreadRadius: 3,
-                      blurRadius: 0,
-                    ),
-                  ]
-                : const [
-                    BoxShadow(
-                      color: Color(0x59000000), // inset-ish depth (0.35 black)
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+            ? [BoxShadow(color: AuraColors.accentGlow.withValues(alpha: 0.18), spreadRadius: 3, blurRadius: 0)]
+            : const [
+                BoxShadow(
+                  color: Color(0x59000000), // inset-ish depth (0.35 black)
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -391,21 +363,14 @@ class _AuraTextFieldState extends State<AuraTextField> {
               onSubmitted: widget.onSubmitted,
               maxLines: widget.maxLines,
               minLines: widget.maxLines > 1 ? 3 : 1,
-              style: TextStyle(
-                fontFamily: AuraText.bodyFamily,
-                color: AuraColors.textPrimary,
-                fontSize: 15.5,
-              ),
+              style: TextStyle(fontFamily: AuraText.bodyFamily, color: AuraColors.textPrimary, fontSize: 15.5),
               cursorColor: AuraColors.accentGlow,
               decoration: InputDecoration(
                 isCollapsed: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 18),
                 border: InputBorder.none,
                 hintText: widget.hint,
-                hintStyle: TextStyle(
-                  color: AuraColors.textPrimary.withValues(alpha: 0.34),
-                  fontSize: 15.5,
-                ),
+                hintStyle: TextStyle(color: AuraColors.textPrimary.withValues(alpha: 0.34), fontSize: 15.5),
               ),
             ),
           ),
@@ -431,11 +396,7 @@ class _AuraTextFieldState extends State<AuraTextField> {
                 Expanded(
                   child: Text(
                     widget.errorText!,
-                    style: const TextStyle(
-                      color: AuraColors.dangerText,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: const TextStyle(color: AuraColors.dangerText, fontSize: 12.5, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
@@ -446,11 +407,36 @@ class _AuraTextFieldState extends State<AuraTextField> {
   }
 }
 
+/// While [busy], the screen ignores every tap and the back gesture/button,
+/// so a second action can't start (or navigate away) while a request is in
+/// flight — e.g. tapping "Create account" during guest sign-in.
+class BusyGuard extends StatelessWidget {
+  const BusyGuard({super.key, required this.busy, required this.child});
+  final bool busy;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !busy,
+    child: AbsorbPointer(absorbing: busy, child: child),
+  );
+}
+
+/// Small spinner shown inside a button while its action runs.
+Widget _buttonSpinner(Color color) => SizedBox(
+  width: 20,
+  height: 20,
+  child: CircularProgressIndicator(strokeWidth: 2.2, valueColor: AlwaysStoppedAnimation(color)),
+);
+
 /// Dark outline pill button (secondary action).
 class SecondaryButton extends StatelessWidget {
-  const SecondaryButton({super.key, required this.label, required this.onPressed});
+  const SecondaryButton({super.key, required this.label, required this.onPressed, this.loading = false});
   final String label;
   final VoidCallback onPressed;
+
+  /// Shows a spinner in place of the label.
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -466,20 +452,19 @@ class SecondaryButton extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AuraRadii.md),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.24),
-                width: 1.5,
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.24), width: 1.5),
             ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontFamily: AuraText.bodyFamily,
-                color: AuraColors.textPrimary.withValues(alpha: 0.85),
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: loading
+                ? _buttonSpinner(AuraColors.textPrimary)
+                : Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: AuraText.bodyFamily,
+                      color: AuraColors.textPrimary.withValues(alpha: 0.85),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
         ),
       ),
@@ -495,11 +480,15 @@ class LightButton extends StatelessWidget {
     required this.onPressed,
     this.leading,
     this.dark = false,
+    this.loading = false,
   });
 
   final String label;
   final VoidCallback onPressed;
   final Widget? leading;
+
+  /// Shows a spinner in place of the label.
+  final bool loading;
 
   /// When true renders a dark surface (e.g. "Continue with Google").
   final bool dark;
@@ -525,26 +514,28 @@ class LightButton extends StatelessWidget {
                     border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
                   )
                 : BoxDecoration(borderRadius: BorderRadius.circular(15)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (leading != null) ...[leading!, const SizedBox(width: 10)],
-                // Shrinks instead of overflowing on narrow phones.
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: AuraText.bodyFamily,
-                      color: fg,
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w600,
-                    ),
+            child: loading
+                ? _buttonSpinner(fg)
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (leading != null) ...[leading!, const SizedBox(width: 10)],
+                      // Shrinks instead of overflowing on narrow phones.
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AuraText.bodyFamily,
+                            color: fg,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
@@ -560,9 +551,9 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: padding,
-        child: Text(text.toUpperCase(), style: AuraText.section),
-      );
+    padding: padding,
+    child: Text(text.toUpperCase(), style: AuraText.section),
+  );
 }
 
 /// Content section header: a 4×16 gradient bar + display-face label (the
@@ -719,12 +710,7 @@ class AuraToggle extends StatelessWidget {
 
 /// Segmented pill tab control (Store categories, etc.).
 class SegmentedTabs extends StatelessWidget {
-  const SegmentedTabs({
-    super.key,
-    required this.labels,
-    required this.index,
-    required this.onChanged,
-  });
+  const SegmentedTabs({super.key, required this.labels, required this.index, required this.onChanged});
 
   final List<String> labels;
   final int index;
@@ -850,7 +836,12 @@ class AuraBottomNav extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: 40, spreadRadius: -10, offset: const Offset(0, 16)),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.6),
+              blurRadius: 40,
+              spreadRadius: -10,
+              offset: const Offset(0, 16),
+            ),
           ],
         ),
         child: Row(
@@ -869,7 +860,12 @@ class AuraBottomNav extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       label,
-                      style: TextStyle(fontFamily: AuraText.bodyFamily, fontSize: 10.5, fontWeight: FontWeight.w600, color: color),
+                      style: TextStyle(
+                        fontFamily: AuraText.bodyFamily,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
                     ),
                     const SizedBox(height: 3),
                     AnimatedOpacity(

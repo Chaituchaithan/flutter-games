@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/app_prefs.dart';
 
 import '../theme.dart';
 import '../widgets/aura_widgets.dart';
@@ -69,6 +71,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _finish() {
+    // First launch done: next time the app opens straight on Login / Home.
+    ProviderScope.containerOf(context).read(appPrefsProvider).setOnboarded();
     Navigator.pushReplacementNamed(context, '/login');
   }
 

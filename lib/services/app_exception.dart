@@ -1,6 +1,6 @@
 /// A transport-agnostic error the UI can show. Repositories translate raw
 /// source/HTTP failures into this so screens never depend on `dio`.
-/// See docs/INTEGRATION_PLAN.md §4.
+/// See docs/SERVICES_AND_REALTIME.md.
 class AppException implements Exception {
   const AppException(this.message, {this.kind = AppErrorKind.unknown, this.statusCode});
 

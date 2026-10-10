@@ -10,7 +10,7 @@ import 'components.dart';
 /// Shared gameplay chrome + in-game overlays for every board (Chess, Othello,
 /// Scrabble, Ludo, Snakes & Ladders, Trivia). One source of truth for the
 /// header, pot pill, player cards, turn clock, action bar, chat sheet, forfeit
-/// dialog and paused overlay. See docs/VERIFICATION_AUDIT.md §A (game boards).
+/// dialog and paused overlay. See docs/DESIGN_SPEC.md.
 ///
 /// Presentation only — no game logic. Handlers are the integration seam.
 

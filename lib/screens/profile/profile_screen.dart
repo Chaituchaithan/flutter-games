@@ -3,14 +3,16 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/main_shell.dart';
 import '../../app/routes.dart';
+import '../../data/languages.dart';
 import '../../data/models/user.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
 /// Profile tab (v2). Returns a body only — MainShell provides the background,
 /// SafeArea and bottom nav. The app-bar gear opens Settings via Routes.settings.
-/// Identity comes from the session (`currentUserProvider`). See docs/DESIGN_SPEC.md §7.
+/// Identity comes from the session (`currentUserProvider`). See docs/DESIGN_SPEC.md.
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -19,18 +21,17 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // Fresh account + profile from the API each time the tab is built
-    // (GET /users/me + /users/{id}/profile); the cached player shows meanwhile.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(sessionProvider.notifier).reloadProfile();
-    });
-  }
+  /// Bottom-nav index of this tab in MainShell.
+  static const _tabIndex = 3;
 
   @override
   Widget build(BuildContext context) {
+    // MainShell builds every tab up front, so re-read account + profile when
+    // the player actually opens this tab — not at Home right after login
+    // (login just fetched them; reloadProfile skips data under a minute old).
+    ref.listen<int>(mainTabProvider, (prev, next) {
+      if (next == _tabIndex && prev != _tabIndex) ref.read(sessionProvider.notifier).reloadProfile();
+    });
     final user = ref.watch(currentUserProvider);
     return Column(
       children: [
@@ -46,7 +47,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: RefreshIndicator(
             color: AuraColors.accentGlow,
             backgroundColor: const Color(0xFF1A1330),
-            onRefresh: () => ref.read(sessionProvider.notifier).reloadProfile(),
+            onRefresh: () => ref.read(sessionProvider.notifier).reloadProfile(force: true),
             child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -266,6 +267,19 @@ class _HeaderCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(user.handle, maxLines: 1, overflow: TextOverflow.ellipsis, style: AuraText.cardSub.copyWith(fontSize: 12.5)),
+                            const SizedBox(height: 6),
+                            // Language + birthday from the profile.
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 4,
+                              children: [
+                                Consumer(
+                                  builder: (_, ref, _) => _InfoChip(icon: Icons.translate_rounded, text: _languageText(user, ref)),
+                                ),
+                                if (DateTime.tryParse(user.dateOfBirth ?? '') case final dob?)
+                                  _InfoChip(icon: Icons.cake_outlined, text: _birthdayText(dob)),
+                              ],
+                            ),
                             const SizedBox(height: 8),
                             // No bio yet (new accounts) → a prompt instead of empty quotes.
                             if (user.bio.trim().isEmpty)
@@ -977,3 +991,30 @@ class _ManageTile extends StatelessWidget {
 /// "IN" → 🇮🇳.
 String _flag(String code) =>
     String.fromCharCodes(code.toUpperCase().codeUnits.map((u) => 0x1F1E6 + u - 0x41));
+
+/// Profile language, else the app language picked on first launch.
+String _languageText(User user, WidgetRef ref) =>
+    appLanguages[languageIndexFor(user.preferredLanguage) ?? ref.watch(languageProvider)].english;
+
+const _monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/// "12 Mar" — the birthday without the year.
+String _birthdayText(DateTime d) => '${d.day} ${_monthNames[d.month - 1]}';
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: AuraColors.textMuted),
+        const SizedBox(width: 4),
+        Text(text, style: AuraText.cardSub.copyWith(fontSize: 12)),
+      ],
+    );
+  }
+}
