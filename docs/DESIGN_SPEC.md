@@ -86,8 +86,8 @@ All mockup screens are built. Differences on purpose:
 | Area | App | Why |
 |---|---|---|
 | Brand | "Chess" | Single-game app for now |
-| Home game chips | Chess, Snakes & Ladders and Ludo are playable; the rest show **Soon** | Only those three have a game area (see `lib/configs/games/`) |
-| Ludo / Snakes & Ladders | Quick Play vs computer (2–4 players, pick your colour); 2D/3D board toggle; animated 3D die; online play shows "coming soon" | Their socket protocols aren't integrated yet; pause / forfeit / results are the shared chess ones |
+| Home game chips | Chess, Snakes & Ladders, Ludo, Othello, Scrabble and Checkers are all playable | Each has a game area (see `lib/configs/games/`) |
+| Ludo / Snakes & Ladders | Quick Play vs computer (2–4 players, colour, **time per turn: 30 s / 1 min / 2 min / Unlimited**); chess game-area layout (`DiceBoardLayout`: opponent cards with timer rings, Last move, [Turn clock] · dice slot · You card, action bar; Snakes shows no Turn clock panel, since the card timer rings show the time); 2D/3D toggle; animated 3D die. When time runs out, the turn is played for you (auto-roll / auto-move), not a loss. Online play shows "coming soon" | Same look and clock as chess; their socket protocols aren't integrated yet |
 | Online Play sheet | No "How many players?" step; 2P badges; added a **Choose your side** (White/Black) step; CTA "Find match" | Chess is always 2 players; the side is sent as the matchmaking seat |
 | Matchmaking (online) | Real search with a 60 s countdown under the empty seat; no opponent level chip | Driven by the server, not the mockup's fixed timings; a live opponent's level isn't sent |
 | Register | **Username** field (mockup: Full name) | The API requires a username |
@@ -166,6 +166,9 @@ Nothing below needs a bundled file to run today.
 | Achievement / tournament icons | Achievements, Tournaments | 30–54 px | System icons on gradient tiles |
 | Bottom-nav icons | Home/Wheel/Store/Profile | 23 px | Drawn from the mockup's SVG paths |
 | Ad banner creative | Home ad slot | 320×50 | House-ad text placeholder |
+| Othello / Checkers / Scrabble | Quick Play vs computer (3 difficulty levels). Setup: side · difficulty · time. Chess layout and frame. Othello: green felt, flipping discs, move hints. Checkers: wooden board, ridged pieces, crowned kings, tap-by-hop multi-jumps. Scrabble: 15×15 premium board, wooden rack, Shuffle/Recall · Swap · Pass · Play with live score | Othello and Checkers: running out of time loses (as in chess). Scrabble: 1/2/5 min or unlimited per turn, and time up = pass. Online play waits for the socket protocols |
+| Scrabble word list | Scrabble | 1.6 MB | `assets/scrabble/words.txt` — ENABLE (public domain, 168,551 words). It lacks a few newer words (QI, ZA); swap in a licensed list if wanted |
+| Board frame + palette (all board games) | Game areas | — | `GameBoardFrame` + `BoardPalette` (`lib/game/common/board_frame.dart`): the chess bezel, neon edge, sheen and lavender / deep-violet squares; 3D tilts inside the frame |
 | Snakes & Ladders / Ludo boards, pawns, die | Game areas | — | Drawn in code (`lib/game/snakes`, `lib/game/ludo`, `lib/game/common`) — no assets needed; swap in art if provided |
 | Other games' boards ★ | Othello and the rest | — | Needed when those game areas are built |
 

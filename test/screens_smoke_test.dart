@@ -33,10 +33,11 @@ import 'package:snakeladder/screens/profile/achievements_screen.dart';
 import 'package:snakeladder/game/chess/screens/chess_screen.dart';
 import 'package:snakeladder/game/chess/screens/chess_setup_screen.dart';
 import 'package:snakeladder/game/chess/screens/chess_vs_computer_screen.dart';
-import 'package:snakeladder/game/prototypes/othello_screen.dart';
+import 'package:snakeladder/game/othello/othello_screen.dart';
 import 'package:snakeladder/game/snakes/snakes_ladders_screen.dart';
 import 'package:snakeladder/game/ludo/ludo_screen.dart';
-import 'package:snakeladder/game/prototypes/scrabble_screen.dart';
+import 'package:snakeladder/game/checkers/checkers_screen.dart';
+import 'package:snakeladder/game/scrabble/scrabble_screen.dart';
 import 'package:snakeladder/game/prototypes/trivia_screen.dart';
 import 'package:snakeladder/screens/profile/level_up_screen.dart';
 import 'package:snakeladder/screens/social/inbox_screen.dart';
@@ -86,8 +87,8 @@ void main() {
     'Othello': const OthelloScreen(),
     'SnakesLadders': const SnakesLaddersScreen(),
     'Ludo': const LudoScreen(),
-    'Scrabble2P': const ScrabbleScreen(players: 2),
-    'Scrabble4P': const ScrabbleScreen(players: 4),
+    'Scrabble': const ScrabbleScreen(),
+    'Checkers': const CheckersScreen(),
     'Trivia2P': const TriviaScreen(players: 2),
     'Trivia4P': const TriviaScreen(players: 4),
     'LevelUp': const LevelUpScreen(),

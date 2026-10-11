@@ -1,8 +1,11 @@
 import 'app/app_profile.dart';
 import 'app/bootstrap.dart';
+import 'game/checkers/checkers_module.dart';
 import 'game/chess/chess_module.dart';
 import 'game/ludo/ludo_module.dart';
+import 'game/othello/othello_module.dart';
 import 'game/prototypes/prototype_routes.dart';
+import 'game/scrabble/scrabble_module.dart';
 import 'game/snakes/snakes_module.dart';
 
 /// Development build: every game, with a game picker on Home and the
@@ -10,7 +13,7 @@ import 'game/snakes/snakes_module.dart';
 /// `main_ludo.dart`, `main_snakes.dart`.
 final allGamesApp = AppProfile(
   appName: 'Aura Games',
-  modules: [chessModule, snakesModule, ludoModule],
+  modules: [chessModule, snakesModule, ludoModule, othelloModule, scrabbleModule, checkersModule],
   extraRoutes: prototypeRoutes,
   showComingSoon: true,
 );

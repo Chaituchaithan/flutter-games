@@ -14,8 +14,5 @@ final ludoModule = GameModule(
   config: ludoConfig,
   practiceRoute: LudoRoutes.setup,
   demoBoardRoute: LudoRoutes.board,
-  routes: {
-    LudoRoutes.board: (_) => const LudoScreen(),
-    LudoRoutes.setup: (_) => const LudoSetupScreen(),
-  },
+  routes: {LudoRoutes.board: (_) => const LudoScreen(), LudoRoutes.setup: (_) => const LudoSetupScreen()},
 );

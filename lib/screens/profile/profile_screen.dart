@@ -648,7 +648,11 @@ class _RingPainter extends CustomPainter {
 class _WeeklyCard extends StatelessWidget {
   const _WeeklyCard();
 
-  static const _heights = [0.5, 0.75, 0.4, 0.9, 0.6, 1.0, 0.35];
+  // Mockup weekBars: [44, 66, 52, 82, 70, 96, 60] %.
+  static const _heights = [0.44, 0.66, 0.52, 0.82, 0.70, 0.96, 0.60];
+
+  /// The best day (mockup: index 5) is highlighted orange → pink with a glow.
+  static const _best = 5;
   static const _labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   @override
@@ -676,18 +680,27 @@ class _WeeklyCard extends StatelessWidget {
               children: List.generate(_heights.length, (i) {
                 // Explicit height (not FractionallySizedBox) so the chart can be
                 // measured safely inside the IntrinsicHeight parent.
+                final best = i == _best;
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: Container(
                       height: 74 * _heights[i],
-                      decoration: const BoxDecoration(
+                      // Mockup: violet bars (#A855F7 → #6D28D9); the best day
+                      // orange → pink with an orange glow; 1px white 18% edge.
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Color(0xFFC084FC), Color(0xFF8B5CF6)],
+                          colors: best
+                              ? const [Color(0xFFFB923C), Color(0xFFEC4899)]
+                              : const [Color(0xFFA855F7), Color(0xFF6D28D9)],
                         ),
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(5), bottom: Radius.circular(2)),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(6), bottom: Radius.circular(2)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                        boxShadow: best
+                            ? [BoxShadow(color: const Color(0xFFFB923C).withValues(alpha: 0.7), blurRadius: 16)]
+                            : null,
                       ),
                     ),
                   ),

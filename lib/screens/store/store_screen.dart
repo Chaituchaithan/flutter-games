@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/store_pack.dart';
+import '../../data/models/subscription.dart';
+import '../../data/repositories/subscription_repository.dart';
+import '../../services/app_exception.dart';
 import '../../data/repositories/store_repository.dart';
 import '../../state/async_view.dart';
 import '../../widgets/aura.dart';
@@ -698,6 +701,7 @@ class _VipTier {
     required this.icon,
     required this.badge,
     required this.perks,
+    this.plan,
   });
   final String key;
   final String name;
@@ -709,23 +713,30 @@ class _VipTier {
   final IconData icon;
   final String badge;
   final List<String> perks;
+
+  /// The API plan behind this card (null = the tier has no plan for the
+  /// chosen billing period).
+  final SubscriptionPlan? plan;
 }
 
-const _vipTiers = <_VipTier>[
-  _VipTier(
+/// Look + default perks per tier. Prices, plan ids and billing come from
+/// `GET /subscriptions/plans`; perks come from the plan's `features` once the
+/// server fills them (empty today), else these.
+const _tierStyles = <String, _VipTier>{
+  'free': _VipTier(
     key: 'free', name: 'Free', price: '\$0', per: 'forever',
     c1: Color(0xFF94A3B8), c2: Color(0xFF64748B), ink: Colors.white,
-    icon: Icons.shield_outlined, badge: 'CURRENT',
+    icon: Icons.shield_outlined, badge: 'BASIC',
     perks: ['Standard matchmaking', 'Ads between matches', '1 daily spin'],
   ),
-  _VipTier(
-    key: 'silver', name: 'Silver', price: '\$4.99', per: '/ month',
+  'silver': _VipTier(
+    key: 'silver', name: 'Silver', price: '', per: '',
     c1: Color(0xFFE2E8F0), c2: Color(0xFF94A3B8), ink: Color(0xFF0F172A),
     icon: Icons.star, badge: 'STARTER',
     perks: ['No banner ads', '1.5× match rewards', '3 daily spins', 'Silver profile frame'],
   ),
-  _VipTier(
-    key: 'gold', name: 'Gold', price: '\$9.99', per: '/ month',
+  'gold': _VipTier(
+    key: 'gold', name: 'Gold', price: '', per: '',
     c1: Color(0xFFFDE68A), c2: Color(0xFFF59E0B), ink: Color(0xFF1A1206),
     icon: Icons.workspace_premium, badge: 'BEST VALUE',
     perks: [
@@ -733,55 +744,197 @@ const _vipTiers = <_VipTier>[
       'Exclusive avatars & frames', 'Priority matchmaking', 'Gold VIP badge',
     ],
   ),
-];
+};
 
-class _VipTab extends StatefulWidget {
+/// VIP tab: Free · Silver · Gold cards with a Monthly / Yearly switch, built
+/// from the live plans (5 plans = 3 tiers × billing period; Free is monthly
+/// only). Subscribe / cancel go to the subscriptions API.
+class _VipTab extends ConsumerStatefulWidget {
   const _VipTab();
 
   @override
-  State<_VipTab> createState() => _VipTabState();
+  ConsumerState<_VipTab> createState() => _VipTabState();
 }
 
-class _VipTabState extends State<_VipTab> {
+class _VipTabState extends ConsumerState<_VipTab> {
   String _selected = 'gold'; // highlighted tier
-  String _active = 'free'; // currently-subscribed tier
+  bool _yearly = false;
+  bool _busy = false;
 
-  _VipTier get _sel => _vipTiers.firstWhere((t) => t.key == _selected);
-  bool get _isActive => _active == _selected;
+  /// One card per tier for the chosen billing period.
+  List<_VipTier> _tiers(List<SubscriptionPlan> plans) {
+    SubscriptionPlan? pick(String tier) {
+      final forTier = plans.where((p) => p.tier == tier).toList();
+      if (forTier.isEmpty) return null;
+      if (tier == 'free') return forTier.first; // same in both periods
+      return forTier.where((p) => p.yearly == _yearly).firstOrNull;
+    }
 
-  void _subscribe() {
-    if (_isActive) return;
-    setState(() => _active = _selected);
-    final t = _sel;
-    showAuraToast(
+    final out = <_VipTier>[];
+    for (final key in const ['free', 'silver', 'gold']) {
+      final style = _tierStyles[key]!;
+      final plan = pick(key);
+      if (plan == null && key != 'free') continue;
+      final saving = plan != null && plan.yearly ? _yearlySaving(plans, plan) : null;
+      final features = plan?.features ?? const {};
+      out.add(_VipTier(
+        key: key,
+        name: style.name,
+        price: plan == null || plan.free ? '\$0' : plan.price,
+        per: plan == null || plan.free ? 'forever' : (plan.yearly ? '/ year' : '/ month'),
+        c1: style.c1,
+        c2: style.c2,
+        ink: style.ink,
+        icon: style.icon,
+        badge: saving != null ? 'SAVE $saving%' : style.badge,
+        perks: features.isNotEmpty ? [for (final e in features.entries) _featureText(e.key, e.value)] : style.perks,
+        plan: plan,
+      ));
+    }
+    return out;
+  }
+
+  /// Yearly vs 12 × monthly for the same tier, in whole percent.
+  static int? _yearlySaving(List<SubscriptionPlan> plans, SubscriptionPlan yearly) {
+    final monthly = plans.where((p) => p.tier == yearly.tier && !p.yearly).firstOrNull;
+    if (monthly == null || monthly.priceCents == 0) return null;
+    final pct = (100 - yearly.priceCents * 100 / (monthly.priceCents * 12)).round();
+    return pct > 0 ? pct : null;
+  }
+
+  /// A server feature as a perk line ("ad_free": true → "Ad free").
+  static String _featureText(String key, Object? value) {
+    final name = key.replaceAll('_', ' ');
+    final label = name.isEmpty ? key : '${name[0].toUpperCase()}${name.substring(1)}';
+    return value == true || value == null ? label : '$label: $value';
+  }
+
+  /// The player's current tier ('free' when no live paid subscription).
+  String _activeTier(MySubscription my, List<SubscriptionPlan> plans) {
+    if (!my.active) return 'free';
+    return my.tier ?? plans.where((p) => p.id == my.planId).firstOrNull?.tier ?? 'free';
+  }
+
+  Future<void> _subscribe(_VipTier t, MySubscription my, String activeTier) async {
+    if (_busy) return;
+    // Free while on a paid plan = cancel.
+    if (t.key == 'free') {
+      if (activeTier != 'free') await _cancel();
+      return;
+    }
+    final plan = t.plan;
+    if (plan == null || (my.active && my.planId == plan.id)) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(subscriptionSourceProvider).subscribe(plan.id);
+      if (!mounted) return;
+      ref.invalidate(mySubscriptionProvider);
+      showAuraToast(context, '${t.name} VIP activated',
+          kind: t.key == 'gold' ? AuraToastKind.gold : AuraToastKind.success);
+    } on AppException catch (e) {
+      if (!mounted) return;
+      // 503: store billing (Apple / Google) isn't integrated server-side yet.
+      showAuraToast(
+        context,
+        e.statusCode == 503 ? 'VIP subscriptions are coming soon — payments aren’t live yet.' : e.message,
+        kind: e.statusCode == 503 ? AuraToastKind.info : AuraToastKind.error,
+      );
+    } on Object catch (_) {
+      if (mounted) showAuraToast(context, "Couldn't start the subscription. Try again.", kind: AuraToastKind.error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _cancel() async {
+    final ok = await showAuraDialog(
       context,
-      t.key == 'free' ? 'Switched to the Free plan' : '${t.name} VIP activated',
-      kind: t.key == 'gold' ? AuraToastKind.gold : AuraToastKind.success,
+      icon: Icons.cancel_outlined,
+      title: 'Cancel VIP?',
+      body: 'You keep your VIP perks until the end of the current period.',
+      primaryLabel: 'Cancel VIP',
+      secondaryLabel: 'Keep VIP',
+      destructive: true,
     );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(subscriptionSourceProvider).cancel();
+      if (!mounted) return;
+      ref.invalidate(mySubscriptionProvider);
+      showAuraToast(context, 'Subscription cancelled', kind: AuraToastKind.info);
+    } on AppException catch (e) {
+      if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
+    } on Object catch (_) {
+      if (mounted) showAuraToast(context, "Couldn't cancel. Try again.", kind: AuraToastKind.error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
-  String get _buttonLabel {
-    final t = _sel;
-    if (_isActive) return t.key == 'free' ? 'Current plan' : '${t.name} VIP active ✓';
-    return t.key == 'free' ? 'Switch to Free' : 'Subscribe · ${t.price} ${t.per}';
-  }
+  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  static String _date(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
   @override
   Widget build(BuildContext context) {
-    final sel = _sel;
+    return AsyncView<List<SubscriptionPlan>>(
+      value: ref.watch(subscriptionPlansProvider),
+      onRetry: () => ref.invalidate(subscriptionPlansProvider),
+      loading: const _VipSkeleton(),
+      data: (plans) {
+        final my = ref.watch(mySubscriptionProvider).asData?.value ?? MySubscription.none;
+        return _content(plans, my);
+      },
+    );
+  }
+
+  Widget _content(List<SubscriptionPlan> plans, MySubscription my) {
+    final tiers = _tiers(plans);
+    final activeTier = _activeTier(my, plans);
+    final sel = tiers.firstWhere((t) => t.key == _selected, orElse: () => tiers.last);
+    final selIsActive = sel.key == activeTier && (sel.key == 'free' || my.planId == null || my.planId == sel.plan?.id);
+    final hasYearly = plans.any((p) => p.yearly);
+
+    final label = _busy
+        ? 'Please wait…'
+        : selIsActive
+            ? (sel.key == 'free' ? 'Current plan' : '${sel.name} VIP active ✓')
+            : sel.key == 'free'
+                ? (activeTier == 'free' ? 'Current plan' : 'Switch to Free')
+                : 'Subscribe · ${sel.price} ${sel.per}';
+
+    final caption = my.active && my.endsAt != null
+        ? '${my.autoRenew ? 'Renews' : 'Ends'} on ${_date(my.endsAt!.toLocal())}'
+        : sel.plan?.yearly == true
+            ? 'Cancel anytime · renews yearly'
+            : 'Cancel anytime · renews monthly';
+
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
+        if (hasYearly) ...[
+          Center(
+            child: SizedBox(
+              width: 240,
+              child: SegmentedTabs(
+                labels: const ['Monthly', 'Yearly'],
+                index: _yearly ? 1 : 0,
+                onChanged: (i) => setState(() => _yearly = i == 1),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         Row(
           children: [
-            for (var i = 0; i < _vipTiers.length; i++) ...[
+            for (var i = 0; i < tiers.length; i++) ...[
               if (i > 0) const SizedBox(width: 10),
               Expanded(
                 child: _VipTierCard(
-                  tier: _vipTiers[i],
-                  selected: _selected == _vipTiers[i].key,
-                  active: _active == _vipTiers[i].key,
-                  onTap: () => setState(() => _selected = _vipTiers[i].key),
+                  tier: tiers[i],
+                  selected: sel.key == tiers[i].key,
+                  active: activeTier == tiers[i].key,
+                  onTap: () => setState(() => _selected = tiers[i].key),
                 ),
               ),
             ],
@@ -801,10 +954,7 @@ class _VipTabState extends State<_VipTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${sel.name.toUpperCase()} PLAN INCLUDES',
-                          style: AuraText.section.copyWith(letterSpacing: 1.2),
-                        ),
+                        Text('${sel.name.toUpperCase()} PLAN INCLUDES', style: AuraText.section.copyWith(letterSpacing: 1.2)),
                         const SizedBox(height: 4),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -859,18 +1009,54 @@ class _VipTabState extends State<_VipTab> {
               const SizedBox(height: 4),
               _VipSubscribeButton(
                 tier: sel,
-                active: _isActive,
-                label: _buttonLabel,
-                onTap: _subscribe,
+                active: selIsActive || _busy || (sel.key == 'free' && activeTier == 'free'),
+                label: label,
+                onTap: () => _subscribe(sel, my, activeTier),
               ),
               const SizedBox(height: 10),
-              Center(
-                child: Text('Cancel anytime · renews monthly', style: AuraText.caption),
-              ),
+              Center(child: Text(caption, style: AuraText.caption)),
+              if (my.active)
+                Center(
+                  child: TextButton(
+                    onPressed: _busy ? null : _cancel,
+                    child: const Text(
+                      'Cancel subscription',
+                      style: TextStyle(color: AuraColors.dangerText, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Loading placeholder for the VIP tab (toggle, three cards, details).
+class _VipSkeleton extends StatelessWidget {
+  const _VipSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer(
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
+        children: [
+          const Center(child: SkeletonBox(width: 240, height: 40, radius: 99)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                const Expanded(child: SkeletonBox(height: 150, radius: 20)),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+          const SkeletonBox(height: 320, radius: 28),
+        ],
+      ),
     );
   }
 }

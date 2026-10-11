@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:snakeladder/game/common/dice_view.dart';
+import '../../l10n/l10n.dart';
+import 'turn_timer.dart';
+
 import 'package:snakeladder/widgets/aura.dart';
 
 /// Shared pieces for the dice games (Ludo, Snakes & Ladders): who's playing,
@@ -18,166 +20,127 @@ class DicePlayer {
 /// Computer opponents' names (seat order).
 const diceBotNames = [('Nova', 'NV'), ('Rex', 'RX'), ('Mia', 'MI')];
 
-/// A row of compact player pills: colour dot/avatar, name, a status line;
-/// the player to move glows in their colour.
-class DicePlayersStrip extends StatelessWidget {
-  const DicePlayersStrip({super.key, required this.players, required this.active, required this.status});
-  final List<DicePlayer> players;
-
-  /// Index of the player to move (null = nobody, e.g. game over).
-  final int? active;
-
-  /// Second line per player ("Square 47", "2/4 home", …).
-  final String Function(int i) status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var i = 0; i < players.length; i++) ...[
-          if (i > 0) const SizedBox(width: 8),
-          Expanded(
-            child: _PlayerPill(player: players[i], active: active == i, status: status(i)),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _PlayerPill extends StatelessWidget {
-  const _PlayerPill({required this.player, required this.active, required this.status});
+/// One seat as the layout shows it.
+class DiceSeatView {
+  const DiceSeatView({required this.player, required this.sub, required this.active, this.turnText, this.progress});
   final DicePlayer player;
-  final bool active;
-  final String status;
 
-  @override
-  Widget build(BuildContext context) {
-    final c = player.color;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        // Opaque base so the active glow never shows through.
-        color: active ? Color.alphaBlend(c.withValues(alpha: 0.22), const Color(0xFF15102A)) : const Color(0xFF15102A),
-        border: Border.all(color: active ? c : Colors.white.withValues(alpha: 0.12), width: active ? 1.6 : 1),
-        boxShadow: active ? [BoxShadow(color: c.withValues(alpha: 0.45), blurRadius: 14, spreadRadius: -4)] : null,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(colors: [Color.lerp(c, Colors.white, 0.25)!, c]),
-            ),
-            child: Text(
-              player.initials,
-              style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w800),
-            ),
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  player.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AuraText.cardTitle.copyWith(fontSize: 12.5),
-                ),
-                Text(
-                  status,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AuraText.cardSub.copyWith(fontSize: 10.5),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  /// Second row ("Square 47", "2 home · 1 out").
+  final String sub;
+
+  /// Their turn (card glows, timer ring runs).
+  final bool active;
+
+  /// Third row while active ("Rolling… · 27s").
+  final String? turnText;
+
+  /// Turn time left 1→0 (null = unlimited / not their turn).
+  final double? progress;
 }
 
-/// The dice tray: last move on the left, the animated die in the middle, a
-/// prompt on the right. The die is tappable only when [canRoll].
-class DiceTray extends StatelessWidget {
-  const DiceTray({
+/// The chess game-area layout for the dice games: header · opponents (with
+/// the last move beside a single opponent, as in chess) · board · turn clock |
+/// die | you · action bar. Same cards, timer rings and panels as chess.
+class DiceBoardLayout extends StatelessWidget {
+  const DiceBoardLayout({
     super.key,
-    required this.value,
-    required this.rollId,
-    required this.canRoll,
-    required this.onRoll,
+    required this.header,
+    required this.opponents,
+    required this.you,
     required this.lastMove,
-    required this.prompt,
-    this.color,
-    this.onRolled,
+    required this.clockText,
+    required this.clockUrgent,
+    this.dice,
+    required this.board,
+    required this.actionBar,
   });
 
-  final int value;
-  final int rollId;
-  final bool canRoll;
-  final VoidCallback onRoll;
+  final Widget header;
+  final List<DiceSeatView> opponents;
+  final DiceSeatView you;
   final String lastMove;
-  final String prompt;
 
-  /// Tint of the die's glow (the player to move).
-  final Color? color;
-  final VoidCallback? onRolled;
+  /// Turn clock panel text; null hides the panel (the timer ring on the
+  /// player cards still shows the time left).
+  final String? clockText;
+  final bool clockUrgent;
+  /// The die (dice games); null = no dice slot (2-player board games, as in
+  /// chess: Turn clock · You).
+  final Widget? dice;
+  final Widget board;
+  final Widget actionBar;
+
+  Widget _card(DiceSeatView s) => BoardPlayerCard(
+    name: s.player.name,
+    initials: s.player.initials,
+    sub: s.sub,
+    color: s.player.color,
+    color2: Color.lerp(s.player.color, Colors.black, 0.3),
+    active: s.active,
+    turnText: s.turnText,
+    progress: s.progress,
+  );
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
-      decoration: AuraGlass.decoration(radius: 20, shadow: false),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('LAST MOVE', style: AuraText.section.copyWith(fontSize: 10)),
-                const SizedBox(height: 3),
-                Text(
-                  lastMove,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AuraText.cardSub.copyWith(fontSize: 12),
-                ),
+    final single = opponents.length == 1;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        const SizedBox(height: 14),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < opponents.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(child: _card(opponents[i])),
               ],
-            ),
+              if (single) ...[
+                const SizedBox(width: 10),
+                Expanded(child: BoardInfoPanel(label: context.l10n.lastMove, value: lastMove)),
+              ],
+            ],
           ),
-          DiceView(
-            value: value,
-            rollId: rollId,
-            size: 46,
-            enabled: canRoll,
-            onTap: onRoll,
-            glow: color ?? AuraColors.accentGlow,
-            onRolled: onRolled,
-          ),
-          Expanded(
-            child: Text(
-              prompt,
-              textAlign: TextAlign.right,
-              maxLines: 2,
-              style: TextStyle(
-                fontFamily: AuraText.displayFamily,
-                color: canRoll ? Colors.white : AuraColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+        ),
+        if (!single) ...[
+          const SizedBox(height: 8),
+          Text(
+            '${context.l10n.lastMove}: $lastMove',
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AuraText.cardSub.copyWith(fontSize: 12),
           ),
         ],
-      ),
+        const SizedBox(height: 12),
+        Expanded(child: board),
+        const SizedBox(height: 12),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (clockText != null) ...[
+                Expanded(
+                  child: BoardInfoPanel(label: context.l10n.turnClock, value: clockText!, big: true, urgent: clockUrgent),
+                ),
+                if (dice != null) ...[
+                  const SizedBox(width: 8),
+                  // The dice in its own slot, centred (never over a panel edge).
+                  SizedBox(width: 84, child: BoardSlot(padding: EdgeInsets.zero, child: Center(child: dice))),
+                ],
+              ] else if (dice != null)
+                Expanded(child: BoardSlot(padding: EdgeInsets.zero, child: Center(child: dice))),
+              const SizedBox(width: 8),
+              Expanded(child: _card(you)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        actionBar,
+        const SizedBox(height: 8),
+      ],
     );
   }
 }
@@ -199,8 +162,9 @@ class DiceGameSetupScreen extends StatefulWidget {
   /// Selectable colours (label, colour).
   final List<(String, Color)> colors;
 
-  /// Build the game for (players, chosen colour index).
-  final Widget Function(int players, int colorIndex) start;
+  /// Build the game for (players, chosen colour index, time per turn in ms —
+  /// null = unlimited).
+  final Widget Function(int players, int colorIndex, int? clockMs) start;
 
   @override
   State<DiceGameSetupScreen> createState() => _DiceGameSetupScreenState();
@@ -209,11 +173,18 @@ class DiceGameSetupScreen extends StatefulWidget {
 class _DiceGameSetupScreenState extends State<DiceGameSetupScreen> {
   int _players = 2;
   late int _color = widget.colors.length - 1;
+  int? _clockMs = 30 * 1000; // same default as chess Quick Play
+
+  String _timeLabel(BuildContext context, int? ms) => ms == null
+      ? context.l10n.unlimited
+      : ms < 60000
+      ? context.l10n.timeSec(ms ~/ 1000)
+      : context.l10n.timeMin(ms ~/ 60000);
 
   @override
   Widget build(BuildContext context) {
     return AuraScaffold(
-      appBar: const AuraAppBar(title: 'Quick Play'),
+      appBar: AuraAppBar(title: context.l10n.quickPlay),
       scroll: true,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -223,13 +194,13 @@ class _DiceGameSetupScreenState extends State<DiceGameSetupScreen> {
           const SizedBox(height: 6),
           Text(widget.blurb, style: AuraText.cardSub),
           const SizedBox(height: 22),
-          const SectionBar('Players'),
+          SectionBar(context.l10n.players),
           const SizedBox(height: 10),
           Row(
             children: [
               for (final n in const [2, 3, 4]) ...[
                 Expanded(
-                  child: _SetupTile(
+                  child: SetupTile(
                     selected: _players == n,
                     onTap: () => setState(() => _players = n),
                     child: Column(
@@ -245,7 +216,7 @@ class _DiceGameSetupScreenState extends State<DiceGameSetupScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          n == 2 ? 'You + 1 AI' : 'You + ${n - 1} AI',
+                          context.l10n.youPlusAi(n - 1),
                           style: AuraText.cardSub.copyWith(fontSize: 11, color: Colors.white70),
                         ),
                       ],
@@ -257,13 +228,13 @@ class _DiceGameSetupScreenState extends State<DiceGameSetupScreen> {
             ],
           ),
           const SizedBox(height: 22),
-          const SectionBar('Your colour'),
+          SectionBar(context.l10n.yourColour),
           const SizedBox(height: 10),
           Row(
             children: [
               for (var i = 0; i < widget.colors.length; i++) ...[
                 Expanded(
-                  child: _SetupTile(
+                  child: SetupTile(
                     selected: _color == i,
                     onTap: () => setState(() => _color = i),
                     child: Column(
@@ -298,10 +269,44 @@ class _DiceGameSetupScreenState extends State<DiceGameSetupScreen> {
               ],
             ],
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 22),
+          SectionBar(context.l10n.timePerTurn),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var i = 0; i < turnTimeOptions.length; i++) ...[
+                Expanded(
+                  child: SetupTile(
+                    selected: _clockMs == turnTimeOptions[i].ms,
+                    onTap: () => setState(() => _clockMs = turnTimeOptions[i].ms),
+                    child: Center(
+                      child: Text(
+                        _timeLabel(context, turnTimeOptions[i].ms),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AuraText.displayFamily,
+                          color: Colors.white,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (i < turnTimeOptions.length - 1) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(context.l10n.timeUpRule, style: AuraText.cardSub.copyWith(fontSize: 12)),
+          const SizedBox(height: 26),
           GradientButton(
-            label: 'Start game',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => widget.start(_players, _color))),
+            label: context.l10n.startGame,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => widget.start(_players, _color, _clockMs)),
+            ),
           ),
           const SizedBox(height: 8),
         ],
@@ -310,8 +315,8 @@ class _DiceGameSetupScreenState extends State<DiceGameSetupScreen> {
   }
 }
 
-class _SetupTile extends StatelessWidget {
-  const _SetupTile({required this.selected, required this.onTap, required this.child});
+class SetupTile extends StatelessWidget {
+  const SetupTile({super.key, required this.selected, required this.onTap, required this.child});
   final bool selected;
   final VoidCallback onTap;
   final Widget child;

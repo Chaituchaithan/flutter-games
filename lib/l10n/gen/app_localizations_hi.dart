@@ -525,4 +525,487 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get dateOfBirth => 'जन्म तिथि';
+
+  @override
+  String get resultVictory => 'जीत';
+
+  @override
+  String get resultVictorySub => 'शानदार खेल, चैंपियन!';
+
+  @override
+  String get resultDefeat => 'हार';
+
+  @override
+  String get resultDefeatSub => 'बस थोड़ा सा — फिर से खेलें।';
+
+  @override
+  String get resultDraw => 'ड्रॉ';
+
+  @override
+  String get resultDrawSub => 'बराबरी का मुकाबला।';
+
+  @override
+  String get playAgain => 'फिर से खेलें';
+
+  @override
+  String get backToHome => 'होम पर वापस';
+
+  @override
+  String get you => 'आप';
+
+  @override
+  String get pot => 'पॉट';
+
+  @override
+  String get turnClock => 'चाल का समय';
+
+  @override
+  String get waiting => 'इंतज़ार';
+
+  @override
+  String get forfeitTitle => 'मैच छोड़ना है?';
+
+  @override
+  String get forfeitBody =>
+      'यह राउंड हार माना जाएगा और आपको कोई इनाम नहीं मिलेगा।';
+
+  @override
+  String get forfeit => 'छोड़ें';
+
+  @override
+  String get keepPlaying => 'खेलते रहें';
+
+  @override
+  String get paused => 'रुका हुआ';
+
+  @override
+  String get resume => 'फिर से शुरू करें';
+
+  @override
+  String get forfeitMatch => 'मैच छोड़ें';
+
+  @override
+  String get chatHint => 'हाय कहें या इमोट भेजें';
+
+  @override
+  String get messageHint => 'संदेश…';
+
+  @override
+  String get lastMove => 'आख़िरी चाल';
+
+  @override
+  String get players => 'खिलाड़ी';
+
+  @override
+  String get yourColour => 'आपका रंग';
+
+  @override
+  String get startGame => 'गेम शुरू करें';
+
+  @override
+  String get ludoBlurb =>
+      'टोकन बाहर लाने के लिए 6 लाएँ, विरोधियों को काटें, और सबसे पहले चारों टोकन घर पहुँचाएँ।';
+
+  @override
+  String get youForfeitedMatch => 'आपने मैच छोड़ दिया।';
+
+  @override
+  String get ludoWinSub => 'चारों टोकन घर — चैंपियन!';
+
+  @override
+  String get gameOver => 'गेम खत्म';
+
+  @override
+  String get rolling => 'पासा फेंका जा रहा है…';
+
+  @override
+  String get pickToken => 'चलाने के लिए टोकन चुनें';
+
+  @override
+  String get yourTurnRoll => 'आपकी बारी — पासा फेंकें';
+
+  @override
+  String get snakesBlurb =>
+      'कंप्यूटर से 100 तक की दौड़। सीढ़ियाँ ऊपर ले जाती हैं, साँप नीचे — ठीक 100 पर पहुँचें।';
+
+  @override
+  String get youForfeitedRace => 'आपने दौड़ छोड़ दी।';
+
+  @override
+  String get snakesWinSub => 'सबसे पहले 100 — क्या चढ़ाई है!';
+
+  @override
+  String get bestAi => 'सबसे अच्छा AI';
+
+  @override
+  String get pausedSubtitle => 'सभी के लिए घड़ी रुकी हुई है।';
+
+  @override
+  String forfeitBodyStake(String amount) {
+    return 'आपका $amount का दांव चला जाएगा और यह राउंड हार माना जाएगा।';
+  }
+
+  @override
+  String youPlusAi(int count) {
+    return 'आप + $count AI';
+  }
+
+  @override
+  String moveOnHold(int move) {
+    return 'चाल $move · गेम रुका हुआ है।';
+  }
+
+  @override
+  String playerMoving(String name) {
+    return '$name चल रहा है…';
+  }
+
+  @override
+  String playerPlaying(String name) {
+    return '$name खेल रहा है…';
+  }
+
+  @override
+  String playerRolling(String name) {
+    return '$name पासा फेंक रहा है…';
+  }
+
+  @override
+  String get tapDiceToRoll => 'पासा फेंकने के लिए\nटैप करें';
+
+  @override
+  String get tapGlowingToken => 'चमकते टोकन पर\nटैप करें';
+
+  @override
+  String get moving => 'चल रहा है…';
+
+  @override
+  String get waitEllipsis => 'रुकें…';
+
+  @override
+  String tokensHomeOut(int home, int out) {
+    return '$home घर · $out बाहर';
+  }
+
+  @override
+  String squareN(int n) {
+    return 'खाना $n';
+  }
+
+  @override
+  String get startSquare => 'शुरुआत';
+
+  @override
+  String moveAndPlayers(int move, int players) {
+    return 'चाल $move · $players खिलाड़ी';
+  }
+
+  @override
+  String ludoLoseSub(String name) {
+    return '$name ने सबसे पहले चारों टोकन घर पहुँचाए।';
+  }
+
+  @override
+  String snakesLoseSub(String name) {
+    return '$name सबसे पहले 100 पर पहुँचा।';
+  }
+
+  @override
+  String get timePerTurn => 'हर चाल का समय';
+
+  @override
+  String timeSec(int n) {
+    return '$n सेकंड';
+  }
+
+  @override
+  String timeMin(int n) {
+    return '$n मिनट';
+  }
+
+  @override
+  String get unlimited => 'असीमित';
+
+  @override
+  String get timeUpRule => 'समय खत्म होने पर आपकी चाल अपने आप चल दी जाएगी।';
+
+  @override
+  String get timeUpPlayed => 'समय खत्म — आपकी चाल अपने आप चल दी गई';
+
+  @override
+  String turnRolling(int secs) {
+    return 'पासा फेंक रहे हैं… · $secs से';
+  }
+
+  @override
+  String turnYourRoll(int secs) {
+    return 'आपकी बारी · $secs से';
+  }
+
+  @override
+  String turnPick(int secs) {
+    return 'टोकन चुनें · $secs से';
+  }
+
+  @override
+  String get turnRollingNoClock => 'पासा फेंक रहे हैं…';
+
+  @override
+  String get turnYourRollNoClock => 'आपकी बारी';
+
+  @override
+  String get playAs => 'इस रंग से खेलें';
+
+  @override
+  String get difficulty => 'कठिनाई';
+
+  @override
+  String get easy => 'आसान';
+
+  @override
+  String get medium => 'मध्यम';
+
+  @override
+  String get hard => 'कठिन';
+
+  @override
+  String get relaxed => 'आरामदायक';
+
+  @override
+  String get balanced => 'संतुलित';
+
+  @override
+  String get tough => 'कड़ा';
+
+  @override
+  String get randomSide => 'कोई भी';
+
+  @override
+  String get playVsComputer => 'कंप्यूटर के खिलाफ खेलें';
+
+  @override
+  String get timePerMove => 'हर चाल का समय';
+
+  @override
+  String get timeOutLoses => 'किसी चाल पर समय खत्म होने पर आप गेम हार जाएँगे।';
+
+  @override
+  String get computer => 'कंप्यूटर';
+
+  @override
+  String discsCount(int count) {
+    return '$count डिस्क';
+  }
+
+  @override
+  String yourMoveSecs(int secs) {
+    return 'आपकी चाल · $secs से';
+  }
+
+  @override
+  String get yourMove => 'आपकी चाल';
+
+  @override
+  String thinkingSecs(int secs) {
+    return 'सोच रहा है… · $secs से';
+  }
+
+  @override
+  String get thinking => 'सोच रहा है…';
+
+  @override
+  String get computerThinking => 'कंप्यूटर सोच रहा है…';
+
+  @override
+  String othelloPlayed(String who, String square, int count) {
+    return '$who ने $square पर चाल चली · $count पलटे';
+  }
+
+  @override
+  String mustPass(String who) {
+    return '$who के पास कोई चाल नहीं — पास';
+  }
+
+  @override
+  String get othelloBlurb =>
+      'कंप्यूटर को घेरें: आप जो भी डिस्क फँसाते हैं वह आपके रंग में पलट जाती है। बोर्ड भरने पर सबसे ज़्यादा डिस्क वाला जीतता है।';
+
+  @override
+  String get black => 'काला';
+
+  @override
+  String get white => 'सफ़ेद';
+
+  @override
+  String get youRanOutOfTime => 'आपका समय खत्म हो गया।';
+
+  @override
+  String get computerRanOutOfTime => 'कंप्यूटर का समय खत्म हो गया।';
+
+  @override
+  String othelloWinSub(int you, int them) {
+    return '$you–$them — बोर्ड आपका है!';
+  }
+
+  @override
+  String othelloLoseSub(int you, int them) {
+    return '$you–$them — इस बार घिर गए।';
+  }
+
+  @override
+  String othelloDrawSub(int you, int them) {
+    return '$you–$them — बराबरी का बोर्ड।';
+  }
+
+  @override
+  String get checkersBlurb =>
+      'कूदकर काटें — यह ज़रूरी है, और लगातार कूद पूरी करनी होती है। आख़िरी पंक्ति तक पहुँचकर राजा बनें।';
+
+  @override
+  String get checkersDark => 'लाल';
+
+  @override
+  String get checkersLight => 'सफ़ेद';
+
+  @override
+  String piecesKings(int pieces, int kings) {
+    return '$pieces मोहरे · $kings राजा';
+  }
+
+  @override
+  String checkersMoved(String who, int from, int to) {
+    return '$who ने $from–$to चला';
+  }
+
+  @override
+  String checkersCaptured(String who, int count) {
+    return '$who ने $count मोहरे काटे';
+  }
+
+  @override
+  String get checkersWinSub =>
+      'कंप्यूटर के पास कोई चाल नहीं बची — बढ़िया खेला!';
+
+  @override
+  String get checkersLoseSub => 'चालें खत्म — फिर से खेलें।';
+
+  @override
+  String get checkersDrawSub => 'बिना काटे 40 चालें — ड्रॉ।';
+
+  @override
+  String get scrabbleBlurb =>
+      'कंप्यूटर के खिलाफ बोर्ड पर शब्द बनाएँ। प्रीमियम खाने अक्षरों और शब्दों को गुणा करते हैं; सभी 7 टाइल इस्तेमाल करने पर 50 अंक का बिंगो।';
+
+  @override
+  String get scrabbleTimeRule => 'समय खत्म होने पर आपकी बारी पास हो जाएगी।';
+
+  @override
+  String get loadingDictionary => 'शब्दकोश लोड हो रहा है…';
+
+  @override
+  String scoreN(int n) {
+    return 'स्कोर $n';
+  }
+
+  @override
+  String bagN(int n) {
+    return 'थैला $n';
+  }
+
+  @override
+  String get shuffle => 'मिलाएँ';
+
+  @override
+  String get recall => 'वापस लें';
+
+  @override
+  String get swap => 'बदलें';
+
+  @override
+  String get pass => 'पास';
+
+  @override
+  String playScore(int score) {
+    return 'चलें · $score';
+  }
+
+  @override
+  String get errPlaceTiles => 'बोर्ड पर टाइल रखें';
+
+  @override
+  String get errInLine => 'टाइल एक ही पंक्ति या कॉलम में हों';
+
+  @override
+  String get errGap => 'आपकी टाइलों के बीच खाली जगह न हो';
+
+  @override
+  String get errConnect => 'बोर्ड की टाइलों से जोड़ें';
+
+  @override
+  String get errCenter => 'पहला शब्द बीच के तारे पर होना चाहिए';
+
+  @override
+  String get errTooShort => 'शब्द में कम से कम 2 अक्षर हों';
+
+  @override
+  String errNotWord(String word) {
+    return '$word शब्दकोश में नहीं है';
+  }
+
+  @override
+  String scrabblePlayed(String who, String word, int score) {
+    return '$who ने $word खेला · $score';
+  }
+
+  @override
+  String scrabbleExchanged(String who, int count) {
+    return '$who ने $count टाइल बदलीं';
+  }
+
+  @override
+  String scrabblePassed(String who) {
+    return '$who ने पास किया';
+  }
+
+  @override
+  String get timeUpPassed => 'समय खत्म — आपकी बारी पास हो गई';
+
+  @override
+  String get swapTitle => 'बदलने के लिए टाइल चुनें';
+
+  @override
+  String swapN(int count) {
+    return '$count बदलें';
+  }
+
+  @override
+  String get passConfirmTitle => 'अपनी बारी पास करें?';
+
+  @override
+  String get passConfirmBody =>
+      'इस बारी कोई अंक नहीं मिलेगा। लगातार छह बिना-अंक वाली बारियाँ गेम खत्म कर देती हैं।';
+
+  @override
+  String get pickLetter => 'खाली टाइल के लिए अक्षर चुनें';
+
+  @override
+  String get bagTooSmall => 'बदलने के लिए थैले में पर्याप्त टाइल नहीं';
+
+  @override
+  String scrabbleWinSub(int you, int them) {
+    return '$you–$them — शब्दों के उस्ताद!';
+  }
+
+  @override
+  String scrabbleLoseSub(int you, int them) {
+    return '$you–$them — इस बार कंप्यूटर आगे रहा।';
+  }
+
+  @override
+  String scrabbleDrawSub(int you, int them) {
+    return '$you–$them — बराबरी!';
+  }
+
+  @override
+  String get cancel => 'रद्द करें';
 }

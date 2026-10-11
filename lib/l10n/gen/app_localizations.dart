@@ -1021,6 +1021,804 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Date of birth'**
   String get dateOfBirth;
+
+  /// No description provided for @resultVictory.
+  ///
+  /// In en, this message translates to:
+  /// **'VICTORY'**
+  String get resultVictory;
+
+  /// No description provided for @resultVictorySub.
+  ///
+  /// In en, this message translates to:
+  /// **'Flawless run, champion!'**
+  String get resultVictorySub;
+
+  /// No description provided for @resultDefeat.
+  ///
+  /// In en, this message translates to:
+  /// **'DEFEAT'**
+  String get resultDefeat;
+
+  /// No description provided for @resultDefeatSub.
+  ///
+  /// In en, this message translates to:
+  /// **'So close — run it back.'**
+  String get resultDefeatSub;
+
+  /// No description provided for @resultDraw.
+  ///
+  /// In en, this message translates to:
+  /// **'DRAW'**
+  String get resultDraw;
+
+  /// No description provided for @resultDrawSub.
+  ///
+  /// In en, this message translates to:
+  /// **'An even match.'**
+  String get resultDrawSub;
+
+  /// No description provided for @playAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Play Again'**
+  String get playAgain;
+
+  /// No description provided for @backToHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to Home'**
+  String get backToHome;
+
+  /// No description provided for @you.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get you;
+
+  /// No description provided for @pot.
+  ///
+  /// In en, this message translates to:
+  /// **'Pot'**
+  String get pot;
+
+  /// No description provided for @turnClock.
+  ///
+  /// In en, this message translates to:
+  /// **'TURN CLOCK'**
+  String get turnClock;
+
+  /// No description provided for @waiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get waiting;
+
+  /// No description provided for @forfeitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Forfeit the match?'**
+  String get forfeitTitle;
+
+  /// No description provided for @forfeitBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This round will count as a defeat and you will earn no reward.'**
+  String get forfeitBody;
+
+  /// No description provided for @forfeit.
+  ///
+  /// In en, this message translates to:
+  /// **'Forfeit'**
+  String get forfeit;
+
+  /// No description provided for @keepPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep playing'**
+  String get keepPlaying;
+
+  /// No description provided for @paused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get paused;
+
+  /// No description provided for @resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get resume;
+
+  /// No description provided for @forfeitMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Forfeit match'**
+  String get forfeitMatch;
+
+  /// No description provided for @chatHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Say hi or send an emote'**
+  String get chatHint;
+
+  /// No description provided for @messageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Message…'**
+  String get messageHint;
+
+  /// No description provided for @lastMove.
+  ///
+  /// In en, this message translates to:
+  /// **'LAST MOVE'**
+  String get lastMove;
+
+  /// No description provided for @players.
+  ///
+  /// In en, this message translates to:
+  /// **'Players'**
+  String get players;
+
+  /// No description provided for @yourColour.
+  ///
+  /// In en, this message translates to:
+  /// **'Your colour'**
+  String get yourColour;
+
+  /// No description provided for @startGame.
+  ///
+  /// In en, this message translates to:
+  /// **'Start game'**
+  String get startGame;
+
+  /// No description provided for @ludoBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Roll a 6 to bring a token out, capture rivals, and get all four tokens home first.'**
+  String get ludoBlurb;
+
+  /// No description provided for @youForfeitedMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'You forfeited the match.'**
+  String get youForfeitedMatch;
+
+  /// No description provided for @ludoWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'All four tokens home — champion!'**
+  String get ludoWinSub;
+
+  /// No description provided for @gameOver.
+  ///
+  /// In en, this message translates to:
+  /// **'Game over'**
+  String get gameOver;
+
+  /// No description provided for @rolling.
+  ///
+  /// In en, this message translates to:
+  /// **'Rolling…'**
+  String get rolling;
+
+  /// No description provided for @pickToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a token to move'**
+  String get pickToken;
+
+  /// No description provided for @yourTurnRoll.
+  ///
+  /// In en, this message translates to:
+  /// **'Your turn — roll'**
+  String get yourTurnRoll;
+
+  /// No description provided for @snakesBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Race to 100 against the computer. Ladders lift you up, snakes slide you down — land on 100 exactly.'**
+  String get snakesBlurb;
+
+  /// No description provided for @youForfeitedRace.
+  ///
+  /// In en, this message translates to:
+  /// **'You forfeited the race.'**
+  String get youForfeitedRace;
+
+  /// No description provided for @snakesWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'First to 100 — what a climb!'**
+  String get snakesWinSub;
+
+  /// No description provided for @bestAi.
+  ///
+  /// In en, this message translates to:
+  /// **'Best AI'**
+  String get bestAi;
+
+  /// No description provided for @pausedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The clock is stopped for everyone.'**
+  String get pausedSubtitle;
+
+  /// No description provided for @forfeitBodyStake.
+  ///
+  /// In en, this message translates to:
+  /// **'You will lose your {amount} stake and the round counts as a defeat.'**
+  String forfeitBodyStake(String amount);
+
+  /// No description provided for @youPlusAi.
+  ///
+  /// In en, this message translates to:
+  /// **'You + {count} AI'**
+  String youPlusAi(int count);
+
+  /// No description provided for @moveOnHold.
+  ///
+  /// In en, this message translates to:
+  /// **'Move {move} · the game is on hold.'**
+  String moveOnHold(int move);
+
+  /// No description provided for @playerMoving.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} moving…'**
+  String playerMoving(String name);
+
+  /// No description provided for @playerPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is playing…'**
+  String playerPlaying(String name);
+
+  /// No description provided for @playerRolling.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is rolling…'**
+  String playerRolling(String name);
+
+  /// No description provided for @tapDiceToRoll.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the dice\nto roll'**
+  String get tapDiceToRoll;
+
+  /// No description provided for @tapGlowingToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a glowing\ntoken'**
+  String get tapGlowingToken;
+
+  /// No description provided for @moving.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving…'**
+  String get moving;
+
+  /// No description provided for @waitEllipsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait…'**
+  String get waitEllipsis;
+
+  /// No description provided for @tokensHomeOut.
+  ///
+  /// In en, this message translates to:
+  /// **'{home} home · {out} out'**
+  String tokensHomeOut(int home, int out);
+
+  /// No description provided for @squareN.
+  ///
+  /// In en, this message translates to:
+  /// **'Square {n}'**
+  String squareN(int n);
+
+  /// No description provided for @startSquare.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get startSquare;
+
+  /// No description provided for @moveAndPlayers.
+  ///
+  /// In en, this message translates to:
+  /// **'Move {move} · {players} players'**
+  String moveAndPlayers(int move, int players);
+
+  /// No description provided for @ludoLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} got all four tokens home first.'**
+  String ludoLoseSub(String name);
+
+  /// No description provided for @snakesLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} reached 100 first.'**
+  String snakesLoseSub(String name);
+
+  /// No description provided for @timePerTurn.
+  ///
+  /// In en, this message translates to:
+  /// **'Time per turn'**
+  String get timePerTurn;
+
+  /// No description provided for @timeSec.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} sec'**
+  String timeSec(int n);
+
+  /// No description provided for @timeMin.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} min'**
+  String timeMin(int n);
+
+  /// No description provided for @unlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get unlimited;
+
+  /// No description provided for @timeUpRule.
+  ///
+  /// In en, this message translates to:
+  /// **'If time runs out, your turn is played for you.'**
+  String get timeUpRule;
+
+  /// No description provided for @timeUpPlayed.
+  ///
+  /// In en, this message translates to:
+  /// **'Time\'s up — your turn was played for you'**
+  String get timeUpPlayed;
+
+  /// No description provided for @turnRolling.
+  ///
+  /// In en, this message translates to:
+  /// **'Rolling… · {secs}s'**
+  String turnRolling(int secs);
+
+  /// No description provided for @turnYourRoll.
+  ///
+  /// In en, this message translates to:
+  /// **'Your roll · {secs}s'**
+  String turnYourRoll(int secs);
+
+  /// No description provided for @turnPick.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a token · {secs}s'**
+  String turnPick(int secs);
+
+  /// No description provided for @turnRollingNoClock.
+  ///
+  /// In en, this message translates to:
+  /// **'Rolling…'**
+  String get turnRollingNoClock;
+
+  /// No description provided for @turnYourRollNoClock.
+  ///
+  /// In en, this message translates to:
+  /// **'Your roll'**
+  String get turnYourRollNoClock;
+
+  /// No description provided for @playAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Play as'**
+  String get playAs;
+
+  /// No description provided for @difficulty.
+  ///
+  /// In en, this message translates to:
+  /// **'Difficulty'**
+  String get difficulty;
+
+  /// No description provided for @easy.
+  ///
+  /// In en, this message translates to:
+  /// **'Easy'**
+  String get easy;
+
+  /// No description provided for @medium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get medium;
+
+  /// No description provided for @hard.
+  ///
+  /// In en, this message translates to:
+  /// **'Hard'**
+  String get hard;
+
+  /// No description provided for @relaxed.
+  ///
+  /// In en, this message translates to:
+  /// **'Relaxed'**
+  String get relaxed;
+
+  /// No description provided for @balanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Balanced'**
+  String get balanced;
+
+  /// No description provided for @tough.
+  ///
+  /// In en, this message translates to:
+  /// **'Tough'**
+  String get tough;
+
+  /// No description provided for @randomSide.
+  ///
+  /// In en, this message translates to:
+  /// **'Random'**
+  String get randomSide;
+
+  /// No description provided for @playVsComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Play vs Computer'**
+  String get playVsComputer;
+
+  /// No description provided for @timePerMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Time per move'**
+  String get timePerMove;
+
+  /// No description provided for @timeOutLoses.
+  ///
+  /// In en, this message translates to:
+  /// **'Run out of time on a move and you lose the game.'**
+  String get timeOutLoses;
+
+  /// No description provided for @computer.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer'**
+  String get computer;
+
+  /// No description provided for @discsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 disc} other{{count} discs}}'**
+  String discsCount(int count);
+
+  /// No description provided for @yourMoveSecs.
+  ///
+  /// In en, this message translates to:
+  /// **'Your move · {secs}s'**
+  String yourMoveSecs(int secs);
+
+  /// No description provided for @yourMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Your move'**
+  String get yourMove;
+
+  /// No description provided for @thinkingSecs.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking… · {secs}s'**
+  String thinkingSecs(int secs);
+
+  /// No description provided for @thinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking…'**
+  String get thinking;
+
+  /// No description provided for @computerThinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer is thinking…'**
+  String get computerThinking;
+
+  /// No description provided for @othelloPlayed.
+  ///
+  /// In en, this message translates to:
+  /// **'{who} played {square} · flipped {count}'**
+  String othelloPlayed(String who, String square, int count);
+
+  /// No description provided for @mustPass.
+  ///
+  /// In en, this message translates to:
+  /// **'{who} has no move — pass'**
+  String mustPass(String who);
+
+  /// No description provided for @othelloBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Outflank the computer: every disc you trap flips to your colour. Most discs when the board fills wins.'**
+  String get othelloBlurb;
+
+  /// No description provided for @black.
+  ///
+  /// In en, this message translates to:
+  /// **'Black'**
+  String get black;
+
+  /// No description provided for @white.
+  ///
+  /// In en, this message translates to:
+  /// **'White'**
+  String get white;
+
+  /// No description provided for @youRanOutOfTime.
+  ///
+  /// In en, this message translates to:
+  /// **'You ran out of time.'**
+  String get youRanOutOfTime;
+
+  /// No description provided for @computerRanOutOfTime.
+  ///
+  /// In en, this message translates to:
+  /// **'The computer ran out of time.'**
+  String get computerRanOutOfTime;
+
+  /// No description provided for @othelloWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{you}–{them} — the board is yours!'**
+  String othelloWinSub(int you, int them);
+
+  /// No description provided for @othelloLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{you}–{them} — outflanked this time.'**
+  String othelloLoseSub(int you, int them);
+
+  /// No description provided for @othelloDrawSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{you}–{them} — an even board.'**
+  String othelloDrawSub(int you, int them);
+
+  /// No description provided for @checkersBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to capture — it\'s compulsory, and multi-jumps must be finished. Reach the far row to crown a king.'**
+  String get checkersBlurb;
+
+  /// No description provided for @checkersDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Red'**
+  String get checkersDark;
+
+  /// No description provided for @checkersLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Ivory'**
+  String get checkersLight;
+
+  /// No description provided for @piecesKings.
+  ///
+  /// In en, this message translates to:
+  /// **'{pieces} pieces · {kings} kings'**
+  String piecesKings(int pieces, int kings);
+
+  /// No description provided for @checkersMoved.
+  ///
+  /// In en, this message translates to:
+  /// **'{who} moved {from}–{to}'**
+  String checkersMoved(String who, int from, int to);
+
+  /// No description provided for @checkersCaptured.
+  ///
+  /// In en, this message translates to:
+  /// **'{who} captured {count, plural, =1{1 piece} other{{count} pieces}}'**
+  String checkersCaptured(String who, int count);
+
+  /// No description provided for @checkersWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'The computer has no moves left — well played!'**
+  String get checkersWinSub;
+
+  /// No description provided for @checkersLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Out of moves — run it back.'**
+  String get checkersLoseSub;
+
+  /// No description provided for @checkersDrawSub.
+  ///
+  /// In en, this message translates to:
+  /// **'40 moves without a capture — a draw.'**
+  String get checkersDrawSub;
+
+  /// No description provided for @scrabbleBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Build words on the board against the computer. Premium squares multiply letters and words; use all 7 tiles for a 50-point bingo.'**
+  String get scrabbleBlurb;
+
+  /// No description provided for @scrabbleTimeRule.
+  ///
+  /// In en, this message translates to:
+  /// **'If time runs out, your turn is passed.'**
+  String get scrabbleTimeRule;
+
+  /// No description provided for @loadingDictionary.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading dictionary…'**
+  String get loadingDictionary;
+
+  /// No description provided for @scoreN.
+  ///
+  /// In en, this message translates to:
+  /// **'Score {n}'**
+  String scoreN(int n);
+
+  /// No description provided for @bagN.
+  ///
+  /// In en, this message translates to:
+  /// **'Bag {n}'**
+  String bagN(int n);
+
+  /// No description provided for @shuffle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shuffle'**
+  String get shuffle;
+
+  /// No description provided for @recall.
+  ///
+  /// In en, this message translates to:
+  /// **'Recall'**
+  String get recall;
+
+  /// No description provided for @swap.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap'**
+  String get swap;
+
+  /// No description provided for @pass.
+  ///
+  /// In en, this message translates to:
+  /// **'Pass'**
+  String get pass;
+
+  /// No description provided for @playScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Play · {score}'**
+  String playScore(int score);
+
+  /// No description provided for @errPlaceTiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Place tiles on the board'**
+  String get errPlaceTiles;
+
+  /// No description provided for @errInLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Tiles must be in one row or column'**
+  String get errInLine;
+
+  /// No description provided for @errGap.
+  ///
+  /// In en, this message translates to:
+  /// **'No gaps between your tiles'**
+  String get errGap;
+
+  /// No description provided for @errConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to the tiles on the board'**
+  String get errConnect;
+
+  /// No description provided for @errCenter.
+  ///
+  /// In en, this message translates to:
+  /// **'The first word must cover the centre star'**
+  String get errCenter;
+
+  /// No description provided for @errTooShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Words need at least 2 letters'**
+  String get errTooShort;
+
+  /// No description provided for @errNotWord.
+  ///
+  /// In en, this message translates to:
+  /// **'{word} isn\'t in the dictionary'**
+  String errNotWord(String word);
+
+  /// No description provided for @scrabblePlayed.
+  ///
+  /// In en, this message translates to:
+  /// **'{who} played {word} · {score}'**
+  String scrabblePlayed(String who, String word, int score);
+
+  /// No description provided for @scrabbleExchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'{who} swapped {count} tiles'**
+  String scrabbleExchanged(String who, int count);
+
+  /// No description provided for @scrabblePassed.
+  ///
+  /// In en, this message translates to:
+  /// **'{who} passed'**
+  String scrabblePassed(String who);
+
+  /// No description provided for @timeUpPassed.
+  ///
+  /// In en, this message translates to:
+  /// **'Time\'s up — your turn was passed'**
+  String get timeUpPassed;
+
+  /// No description provided for @swapTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose tiles to swap'**
+  String get swapTitle;
+
+  /// No description provided for @swapN.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap {count}'**
+  String swapN(int count);
+
+  /// No description provided for @passConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pass your turn?'**
+  String get passConfirmTitle;
+
+  /// No description provided for @passConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You score nothing this turn. Six scoreless turns in a row end the game.'**
+  String get passConfirmBody;
+
+  /// No description provided for @pickLetter.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a letter for the blank'**
+  String get pickLetter;
+
+  /// No description provided for @bagTooSmall.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough tiles in the bag to swap'**
+  String get bagTooSmall;
+
+  /// No description provided for @scrabbleWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{you}–{them} — word master!'**
+  String scrabbleWinSub(int you, int them);
+
+  /// No description provided for @scrabbleLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{you}–{them} — the computer out-spelled you.'**
+  String scrabbleLoseSub(int you, int them);
+
+  /// No description provided for @scrabbleDrawSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{you}–{them} — a tie!'**
+  String scrabbleDrawSub(int you, int them);
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
 }
 
 class _AppLocalizationsDelegate

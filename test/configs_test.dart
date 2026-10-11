@@ -55,7 +55,14 @@ void main() {
       expect(GameRegistry.of(GameId.ludo).displayName, 'Ludo');
       expect(GameRegistry.parse('LUDO'), GameId.ludo);
       expect(GameRegistry.parse('nope'), isNull);
-      expect(GameRegistry.available.map((g) => g.id), [GameId.chess, GameId.snakesLadders, GameId.ludo]);
+      expect(GameRegistry.available.map((g) => g.id), [
+        GameId.chess,
+        GameId.snakesLadders,
+        GameId.ludo,
+        GameId.othello,
+        GameId.scrabble,
+        GameId.checkers,
+      ]);
       expect(chessConfig.playersLabel, '2P');
       expect(ludoConfig.playersLabel, '2–4P');
     });
@@ -64,7 +71,7 @@ void main() {
       final c = ProviderContainer();
       addTearDown(c.dispose);
       expect(c.read(activeGameProvider), GameId.chess);
-      c.read(activeGameProvider.notifier).select(GameId.othello);
+      c.read(activeGameProvider.notifier).select(GameId.poker); // not in this app
       expect(c.read(activeGameProvider), GameId.chess);
       expect(c.read(activeGameConfigProvider).displayName, 'Chess');
       c.read(activeGameProvider.notifier).select(GameId.ludo);
@@ -83,7 +90,7 @@ void main() {
     });
   });
 
-  testWidgets('Home shows every game chip; a coming-soon game toasts', (tester) async {
+  testWidgets('Home shows every game chip; all are playable', (tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -93,11 +100,11 @@ void main() {
     for (final g in GameRegistry.homeChips) {
       expect(find.text(g.chipName), findsWidgets);
     }
-    final playable = GameRegistry.homeChips.where((g) => g.available).length;
-    expect(find.text('Soon'), findsNWidgets(GameRegistry.homeChips.length - playable));
+    // Every Home game is playable now: no "Soon" chips, and tapping one
+    // switches the active game.
+    expect(find.text('Soon'), findsNothing);
     await tester.tap(find.text('Othello'));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Othello is coming soon'), findsOneWidget);
     await tester.pump(const Duration(seconds: 4));
   });
 }

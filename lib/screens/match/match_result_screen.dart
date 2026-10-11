@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../../app/game_area.dart';
 import '../../app/routes.dart';
 import '../../configs/games/games.dart';
@@ -57,8 +58,8 @@ class MatchResultScreen extends StatelessWidget {
           c1: const Color(0xFF34D399),
           c2: const Color(0xFFFBBF24),
           icon: Icons.emoji_events_outlined,
-          title: 'VICTORY',
-          sub: 'Flawless run, champion!',
+          title: context.l10n.resultVictory,
+          sub: context.l10n.resultVictorySub,
           you: 3,
           opp: 2,
           reward: '+250 Tokens   ·   +50 XP',
@@ -67,8 +68,8 @@ class MatchResultScreen extends StatelessWidget {
           c1: const Color(0xFFF43F5E),
           c2: const Color(0xFFFB7185),
           icon: Icons.highlight_off_rounded,
-          title: 'DEFEAT',
-          sub: 'So close — run it back.',
+          title: context.l10n.resultDefeat,
+          sub: context.l10n.resultDefeatSub,
           you: 1,
           opp: 3,
           reward: '+20 XP',
@@ -77,8 +78,8 @@ class MatchResultScreen extends StatelessWidget {
           c1: const Color(0xFFFBBF24),
           c2: const Color(0xFFF59E0B),
           icon: Icons.compare_arrows_rounded,
-          title: 'DRAW',
-          sub: 'An even match.',
+          title: context.l10n.resultDraw,
+          sub: context.l10n.resultDrawSub,
           you: 2,
           opp: 2,
           reward: '+60 Tokens   ·   +30 XP',
@@ -157,7 +158,7 @@ class MatchResultScreen extends StatelessWidget {
                       Center(child: _RewardChip(text: reward ?? spec.reward)),
                       const SizedBox(height: 30),
                       GradientButton(
-                        label: 'Play Again',
+                        label: context.l10n.playAgain,
                         onPressed: () {
                           if (playAgain != null) {
                             Navigator.pushReplacement(context, MaterialPageRoute(builder: playAgain!));
@@ -175,7 +176,7 @@ class MatchResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 11),
                       SecondaryButton(
-                        label: 'Back to Home',
+                        label: context.l10n.backToHome,
                         onPressed: () => Navigator.popUntil(context, ModalRoute.withName(Routes.home)),
                       ),
                     ],
@@ -221,7 +222,7 @@ class _ScoreRow extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _avatar(youInitials, const [AuraColors.brandPurple, AuraColors.brandPink], 'You'),
+          _avatar(youInitials, const [AuraColors.brandPurple, AuraColors.brandPink], context.l10n.you),
           const SizedBox(width: 16),
           Text('$you', style: score.copyWith(color: Colors.white)),
           const SizedBox(width: 10),

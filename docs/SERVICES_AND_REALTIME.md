@@ -91,6 +91,14 @@ Not wired yet (endpoints exist in the catalog): `PATCH /users/me`
 
 ---
 
+### VIP subscriptions (Store → VIP)
+| Action | Call | Notes |
+|---|---|---|
+| Open VIP tab | `GET /sensitive/subscriptions/plans` → `[{id, name, tier, billing_interval, price_cents, duration_days, features, is_active}]` | 5 plans = 3 tiers (Free · Silver · Gold) × Monthly / Yearly. Three cards plus a Monthly/Yearly switch; Free is "forever". Yearly shows "SAVE n%" against 12 × monthly. Inactive plans are hidden. Perks come from `features` when filled, else the app's defaults |
+| Current plan | `GET /sensitive/subscriptions/my` | Response not documented yet: accepts `plan_id`/`plan.id`, `tier`/`plan.tier`, `status`, an end date and `auto_renew`. A 404 or empty response means Free; any failure falls back to Free |
+| Subscribe | `POST /sensitive/subscriptions/subscribe` `{plan_id, auto_renew}` | A 503 (store billing not integrated yet) shows "VIP subscriptions are coming soon" |
+| Cancel | `POST /sensitive/subscriptions/cancel` | "Cancel subscription" link (paid plan only), with a confirm dialog; picking Free while on a paid plan also cancels |
+
 ## 4. Online play (socket)
 
 One shared WebSocket — **no REST during a match**. Code path:

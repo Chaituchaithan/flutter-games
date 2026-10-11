@@ -330,6 +330,9 @@ game's code, shows no game picker, and uses the game's name as its brand.
 | Chess | `lib/main_chess.dart` | `flutter run -t lib/main_chess.dart` |
 | Ludo | `lib/main_ludo.dart` | `flutter run -t lib/main_ludo.dart` |
 | Snakes & Ladders | `lib/main_snakes.dart` | `flutter run -t lib/main_snakes.dart` |
+| Othello | `lib/main_othello.dart` | `flutter run -t lib/main_othello.dart` |
+| Checkers | `lib/main_checkers.dart` | `flutter run -t lib/main_checkers.dart` |
+| Scrabble | `lib/main_scrabble.dart` | `flutter run -t lib/main_scrabble.dart` |
 
 Any combination is one more entry file, e.g. a "Ludo + Snakes" app:
 `AppProfile(appName: '…', modules: [ludoModule, snakesModule])`.

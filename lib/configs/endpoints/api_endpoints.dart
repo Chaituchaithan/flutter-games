@@ -30,6 +30,10 @@ abstract final class ApiEndpoints {
   static const wallet = '/wallet';
   static const dailyBonusStatus = '/sensitive/daily-bonus/status';
   static const dailyBonusClaim = '/sensitive/daily-bonus/claim';
+  static const subscriptionPlans = '/sensitive/subscriptions/plans';
+  static const subscriptionMy = '/sensitive/subscriptions/my';
+  static const subscriptionSubscribe = '/sensitive/subscriptions/subscribe';
+  static const subscriptionCancel = '/sensitive/subscriptions/cancel';
   static const storePacks = '/store/packs';
 
   // Matches

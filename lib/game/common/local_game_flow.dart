@@ -48,13 +48,8 @@ mixin LocalGameFlow<T extends StatefulWidget> on State<T> {
     onResumeGame();
   }
 
-  void openPause() => showGamePaused(
-        context,
-        subtitle: pauseSubtitle,
-        onPause: pauseGame,
-        onResume: resumeGame,
-        onForfeit: forfeit,
-      );
+  void openPause() =>
+      showGamePaused(context, subtitle: pauseSubtitle, onPause: pauseGame, onResume: resumeGame, onForfeit: forfeit);
 
   /// Confirm, then end as a defeat; "Keep playing" resumes.
   Future<void> forfeit() async {
@@ -110,14 +105,14 @@ class LocalGameHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GameHeader(
-        title: title,
-        subtitle: subtitle,
-        pot: '0',
-        leading: GlassIconButton(icon: Icons.pause_rounded, onTap: live ? onPause : () {}),
-        trailing: GlassIconButton(
-          icon: perspective ? Icons.crop_square_rounded : Icons.view_in_ar_outlined,
-          iconSize: 18,
-          onTap: onTogglePerspective,
-        ),
-      );
+    title: title,
+    subtitle: subtitle,
+    pot: '0',
+    leading: GlassIconButton(icon: Icons.pause_rounded, onTap: live ? onPause : () {}),
+    trailing: GlassIconButton(
+      icon: perspective ? Icons.crop_square_rounded : Icons.view_in_ar_outlined,
+      iconSize: 18,
+      onTap: onTogglePerspective,
+    ),
+  );
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
   bool _navigated = false;
+  Timer? _fallback;
   late final AnimationController _orb = AnimationController(vsync: this, duration: const Duration(seconds: 4))
     ..repeat();
 
@@ -36,6 +38,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
 
   @override
   void dispose() {
+    _fallback?.cancel();
     _orb.dispose();
     super.dispose();
   }
@@ -51,9 +54,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    // Done: let the bar fill to 100% (its onEnd navigates); the timer is a
+    // fallback in case the animation never reports completion.
     ref.listen<StartupState>(startupProvider, (_, next) {
       final d = next.destination;
-      if (d != null) _go(d);
+      if (d != null) {
+        _fallback?.cancel();
+        _fallback = Timer(const Duration(milliseconds: 900), () => _go(d));
+      }
     });
     final st = ref.watch(startupProvider);
     return AuraScaffold(
@@ -125,10 +133,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
             child: Container(
               height: 4,
               color: Colors.white.withValues(alpha: 0.12),
+              // Done → fill to 100% quickly, then go on (onEnd). While a step
+              // runs, creep toward the next checkpoint so the bar never sits
+              // still during a slow network call; a finished step jumps it.
               child: TweenAnimationBuilder<double>(
-                tween: Tween(end: st.progress.clamp(0.0, 1.0)),
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeOutCubic,
+                tween: Tween(
+                  begin: 0,
+                  end: st.destination != null ? 1.0 : (st.progress + 0.14).clamp(0.0, 0.94),
+                ),
+                duration: Duration(milliseconds: st.destination != null ? 420 : 2600),
+                curve: st.destination != null ? Curves.easeOutCubic : Curves.easeOut,
+                onEnd: () {
+                  final d = st.destination;
+                  if (d != null) Future.delayed(const Duration(milliseconds: 160), () => _go(d));
+                },
                 builder: (_, v, _) => FractionallySizedBox(
                   alignment: Alignment.centerLeft,
                   widthFactor: v,

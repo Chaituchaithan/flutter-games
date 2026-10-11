@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../common/board_frame.dart';
 import '../common/pawn_view.dart';
 import 'ludo_engine.dart';
 
@@ -120,7 +121,10 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        final side = math.min(c.maxWidth, c.maxHeight);
+        // The chess frame around the board; the board tilts inside it (3D).
+        const frame = GameBoardFrame.padding * 2 + 5; // bezel + borders
+        final outer = math.min(c.maxWidth, c.maxHeight);
+        final side = outer - frame;
         final cell = side / 15;
         final board = SizedBox(
           width: side,
@@ -141,9 +145,14 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
           ),
         );
         return Center(
-          child: widget.perspective
-              ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
-              : board,
+          child: SizedBox.square(
+            dimension: outer,
+            child: GameBoardFrame(
+              child: widget.perspective
+                  ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
+                  : board,
+            ),
+          ),
         );
       },
     );
@@ -284,16 +293,7 @@ class _LudoBoardPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cell = size.width / 15;
     final rect = Offset.zero & size;
-    final rr = RRect.fromRectAndRadius(rect, Radius.circular(cell * 0.6));
-
-    canvas.drawRRect(
-      rr.shift(Offset(0, cell * 0.25)),
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.5)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, cell * 0.6),
-    );
     canvas.save();
-    canvas.clipRRect(rr);
     // Rotate the drawing so the player's base sits bottom-left.
     canvas.translate(size.width / 2, size.height / 2);
     canvas.rotate(turns * math.pi / 2);
@@ -423,16 +423,6 @@ class _LudoBoardPainter extends CustomPainter {
     );
     _star(canvas, mid, cell * 0.38, Colors.white);
     canvas.restore();
-
-    // Rim.
-    canvas.drawRRect(
-      rr,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = cell * 0.14
-        ..shader = const LinearGradient(colors: [Color(0xFFC084FC), Color(0xFFEC4899), Color(0xFFFB923C)])
-            .createShader(rect),
-    );
   }
 
   void _star(Canvas canvas, Offset c, double r, Color color) {

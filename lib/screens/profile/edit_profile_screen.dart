@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../app/main_shell.dart';
 import '../../app/routes.dart';
 import '../../data/languages.dart';
 import '../../services/app_exception.dart';
@@ -100,6 +101,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   static String _flagFor(String code) =>
       code.length == 2 ? String.fromCharCodes(code.toUpperCase().codeUnits.map((u) => 0x1F1E6 + u - 0x41)) : '🏳️';
 
+  /// After Save: land on the Profile tab (from Profile or from Settings).
+  void _toProfile() {
+    ref.read(mainTabProvider.notifier).select(3); // Profile tab
+    Navigator.popUntil(context, ModalRoute.withName(Routes.home));
+  }
+
   /// PATCH /users/me/profile with only the fields that changed.
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
@@ -120,7 +127,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         changedCountry == null &&
         changedLanguage == null &&
         changedDob == null) {
-      Navigator.of(context).maybePop();
+      _toProfile();
       return;
     }
     setState(() => _saving = true);
@@ -136,7 +143,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           );
       if (!mounted) return;
       showAuraToast(context, context.l10n.profileSaved);
-      Navigator.of(context).maybePop();
+      _toProfile();
     } on AppException catch (e) {
       if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
     } on Object catch (_) {

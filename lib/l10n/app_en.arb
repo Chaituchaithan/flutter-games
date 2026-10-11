@@ -296,5 +296,455 @@
   },
   "claimed": "Claimed",
   "mega": "MEGA",
-  "dateOfBirth": "Date of birth"
+  "dateOfBirth": "Date of birth",
+  "resultVictory": "VICTORY",
+  "resultVictorySub": "Flawless run, champion!",
+  "resultDefeat": "DEFEAT",
+  "resultDefeatSub": "So close — run it back.",
+  "resultDraw": "DRAW",
+  "resultDrawSub": "An even match.",
+  "playAgain": "Play Again",
+  "backToHome": "Back to Home",
+  "you": "You",
+  "pot": "Pot",
+  "turnClock": "TURN CLOCK",
+  "waiting": "Waiting",
+  "forfeitTitle": "Forfeit the match?",
+  "forfeitBody": "This round will count as a defeat and you will earn no reward.",
+  "forfeit": "Forfeit",
+  "keepPlaying": "Keep playing",
+  "paused": "Paused",
+  "resume": "Resume",
+  "forfeitMatch": "Forfeit match",
+  "chatHint": "Say hi or send an emote",
+  "messageHint": "Message…",
+  "lastMove": "LAST MOVE",
+  "players": "Players",
+  "yourColour": "Your colour",
+  "startGame": "Start game",
+  "ludoBlurb": "Roll a 6 to bring a token out, capture rivals, and get all four tokens home first.",
+  "youForfeitedMatch": "You forfeited the match.",
+  "ludoWinSub": "All four tokens home — champion!",
+  "gameOver": "Game over",
+  "rolling": "Rolling…",
+  "pickToken": "Pick a token to move",
+  "yourTurnRoll": "Your turn — roll",
+  "snakesBlurb": "Race to 100 against the computer. Ladders lift you up, snakes slide you down — land on 100 exactly.",
+  "youForfeitedRace": "You forfeited the race.",
+  "snakesWinSub": "First to 100 — what a climb!",
+  "bestAi": "Best AI",
+  "pausedSubtitle": "The clock is stopped for everyone.",
+  "forfeitBodyStake": "You will lose your {amount} stake and the round counts as a defeat.",
+  "@forfeitBodyStake": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youPlusAi": "You + {count} AI",
+  "@youPlusAi": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "moveOnHold": "Move {move} · the game is on hold.",
+  "@moveOnHold": {
+    "placeholders": {
+      "move": {
+        "type": "int"
+      }
+    }
+  },
+  "playerMoving": "{name} moving…",
+  "@playerMoving": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playerPlaying": "{name} is playing…",
+  "@playerPlaying": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playerRolling": "{name} is rolling…",
+  "@playerRolling": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tapDiceToRoll": "Tap the dice\nto roll",
+  "tapGlowingToken": "Tap a glowing\ntoken",
+  "moving": "Moving…",
+  "waitEllipsis": "Wait…",
+  "tokensHomeOut": "{home} home · {out} out",
+  "@tokensHomeOut": {
+    "placeholders": {
+      "home": {
+        "type": "int"
+      },
+      "out": {
+        "type": "int"
+      }
+    }
+  },
+  "squareN": "Square {n}",
+  "@squareN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "startSquare": "Start",
+  "moveAndPlayers": "Move {move} · {players} players",
+  "@moveAndPlayers": {
+    "placeholders": {
+      "move": {
+        "type": "int"
+      },
+      "players": {
+        "type": "int"
+      }
+    }
+  },
+  "ludoLoseSub": "{name} got all four tokens home first.",
+  "@ludoLoseSub": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "snakesLoseSub": "{name} reached 100 first.",
+  "@snakesLoseSub": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "timePerTurn": "Time per turn",
+  "timeSec": "{n} sec",
+  "@timeSec": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "timeMin": "{n} min",
+  "@timeMin": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "unlimited": "Unlimited",
+  "timeUpRule": "If time runs out, your turn is played for you.",
+  "timeUpPlayed": "Time's up — your turn was played for you",
+  "turnRolling": "Rolling… · {secs}s",
+  "@turnRolling": {
+    "placeholders": {
+      "secs": {
+        "type": "int"
+      }
+    }
+  },
+  "turnYourRoll": "Your roll · {secs}s",
+  "@turnYourRoll": {
+    "placeholders": {
+      "secs": {
+        "type": "int"
+      }
+    }
+  },
+  "turnPick": "Pick a token · {secs}s",
+  "@turnPick": {
+    "placeholders": {
+      "secs": {
+        "type": "int"
+      }
+    }
+  },
+  "turnRollingNoClock": "Rolling…",
+  "turnYourRollNoClock": "Your roll",
+  "playAs": "Play as",
+  "difficulty": "Difficulty",
+  "easy": "Easy",
+  "medium": "Medium",
+  "hard": "Hard",
+  "relaxed": "Relaxed",
+  "balanced": "Balanced",
+  "tough": "Tough",
+  "randomSide": "Random",
+  "playVsComputer": "Play vs Computer",
+  "timePerMove": "Time per move",
+  "timeOutLoses": "Run out of time on a move and you lose the game.",
+  "computer": "Computer",
+  "discsCount": "{count, plural, =1{1 disc} other{{count} discs}}",
+  "@discsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "yourMoveSecs": "Your move · {secs}s",
+  "@yourMoveSecs": {
+    "placeholders": {
+      "secs": {
+        "type": "int"
+      }
+    }
+  },
+  "yourMove": "Your move",
+  "thinkingSecs": "Thinking… · {secs}s",
+  "@thinkingSecs": {
+    "placeholders": {
+      "secs": {
+        "type": "int"
+      }
+    }
+  },
+  "thinking": "Thinking…",
+  "computerThinking": "Computer is thinking…",
+  "othelloPlayed": "{who} played {square} · flipped {count}",
+  "@othelloPlayed": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      },
+      "square": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mustPass": "{who} has no move — pass",
+  "@mustPass": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      }
+    }
+  },
+  "othelloBlurb": "Outflank the computer: every disc you trap flips to your colour. Most discs when the board fills wins.",
+  "black": "Black",
+  "white": "White",
+  "youRanOutOfTime": "You ran out of time.",
+  "computerRanOutOfTime": "The computer ran out of time.",
+  "othelloWinSub": "{you}–{them} — the board is yours!",
+  "@othelloWinSub": {
+    "placeholders": {
+      "you": {
+        "type": "int"
+      },
+      "them": {
+        "type": "int"
+      }
+    }
+  },
+  "othelloLoseSub": "{you}–{them} — outflanked this time.",
+  "@othelloLoseSub": {
+    "placeholders": {
+      "you": {
+        "type": "int"
+      },
+      "them": {
+        "type": "int"
+      }
+    }
+  },
+  "othelloDrawSub": "{you}–{them} — an even board.",
+  "@othelloDrawSub": {
+    "placeholders": {
+      "you": {
+        "type": "int"
+      },
+      "them": {
+        "type": "int"
+      }
+    }
+  },
+  "checkersBlurb": "Jump to capture — it's compulsory, and multi-jumps must be finished. Reach the far row to crown a king.",
+  "checkersDark": "Red",
+  "checkersLight": "Ivory",
+  "piecesKings": "{pieces} pieces · {kings} kings",
+  "@piecesKings": {
+    "placeholders": {
+      "pieces": {
+        "type": "int"
+      },
+      "kings": {
+        "type": "int"
+      }
+    }
+  },
+  "checkersMoved": "{who} moved {from}–{to}",
+  "@checkersMoved": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      },
+      "from": {
+        "type": "int"
+      },
+      "to": {
+        "type": "int"
+      }
+    }
+  },
+  "checkersCaptured": "{who} captured {count, plural, =1{1 piece} other{{count} pieces}}",
+  "@checkersCaptured": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "checkersWinSub": "The computer has no moves left — well played!",
+  "checkersLoseSub": "Out of moves — run it back.",
+  "checkersDrawSub": "40 moves without a capture — a draw.",
+  "scrabbleBlurb": "Build words on the board against the computer. Premium squares multiply letters and words; use all 7 tiles for a 50-point bingo.",
+  "scrabbleTimeRule": "If time runs out, your turn is passed.",
+  "loadingDictionary": "Loading dictionary…",
+  "scoreN": "Score {n}",
+  "@scoreN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "bagN": "Bag {n}",
+  "@bagN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "shuffle": "Shuffle",
+  "recall": "Recall",
+  "swap": "Swap",
+  "pass": "Pass",
+  "playScore": "Play · {score}",
+  "@playScore": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "errPlaceTiles": "Place tiles on the board",
+  "errInLine": "Tiles must be in one row or column",
+  "errGap": "No gaps between your tiles",
+  "errConnect": "Connect to the tiles on the board",
+  "errCenter": "The first word must cover the centre star",
+  "errTooShort": "Words need at least 2 letters",
+  "errNotWord": "{word} isn't in the dictionary",
+  "@errNotWord": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "scrabblePlayed": "{who} played {word} · {score}",
+  "@scrabblePlayed": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      },
+      "word": {
+        "type": "String"
+      },
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "scrabbleExchanged": "{who} swapped {count} tiles",
+  "@scrabbleExchanged": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "scrabblePassed": "{who} passed",
+  "@scrabblePassed": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      }
+    }
+  },
+  "timeUpPassed": "Time's up — your turn was passed",
+  "swapTitle": "Choose tiles to swap",
+  "swapN": "Swap {count}",
+  "@swapN": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "passConfirmTitle": "Pass your turn?",
+  "passConfirmBody": "You score nothing this turn. Six scoreless turns in a row end the game.",
+  "pickLetter": "Choose a letter for the blank",
+  "bagTooSmall": "Not enough tiles in the bag to swap",
+  "scrabbleWinSub": "{you}–{them} — word master!",
+  "@scrabbleWinSub": {
+    "placeholders": {
+      "you": {
+        "type": "int"
+      },
+      "them": {
+        "type": "int"
+      }
+    }
+  },
+  "scrabbleLoseSub": "{you}–{them} — the computer out-spelled you.",
+  "@scrabbleLoseSub": {
+    "placeholders": {
+      "you": {
+        "type": "int"
+      },
+      "them": {
+        "type": "int"
+      }
+    }
+  },
+  "scrabbleDrawSub": "{you}–{them} — a tie!",
+  "@scrabbleDrawSub": {
+    "placeholders": {
+      "you": {
+        "type": "int"
+      },
+      "them": {
+        "type": "int"
+      }
+    }
+  },
+  "cancel": "Cancel"
 }

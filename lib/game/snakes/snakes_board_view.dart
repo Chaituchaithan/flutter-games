@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../common/board_frame.dart';
 import '../common/pawn_view.dart';
 import 'snakes_engine.dart';
 
@@ -120,8 +121,11 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        // Board square + START pad below it (pad = 0.12 × side).
-        final side = math.min(c.maxWidth, c.maxHeight / 1.12);
+        // The chess frame around the board + the START pad below it
+        // (pad = 0.12 × side); the board tilts inside the frame (3D).
+        const frame = GameBoardFrame.padding * 2 + 5; // bezel + borders
+        final outerW = math.min(c.maxWidth, (c.maxHeight - frame) / 1.12 + frame);
+        final side = outerW - frame;
         final cell = side / 10;
         final padH = side * 0.12;
         final geo = _Geometry(cell: cell, padTop: side, padH: padH, players: widget.game.players);
@@ -148,9 +152,15 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
         );
 
         return Center(
-          child: widget.perspective
-              ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
-              : board,
+          child: SizedBox(
+            width: outerW,
+            height: side + padH + frame,
+            child: GameBoardFrame(
+              child: widget.perspective
+                  ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
+                  : board,
+            ),
+          ),
         );
       },
     );
@@ -324,19 +334,17 @@ class _BoardPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final side = cell * 10;
-    final boardRect = Rect.fromLTWH(0, 0, side, side);
-    final rr = RRect.fromRectAndRadius(boardRect, Radius.circular(cell * 0.35));
-
-    // Frame + drop shadow.
-    canvas.drawRRect(
-      rr.shift(Offset(0, cell * 0.12)),
+    // Playing surface (shows around the START pad).
+    final all = Offset.zero & size;
+    canvas.drawRect(
+      all,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.5)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, cell * 0.3),
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: BoardPalette.surface,
+        ).createShader(all),
     );
-    canvas.save();
-    canvas.clipRRect(rr);
 
     // Squares: row-tinted checkerboard with a soft top light.
     for (var sq = 1; sq <= 100; sq++) {
@@ -389,19 +397,8 @@ class _BoardPainter extends CustomPainter {
       _snake(canvas, _center(e.key), _center(e.value), i, _snakeColors[i % _snakeColors.length]);
       i++;
     }
-    canvas.restore();
-
-    // Board rim.
-    canvas.drawRRect(
-      rr,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = cell * 0.08
-        ..shader = const LinearGradient(colors: [Color(0xFFC084FC), Color(0xFFEC4899), Color(0xFFFB923C)])
-            .createShader(boardRect),
-    );
-
     // START pad.
+    final side = cell * 10;
     final pad = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, side + padH * 0.22, side, padH * 0.74),
       Radius.circular(padH * 0.3),

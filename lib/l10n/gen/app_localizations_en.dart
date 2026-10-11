@@ -525,4 +525,498 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dateOfBirth => 'Date of birth';
+
+  @override
+  String get resultVictory => 'VICTORY';
+
+  @override
+  String get resultVictorySub => 'Flawless run, champion!';
+
+  @override
+  String get resultDefeat => 'DEFEAT';
+
+  @override
+  String get resultDefeatSub => 'So close — run it back.';
+
+  @override
+  String get resultDraw => 'DRAW';
+
+  @override
+  String get resultDrawSub => 'An even match.';
+
+  @override
+  String get playAgain => 'Play Again';
+
+  @override
+  String get backToHome => 'Back to Home';
+
+  @override
+  String get you => 'You';
+
+  @override
+  String get pot => 'Pot';
+
+  @override
+  String get turnClock => 'TURN CLOCK';
+
+  @override
+  String get waiting => 'Waiting';
+
+  @override
+  String get forfeitTitle => 'Forfeit the match?';
+
+  @override
+  String get forfeitBody =>
+      'This round will count as a defeat and you will earn no reward.';
+
+  @override
+  String get forfeit => 'Forfeit';
+
+  @override
+  String get keepPlaying => 'Keep playing';
+
+  @override
+  String get paused => 'Paused';
+
+  @override
+  String get resume => 'Resume';
+
+  @override
+  String get forfeitMatch => 'Forfeit match';
+
+  @override
+  String get chatHint => 'Say hi or send an emote';
+
+  @override
+  String get messageHint => 'Message…';
+
+  @override
+  String get lastMove => 'LAST MOVE';
+
+  @override
+  String get players => 'Players';
+
+  @override
+  String get yourColour => 'Your colour';
+
+  @override
+  String get startGame => 'Start game';
+
+  @override
+  String get ludoBlurb =>
+      'Roll a 6 to bring a token out, capture rivals, and get all four tokens home first.';
+
+  @override
+  String get youForfeitedMatch => 'You forfeited the match.';
+
+  @override
+  String get ludoWinSub => 'All four tokens home — champion!';
+
+  @override
+  String get gameOver => 'Game over';
+
+  @override
+  String get rolling => 'Rolling…';
+
+  @override
+  String get pickToken => 'Pick a token to move';
+
+  @override
+  String get yourTurnRoll => 'Your turn — roll';
+
+  @override
+  String get snakesBlurb =>
+      'Race to 100 against the computer. Ladders lift you up, snakes slide you down — land on 100 exactly.';
+
+  @override
+  String get youForfeitedRace => 'You forfeited the race.';
+
+  @override
+  String get snakesWinSub => 'First to 100 — what a climb!';
+
+  @override
+  String get bestAi => 'Best AI';
+
+  @override
+  String get pausedSubtitle => 'The clock is stopped for everyone.';
+
+  @override
+  String forfeitBodyStake(String amount) {
+    return 'You will lose your $amount stake and the round counts as a defeat.';
+  }
+
+  @override
+  String youPlusAi(int count) {
+    return 'You + $count AI';
+  }
+
+  @override
+  String moveOnHold(int move) {
+    return 'Move $move · the game is on hold.';
+  }
+
+  @override
+  String playerMoving(String name) {
+    return '$name moving…';
+  }
+
+  @override
+  String playerPlaying(String name) {
+    return '$name is playing…';
+  }
+
+  @override
+  String playerRolling(String name) {
+    return '$name is rolling…';
+  }
+
+  @override
+  String get tapDiceToRoll => 'Tap the dice\nto roll';
+
+  @override
+  String get tapGlowingToken => 'Tap a glowing\ntoken';
+
+  @override
+  String get moving => 'Moving…';
+
+  @override
+  String get waitEllipsis => 'Wait…';
+
+  @override
+  String tokensHomeOut(int home, int out) {
+    return '$home home · $out out';
+  }
+
+  @override
+  String squareN(int n) {
+    return 'Square $n';
+  }
+
+  @override
+  String get startSquare => 'Start';
+
+  @override
+  String moveAndPlayers(int move, int players) {
+    return 'Move $move · $players players';
+  }
+
+  @override
+  String ludoLoseSub(String name) {
+    return '$name got all four tokens home first.';
+  }
+
+  @override
+  String snakesLoseSub(String name) {
+    return '$name reached 100 first.';
+  }
+
+  @override
+  String get timePerTurn => 'Time per turn';
+
+  @override
+  String timeSec(int n) {
+    return '$n sec';
+  }
+
+  @override
+  String timeMin(int n) {
+    return '$n min';
+  }
+
+  @override
+  String get unlimited => 'Unlimited';
+
+  @override
+  String get timeUpRule => 'If time runs out, your turn is played for you.';
+
+  @override
+  String get timeUpPlayed => 'Time\'s up — your turn was played for you';
+
+  @override
+  String turnRolling(int secs) {
+    return 'Rolling… · ${secs}s';
+  }
+
+  @override
+  String turnYourRoll(int secs) {
+    return 'Your roll · ${secs}s';
+  }
+
+  @override
+  String turnPick(int secs) {
+    return 'Pick a token · ${secs}s';
+  }
+
+  @override
+  String get turnRollingNoClock => 'Rolling…';
+
+  @override
+  String get turnYourRollNoClock => 'Your roll';
+
+  @override
+  String get playAs => 'Play as';
+
+  @override
+  String get difficulty => 'Difficulty';
+
+  @override
+  String get easy => 'Easy';
+
+  @override
+  String get medium => 'Medium';
+
+  @override
+  String get hard => 'Hard';
+
+  @override
+  String get relaxed => 'Relaxed';
+
+  @override
+  String get balanced => 'Balanced';
+
+  @override
+  String get tough => 'Tough';
+
+  @override
+  String get randomSide => 'Random';
+
+  @override
+  String get playVsComputer => 'Play vs Computer';
+
+  @override
+  String get timePerMove => 'Time per move';
+
+  @override
+  String get timeOutLoses => 'Run out of time on a move and you lose the game.';
+
+  @override
+  String get computer => 'Computer';
+
+  @override
+  String discsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count discs',
+      one: '1 disc',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String yourMoveSecs(int secs) {
+    return 'Your move · ${secs}s';
+  }
+
+  @override
+  String get yourMove => 'Your move';
+
+  @override
+  String thinkingSecs(int secs) {
+    return 'Thinking… · ${secs}s';
+  }
+
+  @override
+  String get thinking => 'Thinking…';
+
+  @override
+  String get computerThinking => 'Computer is thinking…';
+
+  @override
+  String othelloPlayed(String who, String square, int count) {
+    return '$who played $square · flipped $count';
+  }
+
+  @override
+  String mustPass(String who) {
+    return '$who has no move — pass';
+  }
+
+  @override
+  String get othelloBlurb =>
+      'Outflank the computer: every disc you trap flips to your colour. Most discs when the board fills wins.';
+
+  @override
+  String get black => 'Black';
+
+  @override
+  String get white => 'White';
+
+  @override
+  String get youRanOutOfTime => 'You ran out of time.';
+
+  @override
+  String get computerRanOutOfTime => 'The computer ran out of time.';
+
+  @override
+  String othelloWinSub(int you, int them) {
+    return '$you–$them — the board is yours!';
+  }
+
+  @override
+  String othelloLoseSub(int you, int them) {
+    return '$you–$them — outflanked this time.';
+  }
+
+  @override
+  String othelloDrawSub(int you, int them) {
+    return '$you–$them — an even board.';
+  }
+
+  @override
+  String get checkersBlurb =>
+      'Jump to capture — it\'s compulsory, and multi-jumps must be finished. Reach the far row to crown a king.';
+
+  @override
+  String get checkersDark => 'Red';
+
+  @override
+  String get checkersLight => 'Ivory';
+
+  @override
+  String piecesKings(int pieces, int kings) {
+    return '$pieces pieces · $kings kings';
+  }
+
+  @override
+  String checkersMoved(String who, int from, int to) {
+    return '$who moved $from–$to';
+  }
+
+  @override
+  String checkersCaptured(String who, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pieces',
+      one: '1 piece',
+    );
+    return '$who captured $_temp0';
+  }
+
+  @override
+  String get checkersWinSub => 'The computer has no moves left — well played!';
+
+  @override
+  String get checkersLoseSub => 'Out of moves — run it back.';
+
+  @override
+  String get checkersDrawSub => '40 moves without a capture — a draw.';
+
+  @override
+  String get scrabbleBlurb =>
+      'Build words on the board against the computer. Premium squares multiply letters and words; use all 7 tiles for a 50-point bingo.';
+
+  @override
+  String get scrabbleTimeRule => 'If time runs out, your turn is passed.';
+
+  @override
+  String get loadingDictionary => 'Loading dictionary…';
+
+  @override
+  String scoreN(int n) {
+    return 'Score $n';
+  }
+
+  @override
+  String bagN(int n) {
+    return 'Bag $n';
+  }
+
+  @override
+  String get shuffle => 'Shuffle';
+
+  @override
+  String get recall => 'Recall';
+
+  @override
+  String get swap => 'Swap';
+
+  @override
+  String get pass => 'Pass';
+
+  @override
+  String playScore(int score) {
+    return 'Play · $score';
+  }
+
+  @override
+  String get errPlaceTiles => 'Place tiles on the board';
+
+  @override
+  String get errInLine => 'Tiles must be in one row or column';
+
+  @override
+  String get errGap => 'No gaps between your tiles';
+
+  @override
+  String get errConnect => 'Connect to the tiles on the board';
+
+  @override
+  String get errCenter => 'The first word must cover the centre star';
+
+  @override
+  String get errTooShort => 'Words need at least 2 letters';
+
+  @override
+  String errNotWord(String word) {
+    return '$word isn\'t in the dictionary';
+  }
+
+  @override
+  String scrabblePlayed(String who, String word, int score) {
+    return '$who played $word · $score';
+  }
+
+  @override
+  String scrabbleExchanged(String who, int count) {
+    return '$who swapped $count tiles';
+  }
+
+  @override
+  String scrabblePassed(String who) {
+    return '$who passed';
+  }
+
+  @override
+  String get timeUpPassed => 'Time\'s up — your turn was passed';
+
+  @override
+  String get swapTitle => 'Choose tiles to swap';
+
+  @override
+  String swapN(int count) {
+    return 'Swap $count';
+  }
+
+  @override
+  String get passConfirmTitle => 'Pass your turn?';
+
+  @override
+  String get passConfirmBody =>
+      'You score nothing this turn. Six scoreless turns in a row end the game.';
+
+  @override
+  String get pickLetter => 'Choose a letter for the blank';
+
+  @override
+  String get bagTooSmall => 'Not enough tiles in the bag to swap';
+
+  @override
+  String scrabbleWinSub(int you, int them) {
+    return '$you–$them — word master!';
+  }
+
+  @override
+  String scrabbleLoseSub(int you, int them) {
+    return '$you–$them — the computer out-spelled you.';
+  }
+
+  @override
+  String scrabbleDrawSub(int you, int them) {
+    return '$you–$them — a tie!';
+  }
+
+  @override
+  String get cancel => 'Cancel';
 }

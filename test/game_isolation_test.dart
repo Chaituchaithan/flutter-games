@@ -65,7 +65,7 @@ void main() {
   });
 
   test('each single-game entry point imports only its own game', () {
-    for (final (entry, game) in [('main_chess.dart', 'chess'), ('main_ludo.dart', 'ludo'), ('main_snakes.dart', 'snakes')]) {
+    for (final (entry, game) in [('main_chess.dart', 'chess'), ('main_ludo.dart', 'ludo'), ('main_snakes.dart', 'snakes'), ('main_othello.dart', 'othello'), ('main_checkers.dart', 'checkers'), ('main_scrabble.dart', 'scrabble')]) {
       final games = {for (final i in _imports(File('lib/$entry'))) ?_gameOf(i)};
       expect(games, {game}, reason: entry);
     }

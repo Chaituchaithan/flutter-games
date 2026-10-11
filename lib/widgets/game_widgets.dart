@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../theme.dart';
 import 'aura_overlays.dart';
 import 'aura_widgets.dart';
@@ -35,8 +36,8 @@ class GamePotPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Pot',
+          Text(
+            context.l10n.pot,
             style: TextStyle(color: AuraColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w700),
           ),
           const SizedBox(width: 7),
@@ -175,7 +176,7 @@ class GameTurnClock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SectionHeader('TURN CLOCK'),
+          SectionHeader(context.l10n.turnClock),
           const SizedBox(height: 6),
           Text(
             seconds,
@@ -203,14 +204,16 @@ class GameOpponentCard extends StatelessWidget {
     required this.initials,
     required this.stat,
     this.color = AuraColors.avatarBlue,
-    this.trailing = 'Waiting',
+    this.trailing,
   });
 
   final String name;
   final String initials;
   final String stat;
   final Color color;
-  final String trailing;
+
+  /// Status text (default: "Waiting" in the player's language).
+  final String? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +249,7 @@ class GameOpponentCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(trailing, style: const TextStyle(color: AuraColors.textSecondary, fontSize: 13)),
+          Text(trailing ?? context.l10n.waiting, style: const TextStyle(color: AuraColors.textSecondary, fontSize: 13)),
         ],
       ),
     );
@@ -512,7 +515,7 @@ class BoardPlayerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c2 = color2 ?? Color.lerp(color, Colors.black, 0.25)!;
-    final third = turnText ?? (active ? '' : 'Waiting');
+    final third = turnText ?? (active ? '' : context.l10n.waiting);
     // Glow lives on an OPAQUE base layer: a Flutter BoxShadow is painted
     // under the box and would show through the translucent tint as an inner
     // rectangle (CSS box-shadow never draws beneath its element).
@@ -535,7 +538,10 @@ class BoardPlayerCard extends StatelessWidget {
                 ? [color.withValues(alpha: 0.25), c2.withValues(alpha: 0.10)]
                 : [Colors.white.withValues(alpha: 0.08), Colors.white.withValues(alpha: 0.03)],
           ),
-          border: Border.all(color: active ? color : Colors.white.withValues(alpha: 0.16), width: 1.5), // fixed width: no layout shift on turn change
+          border: Border.all(
+            color: active ? color : Colors.white.withValues(alpha: 0.16),
+            width: 1.5,
+          ), // fixed width: no layout shift on turn change
         ),
         child: Row(
           children: [
@@ -698,6 +704,24 @@ class _RectTimerPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RectTimerPainter old) =>
       old.fraction != fraction || old.color != color || old.track != track;
+}
+
+/// The dashed board-side slot (the frame of [BoardInfoPanel]) around any
+/// content — e.g. the dice in the dice games.
+class BoardSlot extends StatelessWidget {
+  const BoardSlot({super.key, required this.child, this.padding = const EdgeInsets.all(8)});
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    painter: _DashedPanelPainter(),
+    child: Container(
+      padding: padding,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), color: Colors.white.withValues(alpha: 0.03)),
+      child: child,
+    ),
+  );
 }
 
 /// Dashed-bordered info panel: an uppercase label over a value. `big` renders
@@ -916,12 +940,10 @@ Future<bool> confirmMatchForfeit(BuildContext context, {int stake = 0}) async {
   final ok = await showAuraDialog(
     context,
     icon: Icons.flag_rounded,
-    title: 'Forfeit the match?',
-    body: stake > 0
-        ? 'You will lose your ${_thousands(stake)} stake and the round counts as a defeat.'
-        : 'This round will count as a defeat and you will earn no reward.',
-    primaryLabel: 'Forfeit',
-    secondaryLabel: 'Keep playing',
+    title: context.l10n.forfeitTitle,
+    body: stake > 0 ? context.l10n.forfeitBodyStake(_thousands(stake)) : context.l10n.forfeitBody,
+    primaryLabel: context.l10n.forfeit,
+    secondaryLabel: context.l10n.keepPlaying,
     destructive: true,
   );
   return ok == true;
@@ -1047,7 +1069,7 @@ class _ChatSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Say hi or send an emote',
+                    context.l10n.chatHint,
                     style: AuraText.body.copyWith(color: AuraColors.textSecondary, fontSize: 13.5),
                   ),
                 ],
@@ -1084,7 +1106,7 @@ class _ChatSheet extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   decoration: AuraGlass.decoration(radius: 14, shadow: false),
                   child: Text(
-                    'Message…',
+                    context.l10n.messageHint,
                     style: TextStyle(color: AuraColors.textPrimary.withValues(alpha: 0.34), fontSize: 15),
                   ),
                 ),
@@ -1188,7 +1210,7 @@ class _EmoteButton extends StatelessWidget {
 /// tapping outside — Resume is the way back, as in the mockup.
 Future<void> showGamePaused(
   BuildContext context, {
-  String subtitle = 'The clock is stopped for everyone.',
+  String? subtitle,
   VoidCallback? onPause,
   VoidCallback? onResume,
   VoidCallback? onForfeit,
@@ -1197,7 +1219,7 @@ Future<void> showGamePaused(
   final forfeit = await showGeneralDialog<bool>(
     context: context,
     barrierDismissible: false,
-    barrierLabel: 'Paused',
+    barrierLabel: context.l10n.paused,
     barrierColor: const Color(0xCC05040C), // rgba(5,4,12,0.8)
     transitionDuration: const Duration(milliseconds: 200),
     pageBuilder: (ctx, a1, a2) => const SizedBox.shrink(),
@@ -1208,7 +1230,10 @@ Future<void> showGamePaused(
         child: Opacity(
           opacity: anim.value.clamp(0, 1),
           child: Center(
-            child: Transform.scale(scale: 0.92 + 0.08 * curved, child: _PausedPanel(subtitle: subtitle)),
+            child: Transform.scale(
+              scale: 0.92 + 0.08 * curved,
+              child: _PausedPanel(subtitle: subtitle ?? context.l10n.pausedSubtitle),
+            ),
           ),
         ),
       );
@@ -1243,7 +1268,12 @@ class _PausedPanel extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             border: Border.all(color: Colors.white.withValues(alpha: 0.22), width: 1.5),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.9), blurRadius: 70, spreadRadius: -20, offset: const Offset(0, 30)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.9),
+                blurRadius: 70,
+                spreadRadius: -20,
+                offset: const Offset(0, 30),
+              ),
             ],
           ),
           child: Column(
@@ -1272,8 +1302,13 @@ class _PausedPanel extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Paused',
-                style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 22, color: Colors.white),
+                context.l10n.paused,
+                style: TextStyle(
+                  fontFamily: AuraText.displayFamily,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
@@ -1284,7 +1319,7 @@ class _PausedPanel extends StatelessWidget {
               const SizedBox(height: 22),
               SizedBox(
                 width: double.infinity,
-                child: GradientButton(label: 'Resume', onPressed: () => Navigator.of(context).pop(false)),
+                child: GradientButton(label: context.l10n.resume, onPressed: () => Navigator.of(context).pop(false)),
               ),
               const SizedBox(height: 10),
               const _SoundToggleRow(),
@@ -1306,7 +1341,7 @@ class _PausedPanel extends StatelessWidget {
                         border: Border.all(color: const Color(0xFFFB7185).withValues(alpha: 0.4)),
                       ),
                       child: Text(
-                        'Forfeit match',
+                        context.l10n.forfeitMatch,
                         style: TextStyle(
                           fontFamily: AuraText.displayFamily,
                           fontWeight: FontWeight.w600,
@@ -1354,7 +1389,9 @@ class _SoundToggleRowState extends State<_SoundToggleRow> {
         ),
         child: Row(
           children: [
-            const Expanded(child: Text('Sound effects', style: TextStyle(color: Colors.white, fontSize: 14))),
+            Expanded(
+              child: Text(context.l10n.soundEffects, style: TextStyle(color: Colors.white, fontSize: 14)),
+            ),
             // Plain Container + AnimatedAlign: AnimatedContainer can't tween a
             // gradient to null, which left the track stuck "on".
             Container(
