@@ -62,6 +62,8 @@ void main() {
         GameId.othello,
         GameId.scrabble,
         GameId.checkers,
+        GameId.crash,
+        GameId.bingo,
       ]);
       expect(chessConfig.playersLabel, '2P');
       expect(ludoConfig.playersLabel, '2–4P');

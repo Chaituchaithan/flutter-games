@@ -90,8 +90,8 @@ class LocalGameHeader extends StatelessWidget {
     required this.subtitle,
     required this.live,
     required this.onPause,
-    required this.perspective,
-    required this.onTogglePerspective,
+    this.perspective = false,
+    this.onTogglePerspective,
   });
 
   final String title;
@@ -101,7 +101,9 @@ class LocalGameHeader extends StatelessWidget {
   final bool live;
   final VoidCallback onPause;
   final bool perspective;
-  final VoidCallback onTogglePerspective;
+
+  /// 2D/3D toggle; null = no toggle (games without a tiltable board).
+  final VoidCallback? onTogglePerspective;
 
   @override
   Widget build(BuildContext context) => GameHeader(
@@ -109,10 +111,12 @@ class LocalGameHeader extends StatelessWidget {
     subtitle: subtitle,
     pot: '0',
     leading: GlassIconButton(icon: Icons.pause_rounded, onTap: live ? onPause : () {}),
-    trailing: GlassIconButton(
-      icon: perspective ? Icons.crop_square_rounded : Icons.view_in_ar_outlined,
-      iconSize: 18,
-      onTap: onTogglePerspective,
-    ),
+    trailing: onTogglePerspective == null
+        ? const SizedBox(width: 42) // keeps the title centred; no pot pill
+        : GlassIconButton(
+            icon: perspective ? Icons.crop_square_rounded : Icons.view_in_ar_outlined,
+            iconSize: 18,
+            onTap: onTogglePerspective!,
+          ),
   );
 }

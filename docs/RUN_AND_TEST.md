@@ -333,6 +333,8 @@ game's code, shows no game picker, and uses the game's name as its brand.
 | Othello | `lib/main_othello.dart` | `flutter run -t lib/main_othello.dart` |
 | Checkers | `lib/main_checkers.dart` | `flutter run -t lib/main_checkers.dart` |
 | Scrabble | `lib/main_scrabble.dart` | `flutter run -t lib/main_scrabble.dart` |
+| Crash (Aviator style) | `lib/main_crash.dart` | `flutter run -t lib/main_crash.dart` |
+| Bingo | `lib/main_bingo.dart` | `flutter run -t lib/main_bingo.dart` |
 
 Any combination is one more entry file, e.g. a "Ludo + Snakes" app:
 `AppProfile(appName: '…', modules: [ludoModule, snakesModule])`.

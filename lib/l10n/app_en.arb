@@ -746,5 +746,102 @@
       }
     }
   },
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "practiceChips": "Practice chips",
+  "bet": "Bet",
+  "betAmount": "Bet {amount}",
+  "@betAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "cashOutAmount": "Cash out {amount}",
+  "@cashOutAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "wonAmount": "Won {amount}",
+  "@wonAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "nextRoundBet": "Bet · next round",
+  "cancelNextRound": "Cancel · next round",
+  "nextRoundIn": "Next round in {secs}s",
+  "@nextRoundIn": {
+    "placeholders": {
+      "secs": {
+        "type": "String"
+      }
+    }
+  },
+  "flewAway": "FLEW AWAY!",
+  "autoCashOut": "Auto cash-out",
+  "liveBets": "Live bets",
+  "playersCount": "{count} players",
+  "@playersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "outOfChips": "Out of chips — top up to keep playing",
+  "topUp": "Top up",
+  "crashNote": "Practice mode — chips have no real value.",
+  "bingoBlurb": "75-ball bingo against the computer. Daub the numbers as they're called and shout BINGO first to win.",
+  "pattern": "Pattern",
+  "patternLine": "Line",
+  "patternCorners": "Four corners",
+  "patternFullHouse": "Full house",
+  "callSpeed": "Call speed",
+  "speedFast": "Fast",
+  "speedNormal": "Normal",
+  "speedSlow": "Slow",
+  "ballOf": "Ball {n}/75",
+  "@ballOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "needsN": "{count, plural, =0{BINGO!} =1{Needs 1} other{Needs {count}}}",
+  "@needsN": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bingoButton": "BINGO!",
+  "notYet": "Not yet — keep daubing!",
+  "autoDaub": "Auto-daub",
+  "bingoWinSub": "Bingo on ball {ball}!",
+  "@bingoWinSub": {
+    "placeholders": {
+      "ball": {
+        "type": "int"
+      }
+    }
+  },
+  "bingoLoseSub": "{name} called Bingo first.",
+  "@bingoLoseSub": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "bingoNoWinner": "All 75 balls called — no winner.",
+  "daubHint": "Tap the called numbers on your card",
+  "computerPlayers": "Computer players"
 }

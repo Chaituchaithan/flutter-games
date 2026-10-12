@@ -1019,4 +1019,132 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cancel => 'Cancel';
+
+  @override
+  String get practiceChips => 'Practice chips';
+
+  @override
+  String get bet => 'Bet';
+
+  @override
+  String betAmount(int amount) {
+    return 'Bet $amount';
+  }
+
+  @override
+  String cashOutAmount(int amount) {
+    return 'Cash out $amount';
+  }
+
+  @override
+  String wonAmount(int amount) {
+    return 'Won $amount';
+  }
+
+  @override
+  String get nextRoundBet => 'Bet · next round';
+
+  @override
+  String get cancelNextRound => 'Cancel · next round';
+
+  @override
+  String nextRoundIn(String secs) {
+    return 'Next round in ${secs}s';
+  }
+
+  @override
+  String get flewAway => 'FLEW AWAY!';
+
+  @override
+  String get autoCashOut => 'Auto cash-out';
+
+  @override
+  String get liveBets => 'Live bets';
+
+  @override
+  String playersCount(int count) {
+    return '$count players';
+  }
+
+  @override
+  String get outOfChips => 'Out of chips — top up to keep playing';
+
+  @override
+  String get topUp => 'Top up';
+
+  @override
+  String get crashNote => 'Practice mode — chips have no real value.';
+
+  @override
+  String get bingoBlurb =>
+      '75-ball bingo against the computer. Daub the numbers as they\'re called and shout BINGO first to win.';
+
+  @override
+  String get pattern => 'Pattern';
+
+  @override
+  String get patternLine => 'Line';
+
+  @override
+  String get patternCorners => 'Four corners';
+
+  @override
+  String get patternFullHouse => 'Full house';
+
+  @override
+  String get callSpeed => 'Call speed';
+
+  @override
+  String get speedFast => 'Fast';
+
+  @override
+  String get speedNormal => 'Normal';
+
+  @override
+  String get speedSlow => 'Slow';
+
+  @override
+  String ballOf(int n) {
+    return 'Ball $n/75';
+  }
+
+  @override
+  String needsN(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Needs $count',
+      one: 'Needs 1',
+      zero: 'BINGO!',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bingoButton => 'BINGO!';
+
+  @override
+  String get notYet => 'Not yet — keep daubing!';
+
+  @override
+  String get autoDaub => 'Auto-daub';
+
+  @override
+  String bingoWinSub(int ball) {
+    return 'Bingo on ball $ball!';
+  }
+
+  @override
+  String bingoLoseSub(String name) {
+    return '$name called Bingo first.';
+  }
+
+  @override
+  String get bingoNoWinner => 'All 75 balls called — no winner.';
+
+  @override
+  String get daubHint => 'Tap the called numbers on your card';
+
+  @override
+  String get computerPlayers => 'Computer players';
 }

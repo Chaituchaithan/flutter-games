@@ -1819,6 +1819,210 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
+
+  /// No description provided for @practiceChips.
+  ///
+  /// In en, this message translates to:
+  /// **'Practice chips'**
+  String get practiceChips;
+
+  /// No description provided for @bet.
+  ///
+  /// In en, this message translates to:
+  /// **'Bet'**
+  String get bet;
+
+  /// No description provided for @betAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Bet {amount}'**
+  String betAmount(int amount);
+
+  /// No description provided for @cashOutAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash out {amount}'**
+  String cashOutAmount(int amount);
+
+  /// No description provided for @wonAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Won {amount}'**
+  String wonAmount(int amount);
+
+  /// No description provided for @nextRoundBet.
+  ///
+  /// In en, this message translates to:
+  /// **'Bet · next round'**
+  String get nextRoundBet;
+
+  /// No description provided for @cancelNextRound.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel · next round'**
+  String get cancelNextRound;
+
+  /// No description provided for @nextRoundIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Next round in {secs}s'**
+  String nextRoundIn(String secs);
+
+  /// No description provided for @flewAway.
+  ///
+  /// In en, this message translates to:
+  /// **'FLEW AWAY!'**
+  String get flewAway;
+
+  /// No description provided for @autoCashOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto cash-out'**
+  String get autoCashOut;
+
+  /// No description provided for @liveBets.
+  ///
+  /// In en, this message translates to:
+  /// **'Live bets'**
+  String get liveBets;
+
+  /// No description provided for @playersCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} players'**
+  String playersCount(int count);
+
+  /// No description provided for @outOfChips.
+  ///
+  /// In en, this message translates to:
+  /// **'Out of chips — top up to keep playing'**
+  String get outOfChips;
+
+  /// No description provided for @topUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Top up'**
+  String get topUp;
+
+  /// No description provided for @crashNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Practice mode — chips have no real value.'**
+  String get crashNote;
+
+  /// No description provided for @bingoBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'75-ball bingo against the computer. Daub the numbers as they\'re called and shout BINGO first to win.'**
+  String get bingoBlurb;
+
+  /// No description provided for @pattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Pattern'**
+  String get pattern;
+
+  /// No description provided for @patternLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Line'**
+  String get patternLine;
+
+  /// No description provided for @patternCorners.
+  ///
+  /// In en, this message translates to:
+  /// **'Four corners'**
+  String get patternCorners;
+
+  /// No description provided for @patternFullHouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Full house'**
+  String get patternFullHouse;
+
+  /// No description provided for @callSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Call speed'**
+  String get callSpeed;
+
+  /// No description provided for @speedFast.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast'**
+  String get speedFast;
+
+  /// No description provided for @speedNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get speedNormal;
+
+  /// No description provided for @speedSlow.
+  ///
+  /// In en, this message translates to:
+  /// **'Slow'**
+  String get speedSlow;
+
+  /// No description provided for @ballOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Ball {n}/75'**
+  String ballOf(int n);
+
+  /// No description provided for @needsN.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{BINGO!} =1{Needs 1} other{Needs {count}}}'**
+  String needsN(int count);
+
+  /// No description provided for @bingoButton.
+  ///
+  /// In en, this message translates to:
+  /// **'BINGO!'**
+  String get bingoButton;
+
+  /// No description provided for @notYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not yet — keep daubing!'**
+  String get notYet;
+
+  /// No description provided for @autoDaub.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-daub'**
+  String get autoDaub;
+
+  /// No description provided for @bingoWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Bingo on ball {ball}!'**
+  String bingoWinSub(int ball);
+
+  /// No description provided for @bingoLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} called Bingo first.'**
+  String bingoLoseSub(String name);
+
+  /// No description provided for @bingoNoWinner.
+  ///
+  /// In en, this message translates to:
+  /// **'All 75 balls called — no winner.'**
+  String get bingoNoWinner;
+
+  /// No description provided for @daubHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the called numbers on your card'**
+  String get daubHint;
+
+  /// No description provided for @computerPlayers.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer players'**
+  String get computerPlayers;
 }
 
 class _AppLocalizationsDelegate

@@ -1008,4 +1008,125 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get cancel => 'रद्द करें';
+
+  @override
+  String get practiceChips => 'अभ्यास चिप्स';
+
+  @override
+  String get bet => 'दांव';
+
+  @override
+  String betAmount(int amount) {
+    return 'दांव $amount';
+  }
+
+  @override
+  String cashOutAmount(int amount) {
+    return 'कैश आउट $amount';
+  }
+
+  @override
+  String wonAmount(int amount) {
+    return 'जीते $amount';
+  }
+
+  @override
+  String get nextRoundBet => 'दांव · अगला राउंड';
+
+  @override
+  String get cancelNextRound => 'रद्द · अगला राउंड';
+
+  @override
+  String nextRoundIn(String secs) {
+    return 'अगला राउंड $secs से में';
+  }
+
+  @override
+  String get flewAway => 'उड़ गया!';
+
+  @override
+  String get autoCashOut => 'ऑटो कैश-आउट';
+
+  @override
+  String get liveBets => 'लाइव दांव';
+
+  @override
+  String playersCount(int count) {
+    return '$count खिलाड़ी';
+  }
+
+  @override
+  String get outOfChips => 'चिप्स खत्म — खेलते रहने के लिए टॉप अप करें';
+
+  @override
+  String get topUp => 'टॉप अप';
+
+  @override
+  String get crashNote => 'अभ्यास मोड — चिप्स का कोई असली मूल्य नहीं है।';
+
+  @override
+  String get bingoBlurb =>
+      'कंप्यूटर के खिलाफ 75-बॉल बिंगो। बोले गए नंबरों पर निशान लगाएँ और सबसे पहले BINGO बोलकर जीतें।';
+
+  @override
+  String get pattern => 'पैटर्न';
+
+  @override
+  String get patternLine => 'लाइन';
+
+  @override
+  String get patternCorners => 'चार कोने';
+
+  @override
+  String get patternFullHouse => 'फ़ुल हाउस';
+
+  @override
+  String get callSpeed => 'बोलने की गति';
+
+  @override
+  String get speedFast => 'तेज़';
+
+  @override
+  String get speedNormal => 'सामान्य';
+
+  @override
+  String get speedSlow => 'धीमा';
+
+  @override
+  String ballOf(int n) {
+    return 'बॉल $n/75';
+  }
+
+  @override
+  String needsN(int count) {
+    return '$count बाकी';
+  }
+
+  @override
+  String get bingoButton => 'बिंगो!';
+
+  @override
+  String get notYet => 'अभी नहीं — निशान लगाते रहें!';
+
+  @override
+  String get autoDaub => 'ऑटो-निशान';
+
+  @override
+  String bingoWinSub(int ball) {
+    return 'बॉल $ball पर बिंगो!';
+  }
+
+  @override
+  String bingoLoseSub(String name) {
+    return '$name ने पहले बिंगो बोला।';
+  }
+
+  @override
+  String get bingoNoWinner => 'सभी 75 बॉल बोले गए — कोई विजेता नहीं।';
+
+  @override
+  String get daubHint => 'अपने कार्ड पर बोले गए नंबरों पर टैप करें';
+
+  @override
+  String get computerPlayers => 'कंप्यूटर खिलाड़ी';
 }
