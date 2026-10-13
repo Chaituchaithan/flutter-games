@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
+import 'package:snakeladder/services/session.dart';
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:snakeladder/game/common/dice_view.dart';
 import 'package:snakeladder/game/common/local_game_flow.dart';
@@ -83,7 +85,7 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
   late final Map<LudoColor, DicePlayer> _seats = {
     for (var k = 0; k < _game.colors.length; k++)
       _game.colors[k]: k == 0
-          ? DicePlayer(name: context.l10n.you, initials: 'YOU', color: ludoColor(_me), isYou: true)
+          ? DicePlayer(name: context.l10n.you, initials: ProviderScope.containerOf(context).read(currentUserProvider).initials, color: ludoColor(_me), isYou: true)
           : DicePlayer(
               name: diceBotNames[k - 1].$1,
               initials: diceBotNames[k - 1].$2,
@@ -276,7 +278,6 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
               : context.l10n.ludoLoseSub(_name(_game.winner!)),
           youScore: _game.homeCount(_me),
           oppScore: _game.homeCount(bestRival),
-          youInitials: 'YOU',
           oppName: _name(bestRival),
           oppInitials: _seats[bestRival]!.initials,
           reward: won ? '+50 XP' : '+20 XP',
@@ -308,6 +309,8 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
     final live = !_isOver;
     final rivals = _game.colors.where((c) => c != _me).toList();
     return AuraScaffold(
+      // Slimmer side margins so the board can be as large as possible.
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       body: DiceBoardLayout(
         header: LocalGameHeader(
           title: '🎲 Ludo',

@@ -6,6 +6,7 @@ import '../../l10n/l10n.dart';
 import '../../app/game_area.dart';
 import '../../app/routes.dart';
 import '../../configs/games/games.dart';
+import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
 /// Match result — Victory / Defeat / Draw (mockup `MATCH RESULT`).
@@ -23,7 +24,7 @@ class MatchResultScreen extends StatelessWidget {
     this.outcome = MatchOutcome.defeat,
     this.youScore,
     this.oppScore,
-    this.youInitials = 'NR',
+    this.youInitials,
     this.oppName = 'Rival',
     this.oppInitials,
     this.reward,
@@ -34,7 +35,8 @@ class MatchResultScreen extends StatelessWidget {
   final MatchOutcome outcome;
   final int? youScore;
   final int? oppScore;
-  final String youInitials;
+  /// Defaults to the signed-in player's initials.
+  final String? youInitials;
   final String oppName;
   final String? oppInitials;
 
@@ -148,7 +150,7 @@ class MatchResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 28),
                       _ScoreRow(
-                        youInitials: youInitials,
+                        youInitials: youInitials ?? ProviderScope.containerOf(context).read(currentUserProvider).initials,
                         you: youScore ?? spec.you,
                         opp: oppScore ?? spec.opp,
                         oppName: oppName,

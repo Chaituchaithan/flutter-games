@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:snakeladder/services/session.dart';
 import 'package:snakeladder/widgets/aura.dart';
 
 /// Trivia quiz. [players] is 2 or 4. See docs/DESIGN_SPEC.md.
@@ -13,7 +15,7 @@ class TriviaScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roster = _roster(players);
+    final roster = _roster(players, ProviderScope.containerOf(context).read(currentUserProvider).initials);
 
     return AuraScaffold(
       scroll: true,
@@ -129,11 +131,11 @@ class TriviaScreen extends StatelessWidget {
 
   // ---- Data -------------------------------------------------------------
 
-  static List<_Player> _roster(int players) {
+  static List<_Player> _roster(int players, String myInitials) {
     final base = <_Player>[
-      const _Player(
+      _Player(
         name: 'You',
-        initials: 'NR',
+        initials: myInitials,
         color: AuraColors.brandPurple,
         detail: '7 pts',
       ),

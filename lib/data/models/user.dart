@@ -184,11 +184,61 @@ class User {
     );
   }
 
+  /// Display-safe fields for the on-device cache ([TokenStore.saveProfile]).
+  /// Leaves out email and date of birth; balances aren't on the user at all.
+  Map<String, dynamic> toCache() => {
+        'v': 1,
+        'id': id,
+        'display_name': displayName,
+        'handle': handle,
+        'bio': bio,
+        'level': level,
+        'tier': tier,
+        'xp': xp,
+        'xp_max': xpMax,
+        'role': role,
+        'country': country,
+        'avatar_id': avatarId,
+        'avatar_url': avatarUrl,
+        'preferred_language': preferredLanguage,
+        'created_at': createdAt?.toIso8601String(),
+      };
+
+  /// Rebuilds the cached player; null when the cache is missing, from an
+  /// older format, or unreadable.
+  static User? fromCache(Map<String, dynamic> j) {
+    try {
+      if (j['v'] != 1) return null;
+      final name = j['display_name'] as String? ?? '';
+      if ((j['id'] as String? ?? '').isEmpty || name.isEmpty) return null;
+      return User(
+        id: j['id'] as String,
+        displayName: name,
+        handle: j['handle'] as String? ?? '',
+        bio: j['bio'] as String? ?? '',
+        level: (j['level'] as num?)?.toInt() ?? 1,
+        tier: j['tier'] as String? ?? 'Bronze I',
+        xp: (j['xp'] as num?)?.toInt() ?? 0,
+        xpMax: (j['xp_max'] as num?)?.toInt() ?? 100,
+        color: Friend.colorForName(name),
+        role: j['role'] as String? ?? '',
+        country: j['country'] as String?,
+        avatarId: j['avatar_id'] as String?,
+        avatarUrl: j['avatar_url'] as String?,
+        preferredLanguage: j['preferred_language'] as String?,
+        createdAt: DateTime.tryParse(j['created_at'] as String? ?? ''),
+      );
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
   /// The demo player used in the static (pre-API) phase.
   static const demo = User(
     id: 'me',
-    displayName: 'Nova Rider',
-    handle: '@nova_rider',
+    // Neutral fallback (signed out / demo build) — never a made-up person.
+    displayName: 'Player',
+    handle: '@player',
     bio: 'Late-night grinder. Top 5% this season.',
     level: 7,
     tier: 'GOLD III',

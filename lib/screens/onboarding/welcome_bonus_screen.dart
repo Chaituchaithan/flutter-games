@@ -174,11 +174,11 @@ class _StarBadge extends StatelessWidget {
           ),
           // Upright star.
           Icon(Icons.star, color: Colors.white, size: tileSize * 0.5),
-          // Small diamond accent.
+          // Small token accent.
           Positioned(
             right: size * 0.06,
             top: size * 0.12,
-            child: Icon(Icons.diamond, color: AuraColors.gems, size: size * 0.12),
+            child: CurrencyGlyph(kind: Currency.gems, size: size * 0.12),
           ),
           // Small coin accent.
           Positioned(

@@ -110,12 +110,12 @@ class _GiftTile extends StatelessWidget {
           Positioned(
             bottom: 0,
             left: 0,
-            child: _FloatChip(icon: Icons.diamond, text: '+2,000', color: AuraColors.gems),
+            child: const _FloatChip(glyph: CurrencyGlyph(kind: Currency.gems, size: 13), text: '+2,000', pairText: '+300', color: AuraColors.gems),
           ),
           Positioned(
             bottom: 0,
             right: 0,
-            child: _FloatChip(icon: Icons.circle, text: '+300', color: AuraColors.gold),
+            child: const _FloatChip(glyph: CurrencyGlyph(kind: Currency.gold, size: 13), text: '+300', pairText: '+2,000', color: AuraColors.gold),
           ),
         ],
       ),
@@ -124,10 +124,15 @@ class _GiftTile extends StatelessWidget {
 }
 
 class _FloatChip extends StatelessWidget {
-  const _FloatChip({required this.icon, required this.text, required this.color});
-  final IconData icon;
+  const _FloatChip({required this.glyph, required this.text, required this.pairText, required this.color});
+  final Widget glyph;
   final String text;
+
+  /// The other chip's text: both chips take the wider width.
+  final String pairText;
   final Color color;
+
+  static const _style = TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800);
 
   @override
   Widget build(BuildContext context) {
@@ -141,11 +146,14 @@ class _FloatChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color),
+          glyph,
           const SizedBox(width: 5),
-          Text(
-            text,
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+          Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Visibility(visible: false, maintainSize: true, maintainAnimation: true, maintainState: true, child: Text(pairText, style: _style)),
+              Text(text, style: _style),
+            ],
           ),
         ],
       ),
@@ -305,7 +313,7 @@ class _ReferralRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 5),
-                const Icon(Icons.diamond, size: 14, color: AuraColors.gems),
+                const CurrencyGlyph(kind: Currency.gems, size: 14),
               ],
             ),
           ],

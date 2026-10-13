@@ -61,6 +61,24 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
   /// Identity guard so we only animate each new move once.
   Move? _seenMove;
 
+  /// Castling: the rook slides alongside the king (from, to, piece).
+  (int, int, Piece)? _animRook;
+
+  /// The piece taken by the move in flight: stays on its square until the
+  /// mover arrives, then fades out (square, piece).
+  (int, Piece)? _captured;
+
+  /// The position before the latest move (to find what was captured).
+  List<Piece?> _before = const [];
+
+  /// The square layer, rebuilt only when the position / view changes — not on
+  /// every parent rebuild (the clock ticks 5×/s), so moves animate smoothly.
+  Widget? _squares;
+  Object? _squaresKey;
+  int _version = 0;
+
+  List<Piece?> _snapshot() => [for (var i = 0; i < 64; i++) c.state.pieceAt(i)];
+
   @override
   void initState() {
     super.initState();
@@ -70,11 +88,15 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
           setState(() {
             _animMove = null;
             _animPiece = null;
+            _animRook = null;
+            _captured = null;
+            _version++;
           });
         }
       });
     _ambient = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
     _seenMove = c.lastMove;
+    _before = _snapshot();
     c.addListener(_onChange);
     _syncAmbient();
   }
@@ -94,13 +116,33 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
       _seenMove = null;
       _animMove = null;
       _animPiece = null;
+      _animRook = null;
+      _captured = null;
     } else if (!identical(m, _seenMove)) {
       // A fresh move (local or from the server) → slide it in.
       _seenMove = m;
       _animMove = m;
       _animPiece = c.state.pieceAt(m.to);
+      // Castling: king to g → rook h→f; king to c → rook a→d (same rank).
+      _animRook = null;
+      if (m.isCastle) {
+        final rank = rankOf(m.to);
+        final kingSide = fileOf(m.to) == 6;
+        final rf = squareOf(kingSide ? 7 : 0, rank), rt = squareOf(kingSide ? 5 : 3, rank);
+        final rook = c.state.pieceAt(rt);
+        if (rook != null) _animRook = (rf, rt, rook);
+      }
+      // What it took: the piece on the target, or the pawn passed en passant.
+      final takenSq = m.isEnPassant ? squareOf(fileOf(m.to), rankOf(m.from)) : m.to;
+      final taken = _before.length == 64 ? _before[takenSq] : null;
+      _captured = taken == null ? null : (takenSq, taken);
+      // Longer moves take a little longer, so every slide reads at one pace.
+      final dist = math.max((fileOf(m.to) - fileOf(m.from)).abs(), (rankOf(m.to) - rankOf(m.from)).abs());
+      _moveCtrl.duration = Duration(milliseconds: (300 + 70 * dist).clamp(380, 760));
       _moveCtrl.forward(from: 0);
     }
+    _before = _snapshot();
+    _version++;
     _syncAmbient();
     if (mounted) setState(() {});
   }
@@ -182,12 +224,17 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
     final checked = c.checkedKing;
     // While a move is in flight, the destination piece is drawn by the moving
     // overlay instead of popping into place on the square.
-    final hideSq = (_animMove != null && _moveCtrl.isAnimating) ? _animMove!.to : null;
+    final flying = _animMove != null && _moveCtrl.isAnimating;
+    // Squares whose piece is drawn by a flying overlay instead.
+    final hide = <int>{
+      if (flying) _animMove!.to,
+      if (flying && _animRook != null) _animRook!.$2,
+    };
 
     return AspectRatio(
       aspectRatio: 1,
       child: Container(
-        padding: const EdgeInsets.all(11),
+        padding: const EdgeInsets.all(8),
         // Board frame: polished obsidian bezel with a cyan neon edge + bloom.
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
@@ -216,12 +263,26 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final cell = constraints.maxWidth / 8;
+                final key = (_version, flying, cell, widget.flipped, widget.perspective);
+                if (_squaresKey != key || _squares == null) {
+                  _squaresKey = key;
+                  _squares = RepaintBoundary(
+                    child: Stack(
+                      children: [
+                        for (var row = 0; row < 8; row++)
+                          for (var col = 0; col < 8; col++)
+                            _buildSquare(row, col, cell, targetSquares, lastFrom, lastTo, checked, hide),
+                      ],
+                    ),
+                  );
+                }
                 final board = Stack(
                   children: [
-                    for (var row = 0; row < 8; row++)
-                      for (var col = 0; col < 8; col++)
-                        _buildSquare(row, col, cell, targetSquares, lastFrom, lastTo, checked, hideSq),
-                    if (_animMove != null && _animPiece != null) _buildMovingPiece(cell),
+                    _squares!,
+                    if (flying && _captured != null) _buildCaptured(cell),
+                    if (flying && _animRook != null) _buildFlying(cell, _animRook!.$1, _animRook!.$2, _animRook!.$3),
+                    if (_animMove != null && _animPiece != null)
+                      _buildFlying(cell, _animMove!.from, _animMove!.to, _animPiece!),
                   ],
                 );
                 final boardWidget = !widget.perspective
@@ -252,34 +313,84 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
     );
   }
 
-  /// The piece in flight: slides origin → destination with an easing curve and
-  /// a subtle lift (scale up at the apex) so it feels picked up and set down.
-  Widget _buildMovingPiece(double cell) {
-    final (fr, fc) = _visualOf(_animMove!.from);
-    final (tr, tc) = _visualOf(_animMove!.to);
+  /// A piece in flight: glides origin → destination (ease-in-out), lifting
+  /// slightly with a soft shadow beneath, then settles onto the square.
+  Widget _buildFlying(double cell, int from, int to, Piece piece) {
+    final (fr, fc) = _visualOf(from);
+    final (tr, tc) = _visualOf(to);
     return Positioned(
       left: 0,
       top: 0,
       width: cell,
       height: cell,
-      child: AnimatedBuilder(
-        animation: _moveCtrl,
-        builder: (context, _) {
-          final t = Curves.easeInOutCubic.transform(_moveCtrl.value);
-          final dx = (fc + (tc - fc) * t) * cell;
-          final dy = (fr + (tr - fr) * t) * cell;
-          // Lift: 1 → ~1.16 → 1 across the flight.
-          final lift = 1 + 0.16 * math.sin(math.pi * _moveCtrl.value);
-          return Transform.translate(
-            offset: Offset(dx, dy),
-            child: Center(child: _pieceWidget(_animPiece!, cell, scale: lift)),
-          );
-        },
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _moveCtrl,
+          builder: (context, _) {
+            final v = _moveCtrl.value;
+            final t = Curves.easeInOutCubic.transform(v);
+            final dx = (fc + (tc - fc) * t) * cell;
+            final dy = (fr + (tr - fr) * t) * cell;
+            // Lift arc: up to ~8% bigger mid-flight, back to 1 on landing.
+            final arc = math.sin(math.pi * v);
+            return Transform.translate(
+              offset: Offset(dx, dy),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Contact shadow: spreads and fades as the piece lifts.
+                  Transform.translate(
+                    offset: Offset(0, cell * 0.30),
+                    child: Container(
+                      width: cell * (0.50 + 0.12 * arc),
+                      height: cell * 0.14,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(cell),
+                        color: Colors.black.withValues(alpha: 0.35 - 0.15 * arc),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: cell * 0.12)],
+                      ),
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: Offset(0, -cell * 0.10 * arc),
+                    child: _pieceWidget(piece, cell, scale: 1 + 0.08 * arc),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildSquare(int row, int col, double cell, Set<int> targets, int? lastFrom, int? lastTo, int? checked, int? hideSq) {
+  /// The captured piece: held in place, then shrinks and fades as the mover
+  /// arrives (instead of vanishing the moment the move starts).
+  Widget _buildCaptured(double cell) {
+    final (sq, piece) = _captured!;
+    final (r, col) = _visualOf(sq);
+    return Positioned(
+      left: col * cell,
+      top: r * cell,
+      width: cell,
+      height: cell,
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _moveCtrl,
+          builder: (context, _) {
+            final f = ((_moveCtrl.value - 0.55) / 0.45).clamp(0.0, 1.0);
+            final out = Curves.easeIn.transform(f);
+            return Opacity(
+              opacity: 1 - out,
+              child: Center(child: _pieceWidget(piece, cell, scale: 1 - 0.35 * out)),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSquare(int row, int col, double cell, Set<int> targets, int? lastFrom, int? lastTo, int? checked, Set<int> hide) {
     final sq = _squareAt(row, col);
     final light = (fileOf(sq) + rankOf(sq)) % 2 == 1;
     final piece = c.state.pieceAt(sq);
@@ -412,7 +523,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
             if (col == 0) _coord(squareName(sq)[1], cell, topLeft: true, light: light),
             if (row == 7) _coord(squareName(sq)[0], cell, topLeft: false, light: light),
             // The piece (hidden on the destination square while it slides in).
-            if (piece != null && sq != hideSq) _pieceWidget(piece, cell),
+            if (piece != null && !hide.contains(sq)) _pieceWidget(piece, cell),
             // Legal-move indicator: glowing dot on empty, ring on a capture.
             if (isTarget) _targetMarker(cell, capture: piece != null),
           ],

@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
-import '../../app/main_shell.dart';
 import '../../app/routes.dart';
 import '../../data/languages.dart';
 import '../../data/models/user.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
+import '../../widgets/daily_bonus_status.dart';
 
 /// Profile tab (v2). Returns a body only — MainShell provides the background,
 /// SafeArea and bottom nav. The app-bar gear opens Settings via Routes.settings.
@@ -22,17 +22,11 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  /// Bottom-nav index of this tab in MainShell.
-  static const _tabIndex = 3;
-
   @override
   Widget build(BuildContext context) {
-    // MainShell builds every tab up front, so re-read account + profile when
-    // the player actually opens this tab — not at Home right after login
-    // (login just fetched them; reloadProfile skips data under a minute old).
-    ref.listen<int>(mainTabProvider, (prev, next) {
-      if (next == _tabIndex && prev != _tabIndex) ref.read(sessionProvider.notifier).reloadProfile();
-    });
+    // No fetch on tab switch: account + profile are read at sign-in / app
+    // start and refreshed by the triggers in docs/SERVICES_AND_REALTIME.md
+    // (save, match result, back from background, pull-to-refresh).
     final user = ref.watch(currentUserProvider);
     return Column(
       children: [
@@ -48,7 +42,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: RefreshIndicator(
             color: AuraColors.accentGlow,
             backgroundColor: const Color(0xFF1A1330),
-            onRefresh: () => ref.read(sessionProvider.notifier).reloadProfile(force: true),
+            onRefresh: () => ref.read(sessionProvider.notifier).reloadProfile(),
             child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -120,9 +114,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               // 5) Manage.
               SectionBar(context.l10n.manage),
               const SizedBox(height: 12),
-              _ManageCard(
-                onSettings: () => Navigator.pushNamed(context, Routes.settings),
-              ),
+              const _ManageCard(),
             ],
           ),
           ),
@@ -922,28 +914,27 @@ class _Achievement extends StatelessWidget {
 }
 
 class _ManageCard extends StatelessWidget {
-  const _ManageCard({required this.onSettings});
-  final VoidCallback onSettings;
+  const _ManageCard();
 
   @override
   Widget build(BuildContext context) {
-    // 2×2 grid of gradient-icon cards (mockup), not a vertical list.
-    return Column(
+    // Edit profile, avatar and settings are already one tap away (header
+    // button, avatar pencil, app-bar gear), so Manage holds the rest.
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(child: _ManageTile(icon: Icons.person_outline, colors: const [Color(0xFF8B5CF6), Color(0xFFEC4899)], title: context.l10n.editProfile, sub: context.l10n.editProfileSub, onTap: () => Navigator.pushNamed(context, Routes.editProfile))),
-            const SizedBox(width: 10),
-            Expanded(child: _ManageTile(icon: Icons.face_retouching_natural, colors: const [Color(0xFF22D3EE), Color(0xFF3B82F6)], title: context.l10n.avatar, sub: context.l10n.chooseYourLook, onTap: () => Navigator.pushNamed(context, Routes.avatars))),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(child: _ManageTile(icon: Icons.history_rounded, colors: const [Color(0xFF34D399), Color(0xFF14B8A6)], title: context.l10n.gameHistory, sub: '248 matches', onTap: () => Navigator.pushNamed(context, Routes.gameHistory))),
-            const SizedBox(width: 10),
-            Expanded(child: _ManageTile(icon: Icons.settings_outlined, colors: const [Color(0xFFFB923C), Color(0xFFF43F5E)], title: context.l10n.settings, sub: context.l10n.settingsSub, onTap: onSettings)),
-          ],
+        Expanded(child: _ManageTile(icon: Icons.history_rounded, colors: const [Color(0xFF34D399), Color(0xFF14B8A6)], title: context.l10n.gameHistory, sub: '248 matches', onTap: () => Navigator.pushNamed(context, Routes.gameHistory))),
+        const SizedBox(width: 10),
+        Expanded(
+          child: DailyBonusStatusBuilder(
+            builder: (context, sub, ready) => _ManageTile(
+              icon: Icons.calendar_today_rounded,
+              colors: const [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+              title: context.l10n.dailyBonus,
+              sub: sub,
+              dot: ready,
+              onTap: () => Navigator.pushNamed(context, Routes.dailyRewards),
+            ),
+          ),
         ),
       ],
     );
@@ -952,7 +943,10 @@ class _ManageCard extends StatelessWidget {
 
 /// A Manage grid card: gradient icon tile + title + sub (mockup).
 class _ManageTile extends StatelessWidget {
-  const _ManageTile({required this.icon, required this.colors, required this.title, required this.sub, required this.onTap});
+  const _ManageTile({required this.icon, required this.colors, required this.title, required this.sub, required this.onTap, this.dot = false});
+
+  /// Red "something to collect" dot on the icon chip.
+  final bool dot;
   final IconData icon;
   final List<Color> colors;
   final String title;
@@ -981,7 +975,27 @@ class _ManageTile extends StatelessWidget {
                   border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                   boxShadow: [BoxShadow(color: colors.last.withValues(alpha: 0.45), blurRadius: 14, spreadRadius: -6, offset: const Offset(0, 6))],
                 ),
-                child: Icon(icon, color: Colors.white, size: 21),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(icon, color: Colors.white, size: 21),
+                    if (dot)
+                      Positioned(
+                        top: -4,
+                        right: -4,
+                        child: Container(
+                          width: 11,
+                          height: 11,
+                          decoration: BoxDecoration(
+                            color: AuraColors.danger,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFF15102A), width: 2),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

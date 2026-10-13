@@ -153,13 +153,7 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
     _go(_Mode.lobby);
   }
 
-  int _balance() {
-    final s = ref.read(walletProvider).maybeWhen(
-          data: (w) => _tokens ? w.gems : w.gold,
-          orElse: () => _tokens ? '5,000' : '2,000',
-        );
-    return int.tryParse(s.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-  }
+  int _balance() => walletBalance(ref, _tokens ? Currency.gems : Currency.gold) ?? 0;
 
   Future<void> _startMatch() async {
     if (!_lobbyReady) return;

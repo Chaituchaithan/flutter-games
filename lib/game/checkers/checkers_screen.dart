@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:snakeladder/services/session.dart';
 import '../../l10n/l10n.dart';
 import '../../screens/match/match_result_screen.dart';
 import '../../widgets/aura.dart';
@@ -214,7 +216,6 @@ class _CheckersScreenState extends State<CheckersScreen> with LocalGameFlow {
           // Pieces captured by each side.
           youScore: 12 - s.countOf(_bot),
           oppScore: 12 - s.countOf(_you),
-          youInitials: 'YOU',
           oppName: l.computer,
           oppInitials: 'AI',
           reward: switch (outcome) {
@@ -240,7 +241,7 @@ class _CheckersScreenState extends State<CheckersScreen> with LocalGameFlow {
           : (_clock.unlimited ? l.thinking : l.thinkingSecs(_secs));
     }
     final player = side == _you
-        ? DicePlayer(name: l.you, initials: 'YOU', color: AuraColors.brandPurple, isYou: true)
+        ? DicePlayer(name: l.you, initials: ProviderScope.containerOf(context).read(currentUserProvider).initials, color: AuraColors.brandPurple, isYou: true)
         : DicePlayer(name: l.computer, initials: 'AI', color: AuraColors.avatarBlue);
     return DiceSeatView(
       player: player,
@@ -268,6 +269,8 @@ class _CheckersScreenState extends State<CheckersScreen> with LocalGameFlow {
     final live = !_isOver;
     final moves = _myTurn && !_thinking && !paused ? _game.state.legalMoves() : const <CheckerMove>[];
     return AuraScaffold(
+      // Slimmer side margins so the board can be as large as possible.
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       body: DiceBoardLayout(
         header: LocalGameHeader(
           title: '⛀ Checkers',

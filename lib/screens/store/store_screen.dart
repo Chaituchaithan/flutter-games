@@ -8,6 +8,7 @@ import '../../services/app_exception.dart';
 import '../../data/repositories/store_repository.dart';
 import '../../state/async_view.dart';
 import '../../widgets/aura.dart';
+import '../../widgets/wallet_pill.dart';
 import '../economy/purchase_confirm_screen.dart';
 import '../system/loading_skeleton_screen.dart' show Shimmer, SkeletonBox;
 
@@ -39,8 +40,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
   /// Open the purchase sheet for a specific pack, carrying its real name,
   /// amount, price, currency and the resulting balance.
   void _buyPack(StorePack pack, Currency kind) {
-    final wallet = ref.read(walletProvider).maybeWhen(data: (w) => w, orElse: () => null);
-    final current = wallet == null ? null : (kind == Currency.gems ? wallet.gems : wallet.gold);
+    final current = ref.read(walletProvider).value?.display(kind);
     showPurchaseSheet(
       context,
       name: pack.name,
@@ -61,23 +61,12 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final wallet = ref.watch(walletProvider);
-    final gems = wallet.maybeWhen(data: (w) => w.gems, orElse: () => '—');
-    final gold = wallet.maybeWhen(data: (w) => w.gold, orElse: () => '—');
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(child: Text('Store', style: AuraText.title)),
-              CurrencyPill(kind: Currency.gems, amount: gems, showPlus: false),
-              const SizedBox(width: 8),
-              CurrencyPill(kind: Currency.gold, amount: gold, showPlus: false),
-            ],
-          ),
+          const WalletTitleBar(title: 'Store'),
           const SizedBox(height: 16),
           SegmentedTabs(
             labels: _tabs,
@@ -94,57 +83,38 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
   Widget _body() {
     switch (_tab) {
       case 1:
-        return _packTab(
-          kind: Currency.gold,
-          banner: _Banner(
-            kind: Currency.gold,
-            title: 'Gold',
-            sub: 'Premium currency · rare power-ups',
-            tag: 'PREMIUM',
-          ),
-        );
+        return _packTab(Currency.gold);
       case 2:
         return const _PowerUpsTab();
       case 3:
         return const _VipTab();
       case 0:
       default:
-        return _packTab(
-          kind: Currency.gems,
-          banner: _Banner(
-            kind: Currency.gems,
-            title: 'Tokens',
-            sub: 'Stake in Online Play & buy boosts',
-            tag: '2× WEEKEND',
-          ),
-        );
+        return _packTab(Currency.gems);
     }
   }
 
-  Widget _packTab({required Currency kind, required Widget banner}) {
+  Widget _packTab(Currency kind) {
     return AsyncView<List<StorePack>>(
       value: ref.watch(storePacksProvider(kind)),
       onRetry: () => ref.invalidate(storePacksProvider(kind)),
       // Grid-shaped skeleton so the loading state matches the pack layout
       // (not the generic list skeleton).
-      loading: _PackGridSkeleton(banner: banner),
-      data: (packs) => _PackTab(kind: kind, banner: banner, packs: packs, onBuy: _buyPack),
+      loading: const _PackGridSkeleton(),
+      data: (packs) => _PackTab(kind: kind, packs: packs, onBuy: _buyPack),
     );
   }
 }
 
-/// Shimmering pack-grid placeholder (banner + 2-col grid of pack-card boxes).
+/// Shimmering pack-grid placeholder (2-col grid of pack-card boxes).
 class _PackGridSkeleton extends StatelessWidget {
-  const _PackGridSkeleton({required this.banner});
-  final Widget banner;
+  const _PackGridSkeleton();
 
   @override
   Widget build(BuildContext context) {
     return Shimmer(
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: banner),
-          const SliverToBoxAdapter(child: SizedBox(height: 14)),
           SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
@@ -184,13 +154,11 @@ class _PackGridSkeleton extends StatelessWidget {
 class _PackTab extends StatelessWidget {
   const _PackTab({
     required this.kind,
-    required this.banner,
     required this.packs,
     required this.onBuy,
   });
 
   final Currency kind;
-  final Widget banner;
   final List<StorePack> packs;
   final void Function(StorePack pack, Currency kind) onBuy;
 
@@ -198,8 +166,6 @@ class _PackTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(child: banner),
-        const SliverToBoxAdapter(child: SizedBox(height: 14)),
         SliverGrid(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
@@ -215,48 +181,6 @@ class _PackTab extends StatelessWidget {
         // Just enough clearance for the floating bottom nav (no extra scroll).
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ],
-    );
-  }
-}
-
-class _Banner extends StatelessWidget {
-  const _Banner({required this.kind, required this.title, required this.sub, this.tag});
-  final Currency kind;
-  final String title;
-  final String sub;
-  final String? tag;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = kind == Currency.gems ? AuraColors.gems : AuraColors.gold;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: AuraGlass.decoration(
-        radius: AuraRadii.lg,
-        accentGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [accent.withValues(alpha: 0.22), accent.withValues(alpha: 0.06)],
-        ),
-        border: accent.withValues(alpha: 0.45),
-      ),
-      child: Row(
-        children: [
-          CurrencyGlyph(kind: kind, size: 40),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AuraText.cardTitle),
-                const SizedBox(height: 2),
-                Text(sub, style: AuraText.cardSub),
-              ],
-            ),
-          ),
-          if (tag != null) AuraBadge(tag!, color: accent),
-        ],
-      ),
     );
   }
 }
@@ -492,12 +416,6 @@ class _PowerUpsTabState extends State<_PowerUpsTab> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        _Banner(
-          kind: Currency.gems,
-          title: 'Power-Ups',
-          sub: 'Boosts stack in your inventory',
-        ),
-        const SizedBox(height: 14),
         for (final p in _powerUps) ...[
           _PowerUpRow(p: p, owned: _owned[p.name] ?? 0, onBuy: () => _buy(p)),
           const SizedBox(height: 11),
@@ -829,6 +747,7 @@ class _VipTabState extends ConsumerState<_VipTab> {
       await ref.read(subscriptionSourceProvider).subscribe(plan.id);
       if (!mounted) return;
       ref.invalidate(mySubscriptionProvider);
+      ref.invalidate(walletProvider);
       showAuraToast(context, '${t.name} VIP activated',
           kind: t.key == 'gold' ? AuraToastKind.gold : AuraToastKind.success);
     } on AppException catch (e) {

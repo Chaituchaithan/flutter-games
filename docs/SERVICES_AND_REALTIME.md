@@ -70,7 +70,9 @@ a message, never a sign-out.
 
 | Action | Call | Notes |
 |---|---|---|
-| Open Profile tab / pull to refresh | `GET /users/me` + `GET /users/{id}/profile` | `session.reloadProfile()`. Login already fetched both, so opening the tab within a minute of a fetch skips the call. Pull-to-refresh always fetches. All tabs are built at Home, so there is no fetch until the tab is opened |
+| Sign-in / app start | `GET /users/me` + `GET /users/{id}/profile` | Read once with the session. Switching to the Profile tab never calls them; see *When each service is called* below for every refresh trigger |
+| Saved player (on device) | — | A display-only copy (name, handle, bio, level/tier/XP, country, avatar, language — never email, DOB or balances) is kept in secure storage. On app start it shows at once and `/users/me` + profile refresh in the background; offline keeps the saved copy. Any sign-out (logout, expired session, password change) wipes it. Balances are never saved on the device: pills show “—” until `/wallet/balance` answers |
+| Pull to refresh (Profile) | same | `session.reloadProfile()`: always fetches |
 | Edit profile → Save | `PATCH /users/me/profile` | Sends only changed fields: `display_name`, `bio`, `country`, `preferred_language` (ISO code, e.g. `en`), `date_of_birth` (`YYYY-MM-DD`, age 13+). The response updates the screen |
 | Settings → Change password | `POST /auth/change-password` `{current_password, new_password}` → 204 | Validation: current password required; new password 8–128 characters, mixing letters and numbers, and different from the current one; the confirmation must match. A 401 means the current password is wrong (shown on that field, never a sign-out). On success the server revokes every session, so the app clears it locally and goes to Log in. Hidden for guests |
 | Language | `PATCH … {preferred_language}` | At login, if the profile has no language, the first-launch pick is saved. A Settings → Language change is saved too. A saved profile language becomes the app language |
@@ -98,6 +100,24 @@ Not wired yet (endpoints exist in the catalog): `PATCH /users/me`
 | Current plan | `GET /sensitive/subscriptions/my` | Response not documented yet: accepts `plan_id`/`plan.id`, `tier`/`plan.tier`, `status`, an end date and `auto_renew`. A 404 or empty response means Free; any failure falls back to Free |
 | Subscribe | `POST /sensitive/subscriptions/subscribe` `{plan_id, auto_renew}` | A 503 (store billing not integrated yet) shows "VIP subscriptions are coming soon" |
 | Cancel | `POST /sensitive/subscriptions/cancel` | "Cancel subscription" link (paid plan only), with a confirm dialog; picking Free while on a paid plan also cancels |
+
+### When each service is called
+
+Each service is read once and cached for the session; only the events below
+re-call it. Scrolling, switching tabs and rebuilding screens never do, and a
+failed read is not auto-retried (Riverpod's default retry is off), so it waits
+for the next trigger or the screen's Retry.
+
+| Service | Called on | Never on |
+|---|---|---|
+| `GET /users/me` + `/users/{id}/profile` | sign-in / app start · pull-to-refresh on Profile · online match result (XP / level) · back from ≥ 5 min in the background (if the last read is that old) | tab switch, scroll |
+| `PATCH /users/me/profile` | Edit profile → Save · language change | — |
+| `GET /wallet/balance` | sign-in / app start · daily-bonus claim · VIP subscribe · online match result / payout · back from ≥ 30 s in the background | tab switch, scroll, brief interruptions (notification shade, system dialogs) |
+| `GET /sensitive/daily-bonus/status` | sign-in / app start · after a claim · the moment the next claim opens · Retry on Daily Rewards | scroll (the Profile tile shares the cached status) |
+| `POST /sensitive/daily-bonus/claim` | Claim tap | — |
+| `GET /sensitive/subscriptions/plans` + `/my` | opening Store → VIP · after subscribe / cancel | — |
+
+---
 
 ## 4. Online play (socket)
 

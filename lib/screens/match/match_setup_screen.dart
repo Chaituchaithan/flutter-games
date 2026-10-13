@@ -254,8 +254,7 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
                 child: _currencyCard(
                   selected: _isTokens,
                   onTap: () => _selectCurrency(true),
-                  icon: Icons.diamond,
-                  iconColor: AuraColors.gems,
+                  glyph: const CurrencyGlyph(kind: Currency.gems, size: 34),
                   title: 'Tokens',
                   balance: 'Balance 10,000',
                 ),
@@ -265,8 +264,7 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
                 child: _currencyCard(
                   selected: !_isTokens,
                   onTap: () => _selectCurrency(false),
-                  icon: Icons.monetization_on,
-                  iconColor: AuraColors.gold,
+                  glyph: const CurrencyGlyph(kind: Currency.gold, size: 34),
                   title: 'Gold',
                   balance: 'Balance 3,000',
                 ),
@@ -281,8 +279,7 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
   Widget _currencyCard({
     required bool selected,
     required VoidCallback onTap,
-    required IconData icon,
-    required Color iconColor,
+    required Widget glyph,
     required String title,
     required String balance,
   }) {
@@ -292,7 +289,7 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: iconColor, size: 34),
+          glyph,
           const SizedBox(height: 14),
           Text(title, style: AuraText.cardTitle),
           const SizedBox(height: 4),

@@ -11,6 +11,10 @@ class TokenStore {
   static const _accessKey = 'aura.auth.access';
   static const _refreshKey = 'aura.auth.refresh';
 
+  /// Display-only copy of the signed-in player (name, level, avatar…) so the
+  /// app shows it instantly on the next start. Never balances, email or DOB.
+  static const _profileKey = 'aura.profile.cache';
+
   Future<String?> readAccess() => _read(_accessKey);
   Future<String?> readRefresh() => _read(_refreshKey);
 
@@ -19,9 +23,15 @@ class TokenStore {
     if (refresh != null) await _write(_refreshKey, refresh);
   }
 
+  Future<String?> readProfile() => _read(_profileKey);
+  Future<void> saveProfile(String json) => _write(_profileKey, json);
+
+  /// Sign-out: tokens AND the cached player go, so the next person on this
+  /// phone never sees the previous player's name.
   Future<void> clear() async {
     await _delete(_accessKey);
     await _delete(_refreshKey);
+    await _delete(_profileKey);
   }
 
   Future<String?> _read(String key) async {

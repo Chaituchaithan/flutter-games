@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,10 +18,8 @@ class SessionController extends Notifier<User?> {
   /// Latest opaque refresh token (7-day, rotated) for /auth/refresh.
   String? _refreshToken;
 
-  /// When account + profile were last read from the API — the Profile tab
-  /// skips a re-read right after login (no duplicate /users/me + profile).
+  /// When account + profile were last read from the API.
   DateTime? _fetchedAt;
-  static const _freshFor = Duration(minutes: 1);
 
   @override
   User? build() => null;
@@ -30,9 +29,13 @@ class SessionController extends Notifier<User?> {
   void _setFetched(User u) {
     state = u;
     _fetchedAt = DateTime.now();
+    _cache(u);
     final i = languageIndexFor(u.preferredLanguage);
     if (i != null) ref.read(languageProvider.notifier).select(i);
   }
+
+  /// Keep the display copy on the device for an instant next start.
+  void _cache(User u) => ref.read(tokenStoreProvider).saveProfile(jsonEncode(u.toCache()));
 
   Future<void> _apply(AuthResult r) async {
     // Only replace the access token when the call actually returned one (e.g.
@@ -124,6 +127,14 @@ class SessionController extends Notifier<User?> {
     if (access == null || access.isEmpty) return false;
     ref.read(apiClientProvider).authToken = access;
     _refreshToken = await store.readRefresh();
+    // Saved player from last time → show it now and confirm with the server
+    // in the background (the socket sign-in that follows checks the token).
+    final cached = _readCache(await store.readProfile());
+    if (cached != null) {
+      state = cached;
+      unawaited(_verifyInBackground());
+      return true;
+    }
     try {
       _setFetched(await ref.read(authServiceProvider).fetchMe());
     } on AppException catch (e) {
@@ -142,14 +153,40 @@ class SessionController extends Notifier<User?> {
     return true;
   }
 
-  /// Re-read the account + profile from the API (Profile screen open /
-  /// pull-to-refresh). Keeps the current player if the call fails.
-  /// Skipped when the data is under a minute old unless [force]
-  /// (pull-to-refresh).
-  Future<void> reloadProfile({bool force = false}) async {
+  static User? _readCache(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return User.fromCache(jsonDecode(raw) as Map<String, dynamic>);
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
+  /// Background half of a cached [restore]: replace the saved copy with the
+  /// server's. Offline / slow → keep showing the saved copy; a rejected token
+  /// that can't be refreshed signs out (same rule as [restore]).
+  Future<void> _verifyInBackground() async {
+    try {
+      _setFetched(await ref.read(authServiceProvider).fetchMe());
+    } on AppException catch (e) {
+      if (e.isOffline || e.kind == AppErrorKind.timeout || e.kind == AppErrorKind.server) return;
+      if (await refreshSession()) {
+        await reloadProfile();
+      } else {
+        forceSignOut();
+      }
+    } on Object catch (_) {
+      if (!await refreshSession()) forceSignOut();
+    }
+  }
+
+  /// Re-read the account + profile from the API (pull-to-refresh, after a
+  /// match, back from the background). Keeps the current player if the call
+  /// fails. With [ifOlderThan], skipped while the data is newer than that.
+  Future<void> reloadProfile({Duration? ifOlderThan}) async {
     if (state == null) return;
     final at = _fetchedAt;
-    if (!force && at != null && DateTime.now().difference(at) < _freshFor) return;
+    if (ifOlderThan != null && at != null && DateTime.now().difference(at) < ifOlderThan) return;
     try {
       _setFetched(await ref.read(authServiceProvider).fetchMe());
     } on Object catch (_) {/* keep what we have */}
@@ -183,6 +220,7 @@ class SessionController extends Notifier<User?> {
           dateOfBirth: dateOfBirth);
     }
     state = next;
+    if (current != null) _cache(next);
     final i = languageIndexFor(next.preferredLanguage);
     if (i != null) ref.read(languageProvider.notifier).select(i);
   }

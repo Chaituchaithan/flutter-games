@@ -303,7 +303,6 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
               : l.bingoLoseSub(_name(w)),
           youScore: _game.seats[0].marked.length,
           oppScore: best,
-          youInitials: 'YOU',
           oppName: widget.players == 2 ? _name(1) : l.bestAi,
           oppInitials: widget.players == 2 ? diceBotNames[0].$2 : 'AI',
           reward: switch (outcome) {
@@ -334,6 +333,8 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
     final me = _game.seats[0];
     final ready = me.needed(_game.pattern) == 0 && !_isOver;
     return AuraScaffold(
+      // Slimmer side margins so the board can be as large as possible.
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

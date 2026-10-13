@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart' show Color;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,8 +38,16 @@ class _Tokens implements TokenStore {
   Future<String?> readRefresh() async => null;
   @override
   Future<void> save({required String access, String? refresh}) async => this.access = access;
+  String? profile;
   @override
-  Future<void> clear() async => access = null;
+  Future<String?> readProfile() async => profile;
+  @override
+  Future<void> saveProfile(String json) async => profile = json;
+  @override
+  Future<void> clear() async {
+    access = null;
+    profile = null;
+  }
 }
 
 /// fetchMe fails offline [offlineTimes] times, then succeeds.
@@ -56,8 +67,8 @@ class _NoSocket extends GameSocketLogin {
   Future<void> connect({String? username}) async {}
 }
 
-ProviderContainer _app({required bool onboarded, String? token, int offline = 0}) {
-  final tokens = _Tokens(token);
+ProviderContainer _app({required bool onboarded, String? token, int offline = 0, String? cachedProfile}) {
+  final tokens = _Tokens(token)..profile = cachedProfile;
   final c = ProviderContainer(overrides: [
     appPrefsProvider.overrideWithValue(_Prefs(onboarded)),
     tokenStoreProvider.overrideWithValue(tokens),
@@ -99,5 +110,23 @@ void main() {
 
     await c.read(startupProvider.notifier).run(); // Retry, now online
     expect(c.read(startupProvider).destination, Routes.home);
+  });
+
+  test('saved player → Home at once, even offline; refreshed when back', () async {
+    const cached = User(id: 'u1', displayName: 'Asha Rao', handle: '@asha', bio: '', level: 4, tier: 'Bronze I', xp: 10, xpMax: 100, color: Color(0xFF8B5CF6));
+    final c = _app(onboarded: true, token: 'jwt', offline: 1, cachedProfile: jsonEncode(cached.toCache()));
+    await c.read(startupProvider.notifier).run();
+    expect(c.read(startupProvider).destination, Routes.home, reason: 'no wait on /users/me');
+    expect(c.read(sessionProvider)?.initials, 'AR');
+    expect(await c.read(tokenStoreProvider).readAccess(), 'jwt', reason: 'offline keeps the session');
+  });
+
+  test('sign-out wipes the saved player', () async {
+    final c = _app(onboarded: true, token: 'jwt');
+    await c.read(startupProvider.notifier).run();
+    expect(await c.read(tokenStoreProvider).readProfile(), isNotNull);
+    c.read(sessionProvider.notifier).forceSignOut();
+    await Future<void>.delayed(Duration.zero);
+    expect(await c.read(tokenStoreProvider).readProfile(), isNull);
   });
 }

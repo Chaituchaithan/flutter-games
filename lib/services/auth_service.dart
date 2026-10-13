@@ -47,7 +47,7 @@ class StaticAuthService implements AuthService {
 
   @override
   Future<AuthResult> register({required String name, required String email, required String password}) async =>
-      AuthResult(User.demo.copyWith(displayName: name.isEmpty ? 'Nova Rider' : name),
+      AuthResult(User.demo.copyWith(displayName: name.isEmpty ? 'Player' : name),
           accessToken: 'demo-access', refreshToken: 'demo-refresh');
 
   @override
