@@ -1129,4 +1129,368 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get computerPlayers => 'कंप्यूटर खिलाड़ी';
+
+  @override
+  String get cashedOutBanner => 'कैश आउट';
+
+  @override
+  String chipsWon(String amount) {
+    return '+$amount चिप्स';
+  }
+
+  @override
+  String get oneToGoTag => '1 बाकी';
+
+  @override
+  String get calledNumbers => 'बोले गए नंबर';
+
+  @override
+  String get tapForBoard => 'बोर्ड देखने के लिए टैप करें';
+
+  @override
+  String botCalledBingo(String name) {
+    return '$name ने बिंगो बोला!';
+  }
+
+  @override
+  String get placeYourBets => 'अपना दांव लगाएं';
+
+  @override
+  String get spinButton => 'घुमाएं';
+
+  @override
+  String get undo => 'पूर्ववत';
+
+  @override
+  String get clearBets => 'हटाएं';
+
+  @override
+  String get doubleBets => 'दोगुना';
+
+  @override
+  String get repeatBets => 'दोहराएं';
+
+  @override
+  String get noMoreBets => 'अब और दांव नहीं';
+
+  @override
+  String youWinAmount(String amount) {
+    return 'आप जीते $amount';
+  }
+
+  @override
+  String get noWinThisTime => 'इस बार कोई जीत नहीं';
+
+  @override
+  String totalBetAmount(String amount) {
+    return 'दांव $amount';
+  }
+
+  @override
+  String get tableLimitReached => 'टेबल सीमा पूरी';
+
+  @override
+  String get notEnoughChips => 'पर्याप्त चिप्स नहीं';
+
+  @override
+  String get practiceNote => 'अभ्यास मोड — चिप्स का कोई असली मूल्य नहीं है।';
+
+  @override
+  String get betRed => 'लाल';
+
+  @override
+  String get betBlack => 'काला';
+
+  @override
+  String get betOdd => 'विषम';
+
+  @override
+  String get betEven => 'सम';
+
+  @override
+  String get rouletteHint =>
+      'किसी नंबर पर टैप करें, या स्प्लिट और कॉर्नर के लिए नंबरों के बीच की रेखा पर';
+
+  @override
+  String get lastResults => 'पिछले परिणाम';
+
+  @override
+  String get startRace => 'रेस शुरू करें';
+
+  @override
+  String get nextRace => 'अगली रेस';
+
+  @override
+  String raceNumber(int n) {
+    return 'रेस $n';
+  }
+
+  @override
+  String get winBet => 'जीत';
+
+  @override
+  String get top3Bet => 'टॉप 3';
+
+  @override
+  String takesTheLead(String name) {
+    return '$name आगे निकल गया!';
+  }
+
+  @override
+  String get photoFinish => 'फोटो फिनिश!';
+
+  @override
+  String winsTheRace(String name) {
+    return '$name जीता!';
+  }
+
+  @override
+  String get andTheyreOff => 'रेस शुरू!';
+
+  @override
+  String get finalStretch => 'आखिरी हिस्से में!';
+
+  @override
+  String get raceBetsHint => 'चुनी हुई चिप लगाने के लिए ऑड्स पर टैप करें';
+
+  @override
+  String racePayout(String amount) {
+    return 'भुगतान $amount';
+  }
+
+  @override
+  String get watchRace => 'रेस देखें';
+
+  @override
+  String get pokerFold => 'फोल्ड';
+
+  @override
+  String get pokerCheck => 'चेक';
+
+  @override
+  String pokerCall(String amount) {
+    return 'कॉल $amount';
+  }
+
+  @override
+  String get pokerRaise => 'रेज़';
+
+  @override
+  String pokerRaiseTo(String amount) {
+    return '$amount तक रेज़';
+  }
+
+  @override
+  String get pokerAllIn => 'ऑल-इन';
+
+  @override
+  String pokerPot(String amount) {
+    return 'पॉट $amount';
+  }
+
+  @override
+  String get pokerMin => 'न्यूनतम';
+
+  @override
+  String get pokerHalfPot => '½ पॉट';
+
+  @override
+  String get pokerFullPot => 'पॉट';
+
+  @override
+  String pokerWinsWith(String name, String amount, String hand) {
+    return '$name जीते $amount · $hand';
+  }
+
+  @override
+  String pokerWins(String name, String amount) {
+    return '$name जीते $amount';
+  }
+
+  @override
+  String pokerSplit(String hand) {
+    return 'बँटा हुआ पॉट · $hand';
+  }
+
+  @override
+  String pokerHand(int n) {
+    return 'हैंड $n';
+  }
+
+  @override
+  String pokerBlinds(String sb, String bb) {
+    return 'ब्लाइंड्स $sb/$bb';
+  }
+
+  @override
+  String pokerWaiting(String name) {
+    return '$name का इंतज़ार…';
+  }
+
+  @override
+  String get pokerBlurb =>
+      'कंप्यूटर के खिलाफ टेक्सास होल्डेम। टेबल की हर चिप जीतें।';
+
+  @override
+  String get pokerStakes => 'दांव';
+
+  @override
+  String get pokerWinSub => 'आपने टेबल की हर चिप जीत ली!';
+
+  @override
+  String get pokerLoseSub => 'आपकी चिप्स खत्म हो गईं।';
+
+  @override
+  String get handHighCard => 'हाई कार्ड';
+
+  @override
+  String get handPair => 'पेयर';
+
+  @override
+  String get handTwoPair => 'टू पेयर';
+
+  @override
+  String get handThreeKind => 'थ्री ऑफ़ अ काइंड';
+
+  @override
+  String get handStraight => 'स्ट्रेट';
+
+  @override
+  String get handFlush => 'फ्लश';
+
+  @override
+  String get handFullHouse => 'फुल हाउस';
+
+  @override
+  String get handFourKind => 'फोर ऑफ़ अ काइंड';
+
+  @override
+  String get handStraightFlush => 'स्ट्रेट फ्लश';
+
+  @override
+  String get handRoyalFlush => 'रॉयल फ्लश';
+
+  @override
+  String get rummyBlurb =>
+      'कंप्यूटर के खिलाफ 13 पत्तों की पॉइंट्स रमी। दो सीक्वेंस (एक प्योर) बनाएं और पहले डिक्लेयर करें।';
+
+  @override
+  String rummySubtitle(String card) {
+    return 'पॉइंट्स रमी · वाइल्ड $card';
+  }
+
+  @override
+  String get closedDeck => 'बंद डेक';
+
+  @override
+  String get openDeck => 'खुला डेक';
+
+  @override
+  String get wildJoker => 'वाइल्ड जोकर';
+
+  @override
+  String get rummySort => 'सॉर्ट';
+
+  @override
+  String get rummyGroup => 'ग्रुप';
+
+  @override
+  String get rummyDiscard => 'फेंकें';
+
+  @override
+  String get rummyDeclare => 'डिक्लेयर';
+
+  @override
+  String get rummyDrop => 'ड्रॉप';
+
+  @override
+  String get meldPure => 'प्योर सीक्वेंस';
+
+  @override
+  String get meldSequence => 'सीक्वेंस';
+
+  @override
+  String get meldSet => 'सेट';
+
+  @override
+  String get meldInvalid => 'अमान्य';
+
+  @override
+  String rummyPoints(int n) {
+    return 'पॉइंट्स $n';
+  }
+
+  @override
+  String get rummyDrawHint => 'आपकी बारी — बंद या खुले डेक से पत्ता लें';
+
+  @override
+  String get rummyDiscardHint => 'फेंकने के लिए पत्ता चुनें, या डिक्लेयर करें';
+
+  @override
+  String rummyPicked(String name, String card) {
+    return '$name ने $card उठाया';
+  }
+
+  @override
+  String rummyDrew(String name) {
+    return '$name ने डेक से पत्ता लिया';
+  }
+
+  @override
+  String rummyDiscarded(String name, String card) {
+    return '$name ने $card फेंका';
+  }
+
+  @override
+  String rummyDropped(String name) {
+    return '$name ड्रॉप हो गया';
+  }
+
+  @override
+  String get rummyDeclareTitle => 'अपना हाथ डिक्लेयर करें?';
+
+  @override
+  String get rummyValidShow => 'मान्य शो — आप यह डील जीतेंगे।';
+
+  @override
+  String get rummyInvalidShow =>
+      'यह हाथ अभी मान्य नहीं है — गलत शो पर 80 पॉइंट्स लगेंगे।';
+
+  @override
+  String get rummyDropTitle => 'यह डील ड्रॉप करें?';
+
+  @override
+  String rummyDropBody(int n) {
+    return 'आपको $n पॉइंट्स मिलेंगे और आप डील छोड़ देंगे।';
+  }
+
+  @override
+  String get rummyWinSub => 'मान्य शो — आपने डील जीत ली!';
+
+  @override
+  String rummyLoseSub(String name, int n) {
+    return '$name ने पहले डिक्लेयर किया। आपके पॉइंट्स: $n';
+  }
+
+  @override
+  String get rummyWrongShowSub => 'गलत शो — 80 पॉइंट्स।';
+
+  @override
+  String rummyDroppedSub(int n) {
+    return 'आप ड्रॉप हुए — $n पॉइंट्स।';
+  }
+
+  @override
+  String cardsCount(int n) {
+    return '$n पत्ते';
+  }
+
+  @override
+  String get rummyPicking => 'पत्ता ले रहा है…';
+
+  @override
+  String get rummyThinking => 'सोच रहा है…';
+
+  @override
+  String get droppedLabel => 'ड्रॉप';
 }

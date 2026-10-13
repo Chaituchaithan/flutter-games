@@ -1147,4 +1147,368 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get computerPlayers => 'Computer players';
+
+  @override
+  String get cashedOutBanner => 'CASHED OUT';
+
+  @override
+  String chipsWon(String amount) {
+    return '+$amount chips';
+  }
+
+  @override
+  String get oneToGoTag => '1 TO GO';
+
+  @override
+  String get calledNumbers => 'Called numbers';
+
+  @override
+  String get tapForBoard => 'Tap for the board';
+
+  @override
+  String botCalledBingo(String name) {
+    return '$name called BINGO!';
+  }
+
+  @override
+  String get placeYourBets => 'Place your bets';
+
+  @override
+  String get spinButton => 'SPIN';
+
+  @override
+  String get undo => 'Undo';
+
+  @override
+  String get clearBets => 'Clear';
+
+  @override
+  String get doubleBets => 'Double';
+
+  @override
+  String get repeatBets => 'Repeat';
+
+  @override
+  String get noMoreBets => 'No more bets';
+
+  @override
+  String youWinAmount(String amount) {
+    return 'You win $amount';
+  }
+
+  @override
+  String get noWinThisTime => 'No win this time';
+
+  @override
+  String totalBetAmount(String amount) {
+    return 'Bet $amount';
+  }
+
+  @override
+  String get tableLimitReached => 'Table limit reached';
+
+  @override
+  String get notEnoughChips => 'Not enough chips';
+
+  @override
+  String get practiceNote => 'Practice mode — chips have no real value.';
+
+  @override
+  String get betRed => 'RED';
+
+  @override
+  String get betBlack => 'BLACK';
+
+  @override
+  String get betOdd => 'ODD';
+
+  @override
+  String get betEven => 'EVEN';
+
+  @override
+  String get rouletteHint =>
+      'Tap a number, or the line between numbers for splits and corners';
+
+  @override
+  String get lastResults => 'Last results';
+
+  @override
+  String get startRace => 'Start race';
+
+  @override
+  String get nextRace => 'Next race';
+
+  @override
+  String raceNumber(int n) {
+    return 'Race $n';
+  }
+
+  @override
+  String get winBet => 'Win';
+
+  @override
+  String get top3Bet => 'Top 3';
+
+  @override
+  String takesTheLead(String name) {
+    return '$name takes the lead!';
+  }
+
+  @override
+  String get photoFinish => 'Photo finish!';
+
+  @override
+  String winsTheRace(String name) {
+    return '$name wins!';
+  }
+
+  @override
+  String get andTheyreOff => 'And they\'re off!';
+
+  @override
+  String get finalStretch => 'Into the final stretch!';
+
+  @override
+  String get raceBetsHint => 'Tap the odds to bet the selected chip';
+
+  @override
+  String racePayout(String amount) {
+    return 'Payout $amount';
+  }
+
+  @override
+  String get watchRace => 'Watch race';
+
+  @override
+  String get pokerFold => 'Fold';
+
+  @override
+  String get pokerCheck => 'Check';
+
+  @override
+  String pokerCall(String amount) {
+    return 'Call $amount';
+  }
+
+  @override
+  String get pokerRaise => 'Raise';
+
+  @override
+  String pokerRaiseTo(String amount) {
+    return 'Raise to $amount';
+  }
+
+  @override
+  String get pokerAllIn => 'All-in';
+
+  @override
+  String pokerPot(String amount) {
+    return 'Pot $amount';
+  }
+
+  @override
+  String get pokerMin => 'Min';
+
+  @override
+  String get pokerHalfPot => '½ Pot';
+
+  @override
+  String get pokerFullPot => 'Pot';
+
+  @override
+  String pokerWinsWith(String name, String amount, String hand) {
+    return '$name wins $amount · $hand';
+  }
+
+  @override
+  String pokerWins(String name, String amount) {
+    return '$name wins $amount';
+  }
+
+  @override
+  String pokerSplit(String hand) {
+    return 'Split pot · $hand';
+  }
+
+  @override
+  String pokerHand(int n) {
+    return 'Hand $n';
+  }
+
+  @override
+  String pokerBlinds(String sb, String bb) {
+    return 'Blinds $sb/$bb';
+  }
+
+  @override
+  String pokerWaiting(String name) {
+    return 'Waiting for $name…';
+  }
+
+  @override
+  String get pokerBlurb =>
+      'Texas Hold\'em against the computer. Win every chip at the table.';
+
+  @override
+  String get pokerStakes => 'Stakes';
+
+  @override
+  String get pokerWinSub => 'You took every chip at the table!';
+
+  @override
+  String get pokerLoseSub => 'You ran out of chips.';
+
+  @override
+  String get handHighCard => 'High card';
+
+  @override
+  String get handPair => 'Pair';
+
+  @override
+  String get handTwoPair => 'Two pair';
+
+  @override
+  String get handThreeKind => 'Three of a kind';
+
+  @override
+  String get handStraight => 'Straight';
+
+  @override
+  String get handFlush => 'Flush';
+
+  @override
+  String get handFullHouse => 'Full house';
+
+  @override
+  String get handFourKind => 'Four of a kind';
+
+  @override
+  String get handStraightFlush => 'Straight flush';
+
+  @override
+  String get handRoyalFlush => 'Royal flush';
+
+  @override
+  String get rummyBlurb =>
+      '13-card points rummy against the computer. Make two sequences (one pure) and declare first.';
+
+  @override
+  String rummySubtitle(String card) {
+    return 'Points rummy · Wild $card';
+  }
+
+  @override
+  String get closedDeck => 'Closed deck';
+
+  @override
+  String get openDeck => 'Open deck';
+
+  @override
+  String get wildJoker => 'Wild joker';
+
+  @override
+  String get rummySort => 'Sort';
+
+  @override
+  String get rummyGroup => 'Group';
+
+  @override
+  String get rummyDiscard => 'Discard';
+
+  @override
+  String get rummyDeclare => 'Declare';
+
+  @override
+  String get rummyDrop => 'Drop';
+
+  @override
+  String get meldPure => 'Pure sequence';
+
+  @override
+  String get meldSequence => 'Sequence';
+
+  @override
+  String get meldSet => 'Set';
+
+  @override
+  String get meldInvalid => 'Invalid';
+
+  @override
+  String rummyPoints(int n) {
+    return 'Points $n';
+  }
+
+  @override
+  String get rummyDrawHint => 'Your turn — pick from the closed or open deck';
+
+  @override
+  String get rummyDiscardHint => 'Select a card to discard, or declare';
+
+  @override
+  String rummyPicked(String name, String card) {
+    return '$name picked $card';
+  }
+
+  @override
+  String rummyDrew(String name) {
+    return '$name drew from the deck';
+  }
+
+  @override
+  String rummyDiscarded(String name, String card) {
+    return '$name discarded $card';
+  }
+
+  @override
+  String rummyDropped(String name) {
+    return '$name dropped';
+  }
+
+  @override
+  String get rummyDeclareTitle => 'Declare your hand?';
+
+  @override
+  String get rummyValidShow => 'Valid show — you\'ll win this deal.';
+
+  @override
+  String get rummyInvalidShow =>
+      'This hand isn\'t valid yet — a wrong show costs 80 points.';
+
+  @override
+  String get rummyDropTitle => 'Drop this deal?';
+
+  @override
+  String rummyDropBody(int n) {
+    return 'You\'ll score $n points and leave the deal.';
+  }
+
+  @override
+  String get rummyWinSub => 'Valid show — you win the deal!';
+
+  @override
+  String rummyLoseSub(String name, int n) {
+    return '$name declared first. Your points: $n';
+  }
+
+  @override
+  String get rummyWrongShowSub => 'Wrong show — 80 points.';
+
+  @override
+  String rummyDroppedSub(int n) {
+    return 'You dropped — $n points.';
+  }
+
+  @override
+  String cardsCount(int n) {
+    return '$n cards';
+  }
+
+  @override
+  String get rummyPicking => 'Picking…';
+
+  @override
+  String get rummyThinking => 'Thinking…';
+
+  @override
+  String get droppedLabel => 'Dropped';
 }

@@ -6,7 +6,11 @@ import 'game/chess/chess_module.dart';
 import 'game/crash/crash_module.dart';
 import 'game/ludo/ludo_module.dart';
 import 'game/othello/othello_module.dart';
+import 'game/poker/poker_module.dart';
 import 'game/prototypes/prototype_routes.dart';
+import 'game/racing/racing_module.dart';
+import 'game/roulette/roulette_module.dart';
+import 'game/rummy/rummy_module.dart';
 import 'game/scrabble/scrabble_module.dart';
 import 'game/snakes/snakes_module.dart';
 
@@ -24,6 +28,10 @@ final allGamesApp = AppProfile(
     checkersModule,
     crashModule,
     bingoModule,
+    rouletteModule,
+    pokerModule,
+    racingModule,
+    rummyModule,
   ],
   extraRoutes: prototypeRoutes,
   showComingSoon: true,

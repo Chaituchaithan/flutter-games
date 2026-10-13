@@ -26,11 +26,27 @@ class CrashScreen extends StatefulWidget {
 
 class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStateMixin {
   late final CrashGame _game = widget.game ?? CrashGame();
-  late final Ticker _ticker = createTicker((_) => _game.tick(DateTime.now()));
+  late final Ticker _ticker = createTicker(_frame);
+  final _fx = _Fx();
+  final _rng = math.Random();
+  Duration? _lastFrame;
+
+  // What the effects have already reacted to (per round).
+  CrashPhase _seenPhase = CrashPhase.betting;
+  final List<bool> _seenCash = [false, false];
+  final Set<int> _seenBots = {};
+  int _seenMilestone = 0;
+  int _seenRound = 0;
+
+  /// When the balance last went up (glow + count-up on the pill).
+  DateTime? _balanceUpAt;
+  int _lastBalance = 0;
 
   @override
   void initState() {
     super.initState();
+    _lastBalance = _game.balance;
+    _seenRound = _game.round;
     _game.addListener(_onChange);
     if (widget.live) _ticker.start();
   }
@@ -43,8 +59,56 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
+  void _frame(Duration elapsed) {
+    final dt = _lastFrame == null ? 0.016 : (elapsed - _lastFrame!).inMicroseconds / 1e6;
+    _lastFrame = elapsed;
+    _fx.step(dt.clamp(0.0, 0.05), flying: _game.phase == CrashPhase.flying, rng: _rng);
+    _game.tick(DateTime.now()); // notifies → _onChange → rebuild
+  }
+
   void _onChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _react();
+    setState(() {});
+  }
+
+  /// Turn game events into effects: your cash-outs, other players' cash-outs,
+  /// multiplier milestones and the crash itself.
+  void _react() {
+    final g = _game;
+    if (g.round != _seenRound) {
+      _seenRound = g.round;
+      _seenBots.clear();
+      _seenMilestone = 0;
+      for (var i = 0; i < _seenCash.length; i++) {
+        _seenCash[i] = false;
+      }
+    }
+    if (g.balance > _lastBalance) _balanceUpAt = DateTime.now();
+    _lastBalance = g.balance;
+
+    for (var i = 0; i < g.bets.length; i++) {
+      final b = g.bets[i];
+      if (b.cashedAt != null && !_seenCash[i]) {
+        _seenCash[i] = true;
+        _fx.celebrate(win: b.win, at: b.cashedAt!, rng: _rng);
+      }
+    }
+    if (g.phase == CrashPhase.flying) {
+      for (var i = 0; i < g.bots.length; i++) {
+        final bot = g.bots[i];
+        if (g.multiplier >= bot.target && _seenBots.add(i)) _fx.botCashOut('${bot.name} ${_x(bot.target)}', _rng);
+      }
+      const milestones = [2, 3, 5, 10, 20, 50, 100];
+      for (final m in milestones) {
+        if (g.multiplier >= m && m > _seenMilestone) {
+          _seenMilestone = m;
+          _fx.pulseAt = DateTime.now();
+        }
+      }
+    }
+    if (g.phase == CrashPhase.crashed && _seenPhase == CrashPhase.flying) _fx.explode(_rng);
+    _seenPhase = g.phase;
   }
 
   @override
@@ -52,6 +116,8 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
     final l = context.l10n;
     final g = _game;
     final broke = g.balance < 10 && g.bets.every((b) => !b.active && !b.queued);
+    final now = DateTime.now();
+    final glow = _balanceUpAt != null && now.difference(_balanceUpAt!) < const Duration(milliseconds: 1400);
     return AuraScaffold(
       scroll: true,
       body: Column(
@@ -62,14 +128,32 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
             subtitle: l.practiceChips,
             pot: '0',
             leading: GlassIconButton(icon: Icons.arrow_back_rounded, onTap: () => Navigator.of(context).maybePop()),
-            trailing: _BalancePill(balance: g.balance),
+            trailing: _BalancePill(balance: g.balance, glow: glow),
           ),
           const SizedBox(height: 10),
           _History(history: g.history),
           const SizedBox(height: 10),
           AspectRatio(
             aspectRatio: 16 / 11,
-            child: GameBoardFrame(child: CustomPaint(painter: _FlightPainter(g, l))),
+            child: Transform.translate(
+              offset: _fx.shake(now),
+              child: GameBoardFrame(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CustomPaint(painter: _FlightPainter(g, l, _fx)),
+                    IgnorePointer(child: CustomPaint(painter: _FxPainter(_fx, now))),
+                    if (_fx.celebration != null)
+                      Positioned(
+                        top: 6,
+                        left: 0,
+                        right: 0,
+                        child: Center(child: _CashOutBanner(key: ValueKey(_fx.celebration!.id), c: _fx.celebration!)),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           if (broke) ...[_TopUp(onTap: _game.refill), const SizedBox(height: 10)],
@@ -84,26 +168,344 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
   }
 }
 
-class _BalancePill extends StatelessWidget {
-  const _BalancePill({required this.balance});
-  final int balance;
+// ── Effects ──
+
+enum _PKind { smoke, coin, spark, confetti }
+
+class _Particle {
+  _Particle(this.kind, this.pos, this.vel, this.life, this.size, this.color, {this.spin = 0});
+  final _PKind kind;
+  Offset pos;
+  Offset vel;
+  double age = 0;
+  final double life;
+  final double size;
+  final Color color;
+  double spin;
+  double get t => (age / life).clamp(0.0, 1.0);
+}
+
+class _FloatLabel {
+  _FloatLabel(this.text, this.pos, this.color);
+  final String text;
+  Offset pos;
+  final Color color;
+  double age = 0;
+  static const life = 1.6;
+}
+
+class _Celebration {
+  _Celebration(this.id, this.win, this.at);
+  final int id;
+  final int win;
+  final double at;
+  final DateTime started = DateTime.now();
+}
+
+/// Particles, floating labels, the cash-out banner, the crash flash/shake and
+/// milestone pulses — all in flight-view coordinates. The flight painter
+/// reports the plane's position ([tip], [angle]) each frame.
+class _Fx {
+  final particles = <_Particle>[];
+  final labels = <_FloatLabel>[];
+  Offset tip = Offset.zero;
+  double angle = 0;
+  Size size = Size.zero;
+  DateTime? flashAt;
+  DateTime? pulseAt;
+  _Celebration? celebration;
+  int _ids = 0;
+  double _smokeDebt = 0;
+
+  /// Stars drifting past while flying (parallax).
+  double starScroll = 0;
+
+  void step(double dt, {required bool flying, required math.Random rng}) {
+    if (flying) {
+      starScroll += dt * 60;
+      // Exhaust: a steady stream of puffs behind the plane.
+      _smokeDebt += dt * 38;
+      final back = Offset(math.cos(angle), math.sin(angle)) * -26;
+      while (_smokeDebt >= 1) {
+        _smokeDebt -= 1;
+        particles.add(
+          _Particle(
+            _PKind.smoke,
+            tip + back + Offset(rng.nextDouble() * 4 - 2, rng.nextDouble() * 4 - 2),
+            Offset(-30 - rng.nextDouble() * 30, 6 + rng.nextDouble() * 10),
+            0.9 + rng.nextDouble() * 0.5,
+            3 + rng.nextDouble() * 3,
+            Colors.white,
+          ),
+        );
+      }
+    }
+    for (final p in particles) {
+      p.age += dt;
+      p.pos += p.vel * dt;
+      switch (p.kind) {
+        case _PKind.coin || _PKind.confetti:
+          p.vel = Offset(p.vel.dx * (1 - 1.2 * dt), p.vel.dy + 520 * dt); // gravity + drag
+          p.spin += dt * 9;
+        case _PKind.spark:
+          p.vel = p.vel * (1 - 2.4 * dt);
+        case _PKind.smoke:
+          p.vel = p.vel * (1 - 0.8 * dt);
+      }
+    }
+    particles.removeWhere((p) => p.age >= p.life);
+    for (final l in labels) {
+      l.age += dt;
+      l.pos += Offset(0, -34 * dt);
+    }
+    labels.removeWhere((l) => l.age >= _FloatLabel.life);
+    final c = celebration;
+    if (c != null && DateTime.now().difference(c.started) > const Duration(milliseconds: 2200)) celebration = null;
+  }
+
+  /// Your cash-out: a gold coin fountain + confetti from the plane and the banner.
+  void celebrate({required int win, required double at, required math.Random rng}) {
+    celebration = _Celebration(++_ids, win, at);
+    for (var i = 0; i < 26; i++) {
+      final a = -math.pi / 2 + (rng.nextDouble() - 0.5) * math.pi * 1.1;
+      final v = 180 + rng.nextDouble() * 220;
+      particles.add(
+        _Particle(
+          _PKind.coin,
+          tip,
+          Offset(math.cos(a), math.sin(a)) * v,
+          1.2 + rng.nextDouble() * 0.6,
+          5 + rng.nextDouble() * 3,
+          const Color(0xFFFBBF24),
+          spin: rng.nextDouble() * 6,
+        ),
+      );
+    }
+    const confetti = [Color(0xFF34D399), Color(0xFFF472B6), Color(0xFF60A5FA), Color(0xFFFDE68A), Color(0xFFA78BFA)];
+    for (var i = 0; i < 34; i++) {
+      final a = -math.pi / 2 + (rng.nextDouble() - 0.5) * math.pi * 1.6;
+      final v = 140 + rng.nextDouble() * 260;
+      particles.add(
+        _Particle(
+          _PKind.confetti,
+          Offset(size.width / 2, size.height * 0.22),
+          Offset(math.cos(a), math.sin(a)) * v,
+          1.4 + rng.nextDouble() * 0.8,
+          3 + rng.nextDouble() * 3,
+          confetti[i % confetti.length],
+          spin: rng.nextDouble() * 6,
+        ),
+      );
+    }
+    labels.add(_FloatLabel('+${_fmt(win)}', tip + const Offset(0, -18), AuraColors.green));
+  }
+
+  /// Another player cashes out: a small tag floats up from the plane.
+  void botCashOut(String text, math.Random rng) {
+    labels.add(_FloatLabel(text, tip + Offset(-30 - rng.nextDouble() * 40, 10 + rng.nextDouble() * 20), Colors.white70));
+  }
+
+  /// Flew away: red flash, a burst of sparks, a short shake.
+  void explode(math.Random rng) {
+    flashAt = DateTime.now();
+    for (var i = 0; i < 40; i++) {
+      final a = rng.nextDouble() * math.pi * 2;
+      final v = 80 + rng.nextDouble() * 260;
+      particles.add(
+        _Particle(
+          _PKind.spark,
+          tip,
+          Offset(math.cos(a), math.sin(a)) * v,
+          0.5 + rng.nextDouble() * 0.5,
+          1.5 + rng.nextDouble() * 2.5,
+          i.isEven ? const Color(0xFFFB923C) : const Color(0xFFF43F5E),
+        ),
+      );
+    }
+  }
+
+  /// Decaying shake for ~0.45 s after the crash.
+  Offset shake(DateTime now) {
+    final f = flashAt;
+    if (f == null) return Offset.zero;
+    final t = now.difference(f).inMilliseconds / 450;
+    if (t >= 1) return Offset.zero;
+    final amp = 6 * (1 - t);
+    return Offset(math.sin(t * 55) * amp, math.cos(t * 41) * amp * 0.6);
+  }
+
+  /// 1 → 0 over 0.35 s after a milestone (multiplier bump).
+  double pulse(DateTime now) {
+    final p = pulseAt;
+    if (p == null) return 0;
+    final t = now.difference(p).inMilliseconds / 350;
+    return t >= 1 ? 0 : 1 - t;
+  }
+}
+
+class _FxPainter extends CustomPainter {
+  _FxPainter(this.fx, this.now);
+  final _Fx fx;
+  final DateTime now;
 
   @override
-  Widget build(BuildContext context) => Container(
+  void paint(Canvas canvas, Size size) {
+    // Crash flash.
+    final f = fx.flashAt;
+    if (f != null) {
+      final t = now.difference(f).inMilliseconds / 500;
+      if (t < 1) {
+        canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFF43F5E).withValues(alpha: 0.28 * (1 - t)));
+      }
+    }
+    for (final p in fx.particles) {
+      final fade = 1 - p.t;
+      switch (p.kind) {
+        case _PKind.smoke:
+          canvas.drawCircle(
+            p.pos,
+            p.size * (1 + p.t * 2.2),
+            Paint()
+              ..color = Colors.white.withValues(alpha: 0.16 * fade)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+          );
+        case _PKind.coin:
+          // A spinning coin: an ellipse whose width follows the spin.
+          final w = p.size * (0.35 + 0.65 * math.cos(p.spin).abs());
+          final r = Rect.fromCenter(center: p.pos, width: w * 2, height: p.size * 2);
+          canvas.drawOval(r, Paint()..color = const Color(0xFFB45309).withValues(alpha: fade));
+          canvas.drawOval(r.deflate(1.2), Paint()..color = p.color.withValues(alpha: fade));
+          canvas.drawOval(
+            Rect.fromCenter(center: p.pos - Offset(w * 0.25, p.size * 0.3), width: w * 0.6, height: p.size * 0.5),
+            Paint()..color = Colors.white.withValues(alpha: 0.6 * fade),
+          );
+        case _PKind.confetti:
+          canvas.save();
+          canvas.translate(p.pos.dx, p.pos.dy);
+          canvas.rotate(p.spin);
+          canvas.drawRect(
+            Rect.fromCenter(center: Offset.zero, width: p.size * 1.8, height: p.size * math.cos(p.spin * 1.7).abs() + 1),
+            Paint()..color = p.color.withValues(alpha: fade),
+          );
+          canvas.restore();
+        case _PKind.spark:
+          canvas.drawLine(
+            p.pos,
+            p.pos - p.vel * 0.04,
+            Paint()
+              ..color = p.color.withValues(alpha: fade)
+              ..strokeWidth = p.size
+              ..strokeCap = StrokeCap.round,
+          );
+      }
+    }
+    for (final l in fx.labels) {
+      final t = l.age / _FloatLabel.life;
+      final a = t < 0.15 ? t / 0.15 : (1 - t) / 0.85;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: l.text,
+          style: TextStyle(
+            fontFamily: AuraText.displayFamily,
+            color: l.color.withValues(alpha: a.clamp(0.0, 1.0)),
+            fontSize: l.color == AuraColors.green ? 22 : 11.5,
+            fontWeight: FontWeight.w800,
+            shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, l.pos - Offset(tp.width / 2, tp.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FxPainter old) => true;
+}
+
+/// "CASHED OUT 2.35x  +235 chips" — pops in, holds, fades out.
+class _CashOutBanner extends StatelessWidget {
+  const _CashOutBanner({super.key, required this.c});
+  final _Celebration c;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 2200),
+      builder: (context, t, child) {
+        // In (elastic) for the first 20%, hold, out over the last 20%.
+        final inT = Curves.elasticOut.transform((t / 0.2).clamp(0.0, 1.0));
+        final out = t > 0.8 ? (t - 0.8) / 0.2 : 0.0;
+        return Opacity(
+          opacity: (1 - out).clamp(0.0, 1.0),
+          child: Transform.scale(scale: 0.6 + 0.4 * inT, child: child),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(99),
+          gradient: const LinearGradient(colors: [Color(0xFF059669), Color(0xFF34D399)]),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+          boxShadow: [BoxShadow(color: AuraColors.green.withValues(alpha: 0.6), blurRadius: 24)],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${l.cashedOutBanner} ${_x(c.at)}',
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              l.chipsWon(_fmt(c.win)),
+              style: TextStyle(
+                fontFamily: AuraText.displayFamily,
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                shadows: const [Shadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BalancePill extends StatelessWidget {
+  const _BalancePill({required this.balance, this.glow = false});
+  final int balance;
+
+  /// Just went up: glow and count up to the new value.
+  final bool glow;
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+    duration: const Duration(milliseconds: 300),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(99),
-      color: Colors.white.withValues(alpha: 0.08),
-      border: Border.all(color: AuraColors.amber.withValues(alpha: 0.5)),
+      color: glow ? AuraColors.green.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.08),
+      border: Border.all(color: (glow ? AuraColors.green : AuraColors.amber).withValues(alpha: glow ? 0.9 : 0.5)),
+      boxShadow: [BoxShadow(color: AuraColors.green.withValues(alpha: glow ? 0.5 : 0), blurRadius: 16)],
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.toll_rounded, size: 16, color: AuraColors.amber),
         const SizedBox(width: 6),
-        Text(
-          _fmt(balance),
-          style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontWeight: FontWeight.w700),
+        TweenAnimationBuilder<double>(
+          tween: Tween(end: balance.toDouble()),
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeOutCubic,
+          builder: (_, v, _) => Text(
+            _fmt(v.round()),
+            style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     ),
@@ -155,9 +557,10 @@ class _History extends StatelessWidget {
 /// at its tip, the big multiplier; "FLEW AWAY!" after a crash; the next-round
 /// countdown between rounds.
 class _FlightPainter extends CustomPainter {
-  _FlightPainter(this.g, this.l);
+  _FlightPainter(this.g, this.l, this.fx);
   final CrashGame g;
   final AppLocalizations l;
+  final _Fx fx;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -187,6 +590,20 @@ class _FlightPainter extends CustomPainter {
         rays,
       );
     }
+    fx.size = size;
+    // Stars drifting past (faster while flying).
+    final starRng = math.Random(7);
+    for (var i = 0; i < 40; i++) {
+      final x0 = starRng.nextDouble() * size.width;
+      final y = starRng.nextDouble() * size.height * 0.8;
+      final depth = 0.3 + starRng.nextDouble() * 0.7;
+      final x = (x0 - fx.starScroll * depth) % size.width;
+      canvas.drawCircle(
+        Offset(x, y),
+        0.6 + depth * 0.9,
+        Paint()..color = Colors.white.withValues(alpha: 0.15 + 0.35 * depth),
+      );
+    }
     // Grid.
     final grid = Paint()
       ..color = Colors.white.withValues(alpha: 0.05)
@@ -200,6 +617,8 @@ class _FlightPainter extends CustomPainter {
     final base = Offset(pad.left, size.height - pad.bottom);
 
     if (g.phase == CrashPhase.betting) {
+      fx.tip = base + const Offset(18, -10);
+      fx.angle = -0.15;
       _plane(canvas, base + const Offset(18, -10), -0.15, 1);
       _centerText(canvas, size, l.nextRoundIn(g.bettingLeft.toStringAsFixed(1)), 15, Colors.white70, dy: -14);
       // Countdown bar.
@@ -255,9 +674,26 @@ class _FlightPainter extends CustomPainter {
     final before = pt(math.max(0, t - 0.3));
     final angle = math.atan2(tip.dy - before.dy, tip.dx - before.dx);
     if (g.phase == CrashPhase.flying) {
-      _plane(canvas, tip, angle, 1);
+      fx.tip = tip;
+      fx.angle = angle;
+      // A gentle bob so the plane feels airborne.
+      final bob = math.sin(DateTime.now().millisecondsSinceEpoch / 180) * 1.5;
+      _plane(canvas, tip + Offset(0, bob), angle, 1);
       final m = g.multiplier;
-      _centerText(canvas, size, _x(m), 44, m >= 2 ? const Color(0xFFFBBF24) : Colors.white, dy: -size.height * 0.12);
+      final bump = fx.pulse(DateTime.now());
+      if (bump > 0) {
+        // Milestone ring wave behind the multiplier.
+        final c = Offset(size.width / 2, size.height / 2 - size.height * 0.12);
+        canvas.drawCircle(
+          c,
+          40 + (1 - bump) * 70,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3 * bump
+            ..color = const Color(0xFFFBBF24).withValues(alpha: 0.6 * bump),
+        );
+      }
+      _centerText(canvas, size, _x(m), 44 * (1 + 0.22 * bump), m >= 2 ? const Color(0xFFFBBF24) : Colors.white, dy: -size.height * 0.12);
     } else {
       // Flew away: the plane zooms off up-right and fades.
       final u = (g.elapsed / 0.9).clamp(0.0, 1.0);

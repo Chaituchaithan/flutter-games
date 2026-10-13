@@ -843,5 +843,317 @@
   },
   "bingoNoWinner": "All 75 balls called — no winner.",
   "daubHint": "Tap the called numbers on your card",
-  "computerPlayers": "Computer players"
+  "computerPlayers": "Computer players",
+  "cashedOutBanner": "CASHED OUT",
+  "chipsWon": "+{amount} chips",
+  "@chipsWon": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "oneToGoTag": "1 TO GO",
+  "calledNumbers": "Called numbers",
+  "tapForBoard": "Tap for the board",
+  "botCalledBingo": "{name} called BINGO!",
+  "@botCalledBingo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "placeYourBets": "Place your bets",
+  "spinButton": "SPIN",
+  "undo": "Undo",
+  "clearBets": "Clear",
+  "doubleBets": "Double",
+  "repeatBets": "Repeat",
+  "noMoreBets": "No more bets",
+  "youWinAmount": "You win {amount}",
+  "@youWinAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "noWinThisTime": "No win this time",
+  "totalBetAmount": "Bet {amount}",
+  "@totalBetAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tableLimitReached": "Table limit reached",
+  "notEnoughChips": "Not enough chips",
+  "practiceNote": "Practice mode — chips have no real value.",
+  "betRed": "RED",
+  "betBlack": "BLACK",
+  "betOdd": "ODD",
+  "betEven": "EVEN",
+  "rouletteHint": "Tap a number, or the line between numbers for splits and corners",
+  "lastResults": "Last results",
+  "startRace": "Start race",
+  "nextRace": "Next race",
+  "raceNumber": "Race {n}",
+  "@raceNumber": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "winBet": "Win",
+  "top3Bet": "Top 3",
+  "takesTheLead": "{name} takes the lead!",
+  "@takesTheLead": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "photoFinish": "Photo finish!",
+  "winsTheRace": "{name} wins!",
+  "@winsTheRace": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "andTheyreOff": "And they're off!",
+  "finalStretch": "Into the final stretch!",
+  "raceBetsHint": "Tap the odds to bet the selected chip",
+  "racePayout": "Payout {amount}",
+  "@racePayout": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "watchRace": "Watch race",
+  "pokerFold": "Fold",
+  "pokerCheck": "Check",
+  "pokerCall": "Call {amount}",
+  "@pokerCall": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "pokerRaise": "Raise",
+  "pokerRaiseTo": "Raise to {amount}",
+  "@pokerRaiseTo": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "pokerAllIn": "All-in",
+  "pokerPot": "Pot {amount}",
+  "@pokerPot": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "pokerMin": "Min",
+  "pokerHalfPot": "½ Pot",
+  "pokerFullPot": "Pot",
+  "pokerWinsWith": "{name} wins {amount} · {hand}",
+  "@pokerWinsWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "hand": {
+        "type": "String"
+      }
+    }
+  },
+  "pokerWins": "{name} wins {amount}",
+  "@pokerWins": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "pokerSplit": "Split pot · {hand}",
+  "@pokerSplit": {
+    "placeholders": {
+      "hand": {
+        "type": "String"
+      }
+    }
+  },
+  "pokerHand": "Hand {n}",
+  "@pokerHand": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pokerBlinds": "Blinds {sb}/{bb}",
+  "@pokerBlinds": {
+    "placeholders": {
+      "sb": {
+        "type": "String"
+      },
+      "bb": {
+        "type": "String"
+      }
+    }
+  },
+  "pokerWaiting": "Waiting for {name}…",
+  "@pokerWaiting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pokerBlurb": "Texas Hold'em against the computer. Win every chip at the table.",
+  "pokerStakes": "Stakes",
+  "pokerWinSub": "You took every chip at the table!",
+  "pokerLoseSub": "You ran out of chips.",
+  "handHighCard": "High card",
+  "handPair": "Pair",
+  "handTwoPair": "Two pair",
+  "handThreeKind": "Three of a kind",
+  "handStraight": "Straight",
+  "handFlush": "Flush",
+  "handFullHouse": "Full house",
+  "handFourKind": "Four of a kind",
+  "handStraightFlush": "Straight flush",
+  "handRoyalFlush": "Royal flush",
+  "rummyBlurb": "13-card points rummy against the computer. Make two sequences (one pure) and declare first.",
+  "rummySubtitle": "Points rummy · Wild {card}",
+  "@rummySubtitle": {
+    "placeholders": {
+      "card": {
+        "type": "String"
+      }
+    }
+  },
+  "closedDeck": "Closed deck",
+  "openDeck": "Open deck",
+  "wildJoker": "Wild joker",
+  "rummySort": "Sort",
+  "rummyGroup": "Group",
+  "rummyDiscard": "Discard",
+  "rummyDeclare": "Declare",
+  "rummyDrop": "Drop",
+  "meldPure": "Pure sequence",
+  "meldSequence": "Sequence",
+  "meldSet": "Set",
+  "meldInvalid": "Invalid",
+  "rummyPoints": "Points {n}",
+  "@rummyPoints": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "rummyDrawHint": "Your turn — pick from the closed or open deck",
+  "rummyDiscardHint": "Select a card to discard, or declare",
+  "rummyPicked": "{name} picked {card}",
+  "@rummyPicked": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "card": {
+        "type": "String"
+      }
+    }
+  },
+  "rummyDrew": "{name} drew from the deck",
+  "@rummyDrew": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rummyDiscarded": "{name} discarded {card}",
+  "@rummyDiscarded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "card": {
+        "type": "String"
+      }
+    }
+  },
+  "rummyDropped": "{name} dropped",
+  "@rummyDropped": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rummyDeclareTitle": "Declare your hand?",
+  "rummyValidShow": "Valid show — you'll win this deal.",
+  "rummyInvalidShow": "This hand isn't valid yet — a wrong show costs 80 points.",
+  "rummyDropTitle": "Drop this deal?",
+  "rummyDropBody": "You'll score {n} points and leave the deal.",
+  "@rummyDropBody": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "rummyWinSub": "Valid show — you win the deal!",
+  "rummyLoseSub": "{name} declared first. Your points: {n}",
+  "@rummyLoseSub": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "rummyWrongShowSub": "Wrong show — 80 points.",
+  "rummyDroppedSub": "You dropped — {n} points.",
+  "@rummyDroppedSub": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "cardsCount": "{n} cards",
+  "@cardsCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "rummyPicking": "Picking…",
+  "rummyThinking": "Thinking…",
+  "droppedLabel": "Dropped"
 }

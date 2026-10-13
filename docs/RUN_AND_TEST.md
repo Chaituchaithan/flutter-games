@@ -335,6 +335,10 @@ game's code, shows no game picker, and uses the game's name as its brand.
 | Scrabble | `lib/main_scrabble.dart` | `flutter run -t lib/main_scrabble.dart` |
 | Crash (Aviator style) | `lib/main_crash.dart` | `flutter run -t lib/main_crash.dart` |
 | Bingo | `lib/main_bingo.dart` | `flutter run -t lib/main_bingo.dart` |
+| Roulette | `lib/main_roulette.dart` | `flutter run -t lib/main_roulette.dart` |
+| Poker (Texas Hold'em) | `lib/main_poker.dart` | `flutter run -t lib/main_poker.dart` |
+| Racing | `lib/main_racing.dart` | `flutter run -t lib/main_racing.dart` |
+| Rummy (13-card points) | `lib/main_rummy.dart` | `flutter run -t lib/main_rummy.dart` |
 
 Any combination is one more entry file, e.g. a "Ludo + Snakes" app:
 `AppProfile(appName: '…', modules: [ludoModule, snakesModule])`.
@@ -342,7 +346,8 @@ Any combination is one more entry file, e.g. a "Ludo + Snakes" app:
 **Rules (enforced by `test/game_isolation_test.dart`):**
 - A game's code lives in `lib/game/<game>/` (rules, board, screens, its
   `<game>_module.dart`). Code shared by several games lives in `lib/game/common/`
-  (dice, pawn, player strip, setup screen, pause/forfeit/result flow).
+  (dice, pawn, player strip, setup screen, pause/forfeit/result flow, and the
+  playing-card kit used by Poker and Rummy).
 - Games never import each other; shared app code never imports a game — it
   asks the active module through `GameArea` / `AppProfile`.
 - Each `main_<game>.dart` imports only its own game.

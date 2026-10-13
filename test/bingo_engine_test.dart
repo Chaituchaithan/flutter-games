@@ -42,4 +42,13 @@ void main() {
     expect(g.winner, isNotNull);
     expect(g.called.length, lessThan(75));
   });
+
+  test('winning group and "1 to go" cells', () {
+    final marked = {12, 10, 11, 13}; // row 2 minus cell 14
+    expect(winningGroup(marked, BingoPattern.line), isNull);
+    expect(oneToGo(marked, BingoPattern.line), contains(14));
+    marked.add(14);
+    expect(winningGroup(marked, BingoPattern.line), [10, 11, 12, 13, 14]);
+    expect(oneToGo({0, 4, 20}, BingoPattern.corners), {24});
+  });
 }

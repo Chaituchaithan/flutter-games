@@ -2023,6 +2023,618 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Computer players'**
   String get computerPlayers;
+
+  /// No description provided for @cashedOutBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'CASHED OUT'**
+  String get cashedOutBanner;
+
+  /// No description provided for @chipsWon.
+  ///
+  /// In en, this message translates to:
+  /// **'+{amount} chips'**
+  String chipsWon(String amount);
+
+  /// No description provided for @oneToGoTag.
+  ///
+  /// In en, this message translates to:
+  /// **'1 TO GO'**
+  String get oneToGoTag;
+
+  /// No description provided for @calledNumbers.
+  ///
+  /// In en, this message translates to:
+  /// **'Called numbers'**
+  String get calledNumbers;
+
+  /// No description provided for @tapForBoard.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap for the board'**
+  String get tapForBoard;
+
+  /// No description provided for @botCalledBingo.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} called BINGO!'**
+  String botCalledBingo(String name);
+
+  /// No description provided for @placeYourBets.
+  ///
+  /// In en, this message translates to:
+  /// **'Place your bets'**
+  String get placeYourBets;
+
+  /// No description provided for @spinButton.
+  ///
+  /// In en, this message translates to:
+  /// **'SPIN'**
+  String get spinButton;
+
+  /// No description provided for @undo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get undo;
+
+  /// No description provided for @clearBets.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get clearBets;
+
+  /// No description provided for @doubleBets.
+  ///
+  /// In en, this message translates to:
+  /// **'Double'**
+  String get doubleBets;
+
+  /// No description provided for @repeatBets.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat'**
+  String get repeatBets;
+
+  /// No description provided for @noMoreBets.
+  ///
+  /// In en, this message translates to:
+  /// **'No more bets'**
+  String get noMoreBets;
+
+  /// No description provided for @youWinAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'You win {amount}'**
+  String youWinAmount(String amount);
+
+  /// No description provided for @noWinThisTime.
+  ///
+  /// In en, this message translates to:
+  /// **'No win this time'**
+  String get noWinThisTime;
+
+  /// No description provided for @totalBetAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Bet {amount}'**
+  String totalBetAmount(String amount);
+
+  /// No description provided for @tableLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Table limit reached'**
+  String get tableLimitReached;
+
+  /// No description provided for @notEnoughChips.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough chips'**
+  String get notEnoughChips;
+
+  /// No description provided for @practiceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Practice mode — chips have no real value.'**
+  String get practiceNote;
+
+  /// No description provided for @betRed.
+  ///
+  /// In en, this message translates to:
+  /// **'RED'**
+  String get betRed;
+
+  /// No description provided for @betBlack.
+  ///
+  /// In en, this message translates to:
+  /// **'BLACK'**
+  String get betBlack;
+
+  /// No description provided for @betOdd.
+  ///
+  /// In en, this message translates to:
+  /// **'ODD'**
+  String get betOdd;
+
+  /// No description provided for @betEven.
+  ///
+  /// In en, this message translates to:
+  /// **'EVEN'**
+  String get betEven;
+
+  /// No description provided for @rouletteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a number, or the line between numbers for splits and corners'**
+  String get rouletteHint;
+
+  /// No description provided for @lastResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Last results'**
+  String get lastResults;
+
+  /// No description provided for @startRace.
+  ///
+  /// In en, this message translates to:
+  /// **'Start race'**
+  String get startRace;
+
+  /// No description provided for @nextRace.
+  ///
+  /// In en, this message translates to:
+  /// **'Next race'**
+  String get nextRace;
+
+  /// No description provided for @raceNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Race {n}'**
+  String raceNumber(int n);
+
+  /// No description provided for @winBet.
+  ///
+  /// In en, this message translates to:
+  /// **'Win'**
+  String get winBet;
+
+  /// No description provided for @top3Bet.
+  ///
+  /// In en, this message translates to:
+  /// **'Top 3'**
+  String get top3Bet;
+
+  /// No description provided for @takesTheLead.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} takes the lead!'**
+  String takesTheLead(String name);
+
+  /// No description provided for @photoFinish.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo finish!'**
+  String get photoFinish;
+
+  /// No description provided for @winsTheRace.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} wins!'**
+  String winsTheRace(String name);
+
+  /// No description provided for @andTheyreOff.
+  ///
+  /// In en, this message translates to:
+  /// **'And they\'re off!'**
+  String get andTheyreOff;
+
+  /// No description provided for @finalStretch.
+  ///
+  /// In en, this message translates to:
+  /// **'Into the final stretch!'**
+  String get finalStretch;
+
+  /// No description provided for @raceBetsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the odds to bet the selected chip'**
+  String get raceBetsHint;
+
+  /// No description provided for @racePayout.
+  ///
+  /// In en, this message translates to:
+  /// **'Payout {amount}'**
+  String racePayout(String amount);
+
+  /// No description provided for @watchRace.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch race'**
+  String get watchRace;
+
+  /// No description provided for @pokerFold.
+  ///
+  /// In en, this message translates to:
+  /// **'Fold'**
+  String get pokerFold;
+
+  /// No description provided for @pokerCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Check'**
+  String get pokerCheck;
+
+  /// No description provided for @pokerCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call {amount}'**
+  String pokerCall(String amount);
+
+  /// No description provided for @pokerRaise.
+  ///
+  /// In en, this message translates to:
+  /// **'Raise'**
+  String get pokerRaise;
+
+  /// No description provided for @pokerRaiseTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Raise to {amount}'**
+  String pokerRaiseTo(String amount);
+
+  /// No description provided for @pokerAllIn.
+  ///
+  /// In en, this message translates to:
+  /// **'All-in'**
+  String get pokerAllIn;
+
+  /// No description provided for @pokerPot.
+  ///
+  /// In en, this message translates to:
+  /// **'Pot {amount}'**
+  String pokerPot(String amount);
+
+  /// No description provided for @pokerMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Min'**
+  String get pokerMin;
+
+  /// No description provided for @pokerHalfPot.
+  ///
+  /// In en, this message translates to:
+  /// **'½ Pot'**
+  String get pokerHalfPot;
+
+  /// No description provided for @pokerFullPot.
+  ///
+  /// In en, this message translates to:
+  /// **'Pot'**
+  String get pokerFullPot;
+
+  /// No description provided for @pokerWinsWith.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} wins {amount} · {hand}'**
+  String pokerWinsWith(String name, String amount, String hand);
+
+  /// No description provided for @pokerWins.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} wins {amount}'**
+  String pokerWins(String name, String amount);
+
+  /// No description provided for @pokerSplit.
+  ///
+  /// In en, this message translates to:
+  /// **'Split pot · {hand}'**
+  String pokerSplit(String hand);
+
+  /// No description provided for @pokerHand.
+  ///
+  /// In en, this message translates to:
+  /// **'Hand {n}'**
+  String pokerHand(int n);
+
+  /// No description provided for @pokerBlinds.
+  ///
+  /// In en, this message translates to:
+  /// **'Blinds {sb}/{bb}'**
+  String pokerBlinds(String sb, String bb);
+
+  /// No description provided for @pokerWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for {name}…'**
+  String pokerWaiting(String name);
+
+  /// No description provided for @pokerBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Texas Hold\'em against the computer. Win every chip at the table.'**
+  String get pokerBlurb;
+
+  /// No description provided for @pokerStakes.
+  ///
+  /// In en, this message translates to:
+  /// **'Stakes'**
+  String get pokerStakes;
+
+  /// No description provided for @pokerWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'You took every chip at the table!'**
+  String get pokerWinSub;
+
+  /// No description provided for @pokerLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'You ran out of chips.'**
+  String get pokerLoseSub;
+
+  /// No description provided for @handHighCard.
+  ///
+  /// In en, this message translates to:
+  /// **'High card'**
+  String get handHighCard;
+
+  /// No description provided for @handPair.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair'**
+  String get handPair;
+
+  /// No description provided for @handTwoPair.
+  ///
+  /// In en, this message translates to:
+  /// **'Two pair'**
+  String get handTwoPair;
+
+  /// No description provided for @handThreeKind.
+  ///
+  /// In en, this message translates to:
+  /// **'Three of a kind'**
+  String get handThreeKind;
+
+  /// No description provided for @handStraight.
+  ///
+  /// In en, this message translates to:
+  /// **'Straight'**
+  String get handStraight;
+
+  /// No description provided for @handFlush.
+  ///
+  /// In en, this message translates to:
+  /// **'Flush'**
+  String get handFlush;
+
+  /// No description provided for @handFullHouse.
+  ///
+  /// In en, this message translates to:
+  /// **'Full house'**
+  String get handFullHouse;
+
+  /// No description provided for @handFourKind.
+  ///
+  /// In en, this message translates to:
+  /// **'Four of a kind'**
+  String get handFourKind;
+
+  /// No description provided for @handStraightFlush.
+  ///
+  /// In en, this message translates to:
+  /// **'Straight flush'**
+  String get handStraightFlush;
+
+  /// No description provided for @handRoyalFlush.
+  ///
+  /// In en, this message translates to:
+  /// **'Royal flush'**
+  String get handRoyalFlush;
+
+  /// No description provided for @rummyBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'13-card points rummy against the computer. Make two sequences (one pure) and declare first.'**
+  String get rummyBlurb;
+
+  /// No description provided for @rummySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Points rummy · Wild {card}'**
+  String rummySubtitle(String card);
+
+  /// No description provided for @closedDeck.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed deck'**
+  String get closedDeck;
+
+  /// No description provided for @openDeck.
+  ///
+  /// In en, this message translates to:
+  /// **'Open deck'**
+  String get openDeck;
+
+  /// No description provided for @wildJoker.
+  ///
+  /// In en, this message translates to:
+  /// **'Wild joker'**
+  String get wildJoker;
+
+  /// No description provided for @rummySort.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort'**
+  String get rummySort;
+
+  /// No description provided for @rummyGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get rummyGroup;
+
+  /// No description provided for @rummyDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get rummyDiscard;
+
+  /// No description provided for @rummyDeclare.
+  ///
+  /// In en, this message translates to:
+  /// **'Declare'**
+  String get rummyDeclare;
+
+  /// No description provided for @rummyDrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop'**
+  String get rummyDrop;
+
+  /// No description provided for @meldPure.
+  ///
+  /// In en, this message translates to:
+  /// **'Pure sequence'**
+  String get meldPure;
+
+  /// No description provided for @meldSequence.
+  ///
+  /// In en, this message translates to:
+  /// **'Sequence'**
+  String get meldSequence;
+
+  /// No description provided for @meldSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Set'**
+  String get meldSet;
+
+  /// No description provided for @meldInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid'**
+  String get meldInvalid;
+
+  /// No description provided for @rummyPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Points {n}'**
+  String rummyPoints(int n);
+
+  /// No description provided for @rummyDrawHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your turn — pick from the closed or open deck'**
+  String get rummyDrawHint;
+
+  /// No description provided for @rummyDiscardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a card to discard, or declare'**
+  String get rummyDiscardHint;
+
+  /// No description provided for @rummyPicked.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} picked {card}'**
+  String rummyPicked(String name, String card);
+
+  /// No description provided for @rummyDrew.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} drew from the deck'**
+  String rummyDrew(String name);
+
+  /// No description provided for @rummyDiscarded.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} discarded {card}'**
+  String rummyDiscarded(String name, String card);
+
+  /// No description provided for @rummyDropped.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} dropped'**
+  String rummyDropped(String name);
+
+  /// No description provided for @rummyDeclareTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Declare your hand?'**
+  String get rummyDeclareTitle;
+
+  /// No description provided for @rummyValidShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid show — you\'ll win this deal.'**
+  String get rummyValidShow;
+
+  /// No description provided for @rummyInvalidShow.
+  ///
+  /// In en, this message translates to:
+  /// **'This hand isn\'t valid yet — a wrong show costs 80 points.'**
+  String get rummyInvalidShow;
+
+  /// No description provided for @rummyDropTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop this deal?'**
+  String get rummyDropTitle;
+
+  /// No description provided for @rummyDropBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll score {n} points and leave the deal.'**
+  String rummyDropBody(int n);
+
+  /// No description provided for @rummyWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid show — you win the deal!'**
+  String get rummyWinSub;
+
+  /// No description provided for @rummyLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} declared first. Your points: {n}'**
+  String rummyLoseSub(String name, int n);
+
+  /// No description provided for @rummyWrongShowSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong show — 80 points.'**
+  String get rummyWrongShowSub;
+
+  /// No description provided for @rummyDroppedSub.
+  ///
+  /// In en, this message translates to:
+  /// **'You dropped — {n} points.'**
+  String rummyDroppedSub(int n);
+
+  /// No description provided for @cardsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} cards'**
+  String cardsCount(int n);
+
+  /// No description provided for @rummyPicking.
+  ///
+  /// In en, this message translates to:
+  /// **'Picking…'**
+  String get rummyPicking;
+
+  /// No description provided for @rummyThinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking…'**
+  String get rummyThinking;
+
+  /// No description provided for @droppedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dropped'**
+  String get droppedLabel;
 }
 
 class _AppLocalizationsDelegate
