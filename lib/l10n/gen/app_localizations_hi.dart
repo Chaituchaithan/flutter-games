@@ -1493,4 +1493,95 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get droppedLabel => 'ड्रॉप';
+
+  @override
+  String get referralHeadline => 'साथ खेलें, साथ कमाएं';
+
+  @override
+  String get referralBody =>
+      'अपना कोड शेयर करें। जब कोई दोस्त इससे साइन अप करता है, तो आप दोनों को इनाम मिलता है।';
+
+  @override
+  String get yourInviteCode => 'आपका इनवाइट कोड';
+
+  @override
+  String get copyLabel => 'कॉपी';
+
+  @override
+  String get codeCopied => 'कोड कॉपी हो गया';
+
+  @override
+  String get shareInvite => 'इनवाइट शेयर करें';
+
+  @override
+  String inviteMessage(String app, String code) {
+    return '$app पर मेरे साथ जुड़ें! वेलकम बोनस पाने के लिए मेरे कोड $code से साइन अप करें।';
+  }
+
+  @override
+  String codeUses(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n बार उपयोग हुआ',
+      one: 'एक बार उपयोग हुआ',
+      zero: 'अभी उपयोग नहीं हुआ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String codeUsesOf(int n, int max) {
+    return '$max में से $n उपयोग';
+  }
+
+  @override
+  String codeExpires(String date) {
+    return '$date को समाप्त';
+  }
+
+  @override
+  String get codeExpired => 'यह कोड समाप्त हो गया है';
+
+  @override
+  String get codeUsedUp => 'यह कोड अपनी सीमा तक पहुँच गया है';
+
+  @override
+  String get friendsJoined => 'जुड़े दोस्त';
+
+  @override
+  String get rewardsEarned => 'मिले इनाम';
+
+  @override
+  String get howItWorks => 'यह कैसे काम करता है';
+
+  @override
+  String get referralStep1 => 'अपना कोड दोस्तों के साथ शेयर करें';
+
+  @override
+  String get referralStep2 => 'वे आपके कोड से साइन अप करते हैं';
+
+  @override
+  String get referralStep3 => 'आप दोनों को इनाम मिलता है';
+
+  @override
+  String get noReferralsYet =>
+      'अभी कोई दोस्त नहीं जुड़ा — शुरू करने के लिए अपना कोड शेयर करें।';
+
+  @override
+  String referralsJoined(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n दोस्त आपके कोड से जुड़े',
+      one: '1 दोस्त आपके कोड से जुड़ा',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralCouldntLoad => 'आपका इनवाइट कोड लोड नहीं हो सका।';
+
+  @override
+  String get inviteFriendsTitle => 'दोस्तों को बुलाएं';
 }

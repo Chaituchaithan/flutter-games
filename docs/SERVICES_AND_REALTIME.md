@@ -83,6 +83,17 @@ Not wired yet (endpoints exist in the catalog): `PATCH /users/me`
 
 ---
 
+### Invite friends (Settings → Invite friends)
+| Action | Call | Notes |
+|---|---|---|
+| Open the screen | `GET /referrals/my-code` → `{code, uses, max_uses, expires_at}` | Shows the code (tap to copy), "Used n times" or "n of max uses", and the expiry date when set. An expired or used-up code is struck through and sharing is disabled |
+| Open the screen | `GET /referrals/stats` → `{total_referrals, rewards_granted}` | "Friends joined" and "Rewards earned" tiles |
+| Share invite | — | The phone's share sheet (`share_plus`) with "Join me on <app>! Sign up with my code <code> …" |
+
+Both are read each time the screen opens (not cached); failures show Retry. The server doesn't send reward amounts or a list of referred friends yet, so the screen shows neither.
+
+---
+
 ### Daily rewards
 | Action | Call | Notes |
 |---|---|---|
@@ -116,6 +127,7 @@ for the next trigger or the screen's Retry.
 | `GET /sensitive/daily-bonus/status` | sign-in / app start · after a claim · the moment the next claim opens · Retry on Daily Rewards | scroll (the Profile tile shares the cached status) |
 | `POST /sensitive/daily-bonus/claim` | Claim tap | — |
 | `GET /sensitive/subscriptions/plans` + `/my` | opening Store → VIP · after subscribe / cancel | — |
+| `GET /referrals/my-code` + `/referrals/stats` | opening Invite friends · Retry | — |
 
 ---
 

@@ -2635,6 +2635,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dropped'**
   String get droppedLabel;
+
+  /// No description provided for @referralHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Play together, earn together'**
+  String get referralHeadline;
+
+  /// No description provided for @referralBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your code. When a friend signs up with it, you both get a reward.'**
+  String get referralBody;
+
+  /// No description provided for @yourInviteCode.
+  ///
+  /// In en, this message translates to:
+  /// **'YOUR INVITE CODE'**
+  String get yourInviteCode;
+
+  /// No description provided for @copyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copyLabel;
+
+  /// No description provided for @codeCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Code copied'**
+  String get codeCopied;
+
+  /// No description provided for @shareInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'Share invite'**
+  String get shareInvite;
+
+  /// No description provided for @inviteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Join me on {app}! Sign up with my code {code} to get a welcome bonus.'**
+  String inviteMessage(String app, String code);
+
+  /// No description provided for @codeUses.
+  ///
+  /// In en, this message translates to:
+  /// **'{n, plural, =0{Not used yet} =1{Used once} other{Used {n} times}}'**
+  String codeUses(int n);
+
+  /// No description provided for @codeUsesOf.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} of {max} uses'**
+  String codeUsesOf(int n, int max);
+
+  /// No description provided for @codeExpires.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {date}'**
+  String codeExpires(String date);
+
+  /// No description provided for @codeExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This code has expired'**
+  String get codeExpired;
+
+  /// No description provided for @codeUsedUp.
+  ///
+  /// In en, this message translates to:
+  /// **'This code has reached its limit'**
+  String get codeUsedUp;
+
+  /// No description provided for @friendsJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends joined'**
+  String get friendsJoined;
+
+  /// No description provided for @rewardsEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'Rewards earned'**
+  String get rewardsEarned;
+
+  /// No description provided for @howItWorks.
+  ///
+  /// In en, this message translates to:
+  /// **'How it works'**
+  String get howItWorks;
+
+  /// No description provided for @referralStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your code with friends'**
+  String get referralStep1;
+
+  /// No description provided for @referralStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'They sign up using your code'**
+  String get referralStep2;
+
+  /// No description provided for @referralStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'You both receive a reward'**
+  String get referralStep3;
+
+  /// No description provided for @noReferralsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No friends have joined yet — share your code to get started.'**
+  String get noReferralsYet;
+
+  /// No description provided for @referralsJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'{n, plural, =1{1 friend joined with your code} other{{n} friends joined with your code}}'**
+  String referralsJoined(int n);
+
+  /// No description provided for @referralCouldntLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your invite code.'**
+  String get referralCouldntLoad;
+
+  /// No description provided for @inviteFriendsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get inviteFriendsTitle;
 }
 
 class _AppLocalizationsDelegate

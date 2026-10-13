@@ -1,0 +1,119 @@
+### Aura — Auth API scratch file
+# REST Client (.http) — click "Send Request" above each block.
+#   VS Code:    install the "REST Client" extension (humao.rest-client)
+#   JetBrains:  built-in HTTP Client
+#
+# Endpoints per docs/INTEGRATION_PLAN.md §7b (Portal Gateway API).
+# Base is plain HTTP (dev, no TLS) — do not send real/production credentials.
+#
+# Requests are in lifecycle order:
+#   Register → OTP send → OTP verify → Login → Guest → Me → Refresh
+#   → Change password → Logout.
+# After Login/Register, copy access_token into @token before the bearer calls.
+
+@baseUrl = http://169.58.184.121:30080/api/v1
+@email = test1@example.com
+@password = password
+@username = test1
+
+# Paste the access_token returned by Login/Register here, then run the bearer calls.
+@token = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlOWMyNzI0Zi0wYjhiLTRlMGQtOGFkNy0yOWVmYjBlMTM0NDEiLCJzZXNzaW9uX2lkIjoiYzMyYzIxODEtMTVhOC00NjM3LTlmMDQtZDBkY2FlYmVhNjdiIiwiaWF0IjoxNzkxNDczNDQ3LCJleHAiOjE3OTE0NzQzNDcsInJvbGUiOiJ1c2VyIn0.ZccNjXWMPLXSI7WV7cX17alwwsgeWhQvaHL7uwN8J2o
+
+# The 6-digit code from the verification email (for OTP verify).
+@otp = 000000
+
+# Paste the refresh_token returned by Login/Register here (for Refresh).
+@refreshToken = PASTE_REFRESH_TOKEN_HERE
+
+@email_verification = aura_test_03@example.com
+
+### 1. Register — create a new account
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+
+### 2. OTP send — trigger/resend the verification email (bearer-scoped, needs @token)
+POST {{baseUrl}}/otp/send
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "purpose": "email_verification"
+}
+
+
+### 3. OTP verify — confirm the email after Register (bearer-scoped, needs @token)
+# Set @otp to the 6-digit code from the verification email.
+POST {{baseUrl}}/otp/verify
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "code": "{{otp}}",
+  "purpose": "email_verification"
+}
+
+
+### 4. Login — sign in with the account above
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+
+### 5. Login (wrong password) — expect 401 INVALID_CREDENTIALS
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "definitely-wrong"
+}
+
+
+### 6. Guest — anonymous session, no credentials
+POST {{baseUrl}}/guest/create
+Content-Type: application/json
+
+
+### 7. Me — current user (needs a valid @token from Login/Register)
+GET {{baseUrl}}/users/me
+Authorization: Bearer {{token}}
+
+### 7. Me — current user (needs a valid @token from Login/Register)
+GET {{baseUrl}}/users/profile
+Authorization: Bearer {{token}}
+
+### 8. Refresh — exchange a refresh token for a new access token
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+
+### 9. Change password — signed-in password change (bearer-scoped, needs @token)
+# Field names are best-guess (serde snake_case) — adjust if the API rejects them.
+POST {{baseUrl}}/auth/change-password
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "current_password": "{{password}}",
+  "new_password": "NewPass1234!aA"
+}
+
+
+### 10. Logout — invalidate the current session (needs @token)
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{token}}

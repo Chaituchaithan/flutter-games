@@ -1511,4 +1511,95 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get droppedLabel => 'Dropped';
+
+  @override
+  String get referralHeadline => 'Play together, earn together';
+
+  @override
+  String get referralBody =>
+      'Share your code. When a friend signs up with it, you both get a reward.';
+
+  @override
+  String get yourInviteCode => 'YOUR INVITE CODE';
+
+  @override
+  String get copyLabel => 'Copy';
+
+  @override
+  String get codeCopied => 'Code copied';
+
+  @override
+  String get shareInvite => 'Share invite';
+
+  @override
+  String inviteMessage(String app, String code) {
+    return 'Join me on $app! Sign up with my code $code to get a welcome bonus.';
+  }
+
+  @override
+  String codeUses(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'Used $n times',
+      one: 'Used once',
+      zero: 'Not used yet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String codeUsesOf(int n, int max) {
+    return '$n of $max uses';
+  }
+
+  @override
+  String codeExpires(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String get codeExpired => 'This code has expired';
+
+  @override
+  String get codeUsedUp => 'This code has reached its limit';
+
+  @override
+  String get friendsJoined => 'Friends joined';
+
+  @override
+  String get rewardsEarned => 'Rewards earned';
+
+  @override
+  String get howItWorks => 'How it works';
+
+  @override
+  String get referralStep1 => 'Share your code with friends';
+
+  @override
+  String get referralStep2 => 'They sign up using your code';
+
+  @override
+  String get referralStep3 => 'You both receive a reward';
+
+  @override
+  String get noReferralsYet =>
+      'No friends have joined yet — share your code to get started.';
+
+  @override
+  String referralsJoined(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n friends joined with your code',
+      one: '1 friend joined with your code',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralCouldntLoad => 'Couldn\'t load your invite code.';
+
+  @override
+  String get inviteFriendsTitle => 'Invite friends';
 }
