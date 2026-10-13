@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
+import 'package:snakeladder/services/session.dart';
 import '../../l10n/l10n.dart';
 import '../../screens/match/match_result_screen.dart';
 import '../../screens/system/loading_skeleton_screen.dart' show Shimmer, SkeletonBox;
@@ -356,7 +358,6 @@ class _ScrabbleScreenState extends State<ScrabbleScreen> with LocalGameFlow {
           subtitle: subtitle,
           youScore: you,
           oppScore: them,
-          youInitials: 'YOU',
           oppName: l.computer,
           oppInitials: 'AI',
           reward: switch (outcome) {
@@ -405,7 +406,7 @@ class _ScrabbleScreenState extends State<ScrabbleScreen> with LocalGameFlow {
     final active = !_isOver && _game.turn == p;
     return BoardPlayerCard(
       name: _who(p),
-      initials: p == 0 ? 'YOU' : 'AI',
+      initials: p == 0 ? ProviderScope.containerOf(context).read(currentUserProvider).initials : 'AI',
       sub: l.scoreN(_game.scores[p]),
       color: p == 0 ? AuraColors.brandPurple : AuraColors.avatarBlue,
       color2: p == 0 ? AuraColors.brandPink : const Color(0xFF3B82F6),
@@ -426,6 +427,8 @@ class _ScrabbleScreenState extends State<ScrabbleScreen> with LocalGameFlow {
     final lastPlay = _game.lastTurn?.play?.tiles.keys.toSet() ?? const <int>{};
     final (play, err, badWord) = _preview;
     return AuraScaffold(
+      // Slimmer side margins so the board can be as large as possible.
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

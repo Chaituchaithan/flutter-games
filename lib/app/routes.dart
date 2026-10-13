@@ -121,7 +121,8 @@ class Routes {
       case welcomeBonus:
         page = const WelcomeBonusScreen();
       case home:
-        page = const MainShell();
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = MainShell(dailyBonusPrompt: args?['dailyBonusPrompt'] as bool? ?? false);
       case Routes.settings:
         page = const SettingsScreen();
       case matchSetup:

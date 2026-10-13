@@ -6,6 +6,7 @@ import '../../data/repositories/store_repository.dart';
 import '../../data/repositories/tournaments_repository.dart';
 import '../../state/async_view.dart';
 import '../../widgets/aura.dart';
+import '../../widgets/wallet_pill.dart';
 
 /// Tournaments (mockup `isTournaments`): header with your Tokens · Live /
 /// Upcoming / Past tabs · on Live, the Neon Cup hero + bracket · Events list.
@@ -26,10 +27,7 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
 
   static const _states = [TournamentState.live, TournamentState.upcoming, TournamentState.ended];
 
-  String _tokens() =>
-      ref.watch(walletProvider).maybeWhen(data: (w) => w.gems, orElse: () => '5,000');
-
-  int _tokenBalance() => int.tryParse(_tokens().replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+  int _tokenBalance() => walletBalance(ref, Currency.gems) ?? 0;
 
   /// Events you've joined this session (their CTA turns into "Joined").
   final Set<String> _joined = {};
@@ -80,7 +78,7 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 14),
-          _Header(tokens: _tokens()),
+          const _Header(),
           const SizedBox(height: 16),
           SegmentedTabs(
             labels: const ['Live', 'Upcoming', 'Past'],
@@ -124,8 +122,7 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
 
 /// Mockup header: 42px glass back button · "Tournaments" · cyan Tokens pill.
 class _Header extends StatelessWidget {
-  const _Header({required this.tokens});
-  final String tokens;
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
@@ -152,26 +149,7 @@ class _Header extends StatelessWidget {
         Expanded(
           child: Text('Tournaments', style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 22, color: Colors.white)),
         ),
-        Container(
-          padding: const EdgeInsets.fromLTRB(7, 5, 10, 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(99),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [const Color(0xFF22D3EE).withValues(alpha: 0.24), const Color(0xFF22D3EE).withValues(alpha: 0.06)],
-            ),
-            border: Border.all(color: const Color(0xFF22D3EE).withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CurrencyGlyph(kind: Currency.gems, size: 15),
-              const SizedBox(width: 5),
-              Text(tokens, style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 12, color: Colors.white)),
-            ],
-          ),
-        ),
+        const WalletPill(kind: Currency.gems, showPlus: false),
       ],
     );
   }

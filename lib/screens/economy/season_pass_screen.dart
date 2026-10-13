@@ -61,10 +61,7 @@ class _SeasonPassScreenState extends ConsumerState<SeasonPassScreen> {
     _gold(500), const _Reward(_Kind.avatar, 'Abyss avatar'), _gold(600), _gold(800), const _Reward(_Kind.frame, 'Legendary Tide frame'),
   ];
 
-  int _goldBalance() {
-    final s = ref.read(walletProvider).maybeWhen(data: (w) => w.gold, orElse: () => '2,000');
-    return int.tryParse(s.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-  }
+  int _goldBalance() => walletBalance(ref, Currency.gold) ?? 0;
 
   void _claim(String key, _Reward r) {
     if (_claimed.contains(key)) return;

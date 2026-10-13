@@ -12,5 +12,11 @@ final dailyBonusSourceProvider = Provider<DailyBonusSource>((ref) {
   return live ? RemoteDailyBonusSource(ref.watch(apiClientProvider)) : StaticDailyBonusSource();
 });
 
-final dailyBonusStatusProvider =
-    FutureProvider.autoDispose<DailyBonusStatus>((ref) => ref.watch(dailyBonusSourceProvider).status());
+/// Kept for the session (not auto-disposed): scrolling the Profile tile out
+/// of view and back must not re-call the API. It re-reads when invalidated
+/// (after a claim, when the next claim opens) or when the signed-in user changes.
+final dailyBonusStatusProvider = FutureProvider<DailyBonusStatus>(
+  (ref) => ref.watch(dailyBonusSourceProvider).status(),
+  // No silent auto-retry: a failure shows Retry instead of re-calling the API.
+  retry: (_, _) => null,
+);

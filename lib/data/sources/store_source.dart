@@ -44,7 +44,7 @@ class RemoteStoreSource implements StoreSource {
 
   @override
   Future<Wallet> wallet() async =>
-      Wallet.fromJson(await _api.get(ApiEndpoints.wallet) as Map<String, dynamic>);
+      Wallet.fromJson(await _api.get(ApiEndpoints.walletBalance) as Map<String, dynamic>);
 
   @override
   Future<List<StorePack>> packs(Currency kind) async {

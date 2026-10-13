@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
+import 'package:snakeladder/services/session.dart';
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:snakeladder/game/common/dice_view.dart';
 import 'package:snakeladder/game/common/local_game_flow.dart';
@@ -76,7 +78,7 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
         if (i != widget.colorIndex) i,
     ];
     return [
-      DicePlayer(name: context.l10n.you, initials: 'YOU', color: snakesColors[widget.colorIndex].$2, isYou: true),
+      DicePlayer(name: context.l10n.you, initials: ProviderScope.containerOf(context).read(currentUserProvider).initials, color: snakesColors[widget.colorIndex].$2, isYou: true),
       for (var k = 0; k < widget.players - 1; k++)
         DicePlayer(name: diceBotNames[k].$1, initials: diceBotNames[k].$2, color: snakesColors[others[k]].$2),
     ];
@@ -206,7 +208,6 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
               : context.l10n.snakesLoseSub(winnerName ?? ''),
           youScore: _game.positions[0],
           oppScore: best,
-          youInitials: 'YOU',
           oppName: widget.players == 2 ? _seats[1].name : context.l10n.bestAi,
           oppInitials: widget.players == 2 ? _seats[1].initials : 'AI',
           reward: won ? '+50 XP' : '+20 XP',
@@ -231,6 +232,8 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
   Widget build(BuildContext context) {
     final live = !_isOver;
     return AuraScaffold(
+      // Slimmer side margins so the board can be as large as possible.
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       body: DiceBoardLayout(
         header: LocalGameHeader(
           title: '🐍 Snakes & Ladders',

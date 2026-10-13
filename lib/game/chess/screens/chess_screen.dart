@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:snakeladder/game/chess/chess_board_view.dart';
 import 'package:snakeladder/game/chess/chess_clock.dart';
 import 'package:snakeladder/game/chess/chess_controller.dart';
 import 'package:snakeladder/game/chess/chess_engine.dart';
+import 'package:snakeladder/services/session.dart';
 import 'package:snakeladder/widgets/aura.dart';
 import 'package:snakeladder/screens/match/match_result_screen.dart';
 
@@ -140,6 +142,8 @@ class _ChessScreenState extends State<ChessScreen> {
     double timeLeft(PieceColor c) => _clock.msFor(c) / _clock.initialMs;
     // Fixed layout: board fills the middle, the action bar stays at the bottom.
     return AuraScaffold(
+      // Slimmer side margins so the board can be as large as possible.
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -173,34 +177,30 @@ class _ChessScreenState extends State<ChessScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          // Board + bottom cards stay together (mockup); spare height
-          // collects above the pinned action bar.
           Expanded(
-            child: Column(
+            // The board, centred in the space between the top and bottom rows.
+            child: Center(
+              child: ChessBoardView(controller: _game),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Turn clock + You card, just above the action bar.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Flexible(child: ChessBoardView(controller: _game)),
-                const SizedBox(height: 12),
-                // Turn-clock panel + You card (mockup bottom corners: you bottom-right,
-                // diagonal to the opponent top-left).
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: BoardInfoPanel(label: 'Turn clock', value: _mmss(activeMs), big: true, urgent: live && activeMs <= 10000)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: BoardPlayerCard(
-                          name: 'You',
-                          initials: 'NR',
-                          sub: '${_game.capturesBy(PieceColor.white)} captures',
-                          color: AuraColors.brandPurple,
-                          color2: AuraColors.brandPink,
-                          active: whiteToMove && live,
-                          turnText: whiteToMove && live ? 'Your move · ${(activeMs / 1000).ceil()}s' : null,
-                          progress: timeLeft(PieceColor.white),
-                        ),
-                      ),
-                    ],
+                Expanded(child: BoardInfoPanel(label: 'Turn clock', value: _mmss(activeMs), big: true, urgent: live && activeMs <= 10000)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: BoardPlayerCard(
+                    name: 'You',
+                    initials: ProviderScope.containerOf(context).read(currentUserProvider).initials,
+                    sub: '${_game.capturesBy(PieceColor.white)} captures',
+                    color: AuraColors.brandPurple,
+                    color2: AuraColors.brandPink,
+                    active: whiteToMove && live,
+                    turnText: whiteToMove && live ? 'Your move · ${(activeMs / 1000).ceil()}s' : null,
+                    progress: timeLeft(PieceColor.white),
                   ),
                 ),
               ],

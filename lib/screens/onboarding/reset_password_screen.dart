@@ -145,7 +145,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 WidgetSpan(
                   alignment: PlaceholderAlignment.middle,
                   child: GestureDetector(
-                    onTap: () => Navigator.pushReplacementNamed(context, Routes.login),
+                    // Login is underneath: go back to it, not a second copy.
+                    onTap: () => Navigator.canPop(context) ? Navigator.pop(context) : Navigator.pushReplacementNamed(context, Routes.login),
                     child: const Text('Back to login', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5)),
                   ),
                 ),

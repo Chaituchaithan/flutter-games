@@ -1,15 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/main_shell.dart';
 import '../../app/routes.dart';
-import '../../data/repositories/daily_bonus_repository.dart';
-import '../../data/repositories/store_repository.dart';
 import '../../services/session.dart';
 import '../../l10n/l10n.dart';
 import '../../widgets/aura.dart';
+import '../../widgets/wallet_pill.dart';
 import '../match/online_play_sheet.dart';
 import '../../app/app_profile.dart';
 import '../../app/game_area.dart';
@@ -116,44 +113,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 14),
                 _AdBanner(onClose: () => setState(() => _adClosed = true)),
               ],
-              const SizedBox(height: 20),
-              SectionBar(context.l10n.earnRewards),
-              const SizedBox(height: 10),
-              _SeasonPassCard(
-                onTap: () async {
-                  // Season Pass pops 'store' from "Buy more".
-                  final r = await Navigator.pushNamed(context, Routes.seasonPass);
-                  if (r == 'store') _selectTab(2);
-                },
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: const _DailyBonusTile(),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _RewardTile(
-                      icon: Icons.track_changes,
-                      iconGradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFEC4899), Color(0xFFF472B6)],
-                      ),
-                      glowColor: AuraColors.brandPink,
-                      title: context.l10n.luckyWheel,
-                      sub: context.l10n.spinsLeft(3),
-                      chipColor: AuraColors.brandPink,
-                      onTap: () => _selectTab(1),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _RecentMatchesButton(
-                onTap: () => Navigator.pushNamed(context, Routes.gameHistory),
-              ),
             ],
           ),
         ),
@@ -184,7 +143,6 @@ class _ProfileHeaderCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final wallet = ref.watch(walletProvider).maybeWhen(data: (w) => w, orElse: () => null);
     final country = user.country;
     return AuraCard(
       child: Column(
@@ -238,12 +196,12 @@ class _ProfileHeaderCard extends ConsumerWidget {
                 children: [
                   GestureDetector(
                     onTap: onShop,
-                    child: CurrencyPill(kind: Currency.gems, amount: wallet?.gems ?? '5,000'),
+                    child: const WalletPill(kind: Currency.gems),
                   ),
                   const SizedBox(height: 6),
                   GestureDetector(
                     onTap: onShop,
-                    child: CurrencyPill(kind: Currency.gold, amount: wallet?.gold ?? '2,000'),
+                    child: const WalletPill(kind: Currency.gold),
                   ),
                 ],
               ),
@@ -334,16 +292,15 @@ class _NotificationBell extends StatelessWidget {
 }
 
 class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.fraction, this.height = 10});
+  const _ProgressBar({required this.fraction});
   final double fraction;
-  final double height;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        height: height,
+        height: 10,
         color: Colors.white.withValues(alpha: 0.1),
         child: FractionallySizedBox(
           alignment: Alignment.centerLeft,
@@ -502,265 +459,6 @@ class _QuickTile extends StatelessWidget {
   }
 }
 
-/// Daily Bonus tile, from the daily-bonus status: "Day N ready" (with a dot)
-/// when claimable, else when the next one opens. Refreshes itself the moment
-/// the next claim becomes available.
-class _DailyBonusTile extends ConsumerStatefulWidget {
-  const _DailyBonusTile();
-
-  @override
-  ConsumerState<_DailyBonusTile> createState() => _DailyBonusTileState();
-}
-
-class _DailyBonusTileState extends ConsumerState<_DailyBonusTile> {
-  Timer? _reopen;
-  DateTime? _scheduledFor;
-
-  /// Live countdown ticker: fires when the shown value changes (each minute,
-  /// then each second in the last hour) — not a constant 1s rebuild.
-  Timer? _tick;
-
-  @override
-  void dispose() {
-    _reopen?.cancel();
-    _tick?.cancel();
-    super.dispose();
-  }
-
-  /// Re-read the status when the next claim opens (Home stays alive).
-  void _scheduleRefresh(DateTime? at) {
-    if (at == _scheduledFor) return;
-    _scheduledFor = at;
-    _reopen?.cancel();
-    if (at == null) return;
-    final wait = at.difference(DateTime.now());
-    _reopen = Timer(
-      wait.isNegative ? Duration.zero : wait + const Duration(seconds: 2),
-      () => ref.invalidate(dailyBonusStatusProvider),
-    );
-  }
-
-  /// Rebuild exactly when the countdown text changes.
-  void _scheduleTick(DateTime? at) {
-    _tick?.cancel();
-    if (at == null) return;
-    final left = at.difference(DateTime.now());
-    if (left.isNegative) return;
-    final next = left.inHours >= 1
-        ? Duration(milliseconds: left.inMilliseconds % 60000 + 1) // next minute boundary
-        : Duration(milliseconds: left.inMilliseconds % 1000 + 1); // next second
-    _tick = Timer(next, () {
-      if (mounted) setState(() {});
-    });
-  }
-
-  /// "5h 12m" (an hour or more), else "12m 05s".
-  static String _until(DateTime at) {
-    var d = at.difference(DateTime.now());
-    if (d.isNegative) d = Duration.zero;
-    final h = d.inHours, m = d.inMinutes % 60, sec = d.inSeconds % 60;
-    return h >= 1 ? '${h}h ${m}m' : '${m}m ${sec.toString().padLeft(2, '0')}s';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final status = ref.watch(dailyBonusStatusProvider);
-    final s = status.asData?.value;
-    if (s != null) _scheduleRefresh(s.canClaim ? null : s.nextClaimAt);
-    _scheduleTick(s == null || s.canClaim ? null : s.nextClaimAt);
-    final ready = s?.canClaim ?? false;
-    final next = s?.nextClaimAt;
-    final String sub;
-    if (s == null) {
-      sub = status.isLoading ? context.l10n.checking : context.l10n.openRewards;
-    } else if (ready) {
-      sub = context.l10n.dayReady(s.nextReward.dayNumber);
-    } else {
-      sub = next != null ? context.l10n.nextIn(_until(next)) : context.l10n.claimedToday;
-    }
-    return _RewardTile(
-      icon: Icons.calendar_today_rounded,
-      iconGradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-      ),
-      glowColor: AuraColors.brandPurple,
-      title: context.l10n.dailyBonus,
-      sub: sub,
-      chipColor: ready ? AuraColors.green : AuraColors.accentGlow,
-      dot: ready,
-      onTap: () => Navigator.pushNamed(context, Routes.dailyRewards),
-    );
-  }
-}
-
-/// Reward tile (Daily Bonus / Lucky Wheel). Matches the mockup exactly: glass
-/// box (r20) with a radial glow bleeding from the top-right corner, a solid
-/// gradient icon chip (46×46, r14) with a coloured glow, title, and a pill.
-class _RewardTile extends StatelessWidget {
-  const _RewardTile({
-    required this.icon,
-    required this.iconGradient,
-    required this.glowColor,
-    required this.title,
-    required this.sub,
-    required this.onTap,
-    this.chipColor,
-    this.dot = false,
-  });
-
-  /// Red "something to collect" dot on the icon chip.
-  final bool dot;
-
-  final IconData icon;
-
-  /// Diagonal (135°) gradient filling the icon chip.
-  final Gradient iconGradient;
-
-  /// Drives both the icon chip's glow shadow and the corner radial glow.
-  final Color glowColor;
-  final String title;
-  final String sub;
-  final VoidCallback onTap;
-
-  /// When set, the subtitle renders as a coloured pill chip (Daily/Wheel style).
-  final Color? chipColor;
-
-  /// Box min-height so the two tiles line up (mockup: 148).
-  static const double _minHeight = 148;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Padding(
-      padding: const EdgeInsets.all(15),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          // Solid gradient icon chip with a coloured drop glow.
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              gradient: iconGradient,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: glowColor.withValues(alpha: 0.6),
-                  blurRadius: 18,
-                  spreadRadius: -6,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Icon(icon, color: Colors.white, size: 24),
-                if (dot)
-                  Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: AuraColors.danger,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF15102A), width: 2),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          Text(title, style: AuraText.cardTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 6),
-          if (chipColor != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-              decoration: BoxDecoration(
-                color: chipColor!.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: Text(
-                sub,
-                style: TextStyle(color: chipColor, fontSize: 11, fontWeight: FontWeight.w600),
-              ),
-            )
-          else
-            Text(sub, style: AuraText.cardSub, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ],
-      ),
-    );
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          decoration: AuraGlass.decoration(radius: 20),
-          // Clip so the corner glow bleeds to the rounded edge (overflow: hidden).
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: -20,
-                  right: -20,
-                  child: Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [glowColor.withValues(alpha: 0.3), Colors.transparent],
-                        stops: const [0.0, 0.7],
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: double.infinity, height: _minHeight, child: content),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Single glass "Recent matches" row → game history (matches the mockup, which
-/// has one entry point here rather than an inline match list).
-class _RecentMatchesButton extends StatelessWidget {
-  const _RecentMatchesButton({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AuraCard(
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          const Icon(Icons.history_rounded, size: 20, color: AuraColors.textSecondary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              context.l10n.recentMatches,
-              style: AuraText.body.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
-          ),
-          Icon(Icons.chevron_right, size: 22, color: AuraColors.textPrimary.withValues(alpha: 0.4)),
-        ],
-      ),
-    );
-  }
-}
 
 class _TournamentsRow extends StatelessWidget {
   const _TournamentsRow({required this.onTap});
@@ -874,90 +572,6 @@ class _AdBanner extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text('House ad fallback · remove with VIP', style: AuraText.cardSub),
-        ],
-      ),
-    );
-  }
-}
-
-class _SeasonPassCard extends StatelessWidget {
-  const _SeasonPassCard({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // Layout mirrors the mockup: gradient wave-icon tile on the left, then a
-    // column with (title · Tier) → XP bar → (xp / rewards-to-claim).
-    return AuraCard(
-      onTap: onTap,
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          AuraColors.brandPurple.withValues(alpha: 0.26),
-          AuraColors.brandPink.withValues(alpha: 0.10),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: AuraGradients.brand,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-              boxShadow: [
-                BoxShadow(
-                  color: AuraColors.brandPink.withValues(alpha: 0.5),
-                  blurRadius: 18,
-                  spreadRadius: -6,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.waves_rounded, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Season 4 · Neon Tide',
-                        style: AuraText.cardTitle.copyWith(fontSize: 14.5),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Tier 12',
-                      style: TextStyle(color: AuraColors.accentGlow, fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const _ProgressBar(fraction: 0.72, height: 6),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text('720 / 1,000 XP', style: AuraText.cardSub.copyWith(fontSize: 11)),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      '3 rewards to claim',
-                      style: TextStyle(color: AuraColors.goldLight, fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

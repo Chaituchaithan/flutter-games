@@ -112,8 +112,8 @@ void main() {
     await tester.tapAt(sq(4, 3));
     await _pump(tester, 100);
     expect(find.text('You played e4'), findsOneWidget);
-    // Background search + Medium's 1.0–1.8s buffer: real time must pass.
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 2200)));
+    // Background search + Medium's opening think (≤ 3.1s): real time must pass.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 3600)));
     await _pump(tester, 400);
     expect(find.textContaining('Computer played'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());

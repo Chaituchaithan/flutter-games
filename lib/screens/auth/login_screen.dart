@@ -90,7 +90,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Only enter Home from this screen while it is still the one on top —
     // never push Home over a screen the player moved to meanwhile.
     if (ModalRoute.of(context)?.isCurrent == false) return;
-    Navigator.pushReplacementNamed(context, Routes.home);
+    // Fresh sign-in: Home offers today's daily bonus if it's unclaimed.
+    Navigator.pushReplacementNamed(context, Routes.home, arguments: {'dailyBonusPrompt': true});
   }
 
   void _signIn() {
@@ -121,7 +122,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return BusyGuard(
       busy: _busy,
       child: AuraScaffold(
-        appBar: const AuraAppBar(showBack: true),
+        // Login is the app's entry point (nothing under it), so no back
+        // button unless something was actually pushed beneath it.
+        appBar: AuraAppBar(showBack: Navigator.canPop(context)),
         glowColor: AuraColors.brandPurple,
         glowAlignment: const Alignment(1.4, -1.1),
         scroll: true,

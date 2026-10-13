@@ -67,7 +67,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       // Navigate only while Register is still the screen on top.
       if (mounted && ModalRoute.of(context)?.isCurrent != false) {
         showAuraToast(context, context.l10n.accountCreated, kind: AuraToastKind.success);
-        Navigator.pushReplacementNamed(context, Routes.login);
+        _toLogin();
       }
     } on AppException catch (e) {
       if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
@@ -82,6 +82,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   // (demo session) so the Apple/Google buttons land on Home. Swap for a real
   // OAuth sign-up when the backend supports it.
   void _oauthContinue() => Navigator.pushReplacementNamed(context, Routes.home);
+
+  /// Back to the Login screen underneath (Register is opened from it) —
+  /// never a second Login on top.
+  void _toLogin() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+    } else {
+      nav.pushReplacementNamed(Routes.login);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +196,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     WidgetSpan(
                       alignment: PlaceholderAlignment.middle,
                       child: GestureDetector(
-                        onTap: () => Navigator.pushReplacementNamed(context, Routes.login),
+                        onTap: _toLogin,
                         child: Text(
                           context.l10n.logInLink,
                           style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),

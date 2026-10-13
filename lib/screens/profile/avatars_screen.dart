@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
 /// Avatars picker — "Choose Avatar". See docs/DESIGN_SPEC.md.
@@ -12,7 +14,7 @@ class AvatarsScreen extends StatefulWidget {
 
 class _AvatarsScreenState extends State<AvatarsScreen> {
   static const _avatars = <(String, Color)>[
-    ('NR', AuraColors.brandPurple),
+    ('', AuraColors.brandPurple), // the player's own initials
     ('ZX', AuraColors.avatarBlue),
     ('KO', AuraColors.brandOrange),
     ('VY', AuraColors.avatarGreen),
@@ -26,7 +28,10 @@ class _AvatarsScreenState extends State<AvatarsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final (letter, color) = _avatars[_selected];
+    final me = ProviderScope.containerOf(context).read(currentUserProvider).initials;
+    String letterOf(int i) => i == 0 ? me : _avatars[i].$1;
+    final (_, color) = _avatars[_selected];
+    final letter = letterOf(_selected);
     return AuraScaffold(
       appBar: const AuraAppBar(title: 'Choose Avatar'),
       scroll: true,
@@ -54,7 +59,7 @@ class _AvatarsScreenState extends State<AvatarsScreen> {
                 children: [
                   for (var i = 0; i < _avatars.length; i++)
                     _AvatarTile(
-                      letter: _avatars[i].$1,
+                      letter: letterOf(i),
                       color: _avatars[i].$2,
                       size: tileWidth,
                       selected: i == _selected,

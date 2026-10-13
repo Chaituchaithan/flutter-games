@@ -23,7 +23,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _sound = true;
   bool _music = true;
   bool _notifications = true;
-  bool _haptics = false;
 
   Future<void> _confirmLogout() async {
     final ok = await showAuraDialog(
@@ -124,8 +123,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onChanged: (v) => setState(() => _notifications = v),
               ),
               const _RowDivider(),
-              _ToggleRow(label: context.l10n.haptics, value: _haptics, onChanged: (v) => setState(() => _haptics = v)),
-              const _RowDivider(),
               _NavRow(
                 label: context.l10n.languageTitle,
                 trailing: Row(
@@ -156,8 +153,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _NavRow(label: context.l10n.changePassword, onTap: () => Navigator.pushNamed(context, Routes.changePassword)),
                 const _RowDivider(),
               ],
-              _NavRow(label: context.l10n.changeAvatar, onTap: () => Navigator.pushNamed(context, Routes.avatars)),
-              const _RowDivider(),
               _NavRow(label: context.l10n.friendsAndBlocked, onTap: () => Navigator.pushNamed(context, Routes.friends)),
               const _RowDivider(),
               _NavRow(label: context.l10n.transactionsReceipts, onTap: () => Navigator.pushNamed(context, Routes.transactions)),
@@ -166,8 +161,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 label: context.l10n.inviteFriends,
                 onTap: () => Navigator.pushNamed(context, Routes.referral),
               ),
-              const _RowDivider(),
-              _NavRow(label: context.l10n.gameHistory, onTap: () => Navigator.pushNamed(context, Routes.gameHistory)),
             ],
           ),
           const SizedBox(height: 20),

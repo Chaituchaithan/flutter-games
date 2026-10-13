@@ -27,7 +27,7 @@ abstract final class ApiEndpoints {
   static const inbox = '/inbox';
 
   // Economy
-  static const wallet = '/wallet';
+  static const walletBalance = '/wallet/balance';
   static const dailyBonusStatus = '/sensitive/daily-bonus/status';
   static const dailyBonusClaim = '/sensitive/daily-bonus/claim';
   static const subscriptionPlans = '/sensitive/subscriptions/plans';

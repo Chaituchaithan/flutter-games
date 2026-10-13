@@ -3,12 +3,14 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:snakeladder/game/chess/chess_board_view.dart';
 import 'package:snakeladder/game/chess/chess_bot.dart';
 import 'package:snakeladder/game/chess/chess_clock.dart';
 import 'package:snakeladder/game/chess/chess_controller.dart';
 import 'package:snakeladder/game/chess/chess_engine.dart';
+import 'package:snakeladder/services/session.dart';
 import 'package:snakeladder/widgets/aura.dart';
 import 'package:snakeladder/screens/match/match_result_screen.dart';
 
@@ -91,9 +93,9 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
 
   bool get _isOver => _game.isOver || _flagged != null || _resigned;
 
-  /// Hand-over buffer: the 280ms piece slide + a ~0.3s beat before the next
-  /// mover's clock starts counting (both directions).
-  static const int _handoverMs = 600;
+  /// Hand-over buffer: the piece slide (up to ~0.76s) + a short beat before
+  /// the next mover's clock starts counting (both directions).
+  static const int _handoverMs = 900;
 
   /// Bumped to invalidate an in-flight bot search (pause, game over, dispose).
   int _botGen = 0;
@@ -111,14 +113,7 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     setState(() => _thinking = true);
     final gen = ++_botGen;
     final started = DateTime.now();
-    // Stronger levels "think" longer, like a real opponent:
-    // Easy 0.6–1.0s · Medium 1.0–1.8s · Hard 1.6–2.6s.
-    final (minMs, spreadMs) = switch (widget.depth) {
-      <= 1 => (600, 400),
-      2 => (1000, 800),
-      _ => (1600, 1000),
-    };
-    final thinkMs = minMs + _rng.nextInt(spreadMs);
+    final thinkMs = _thinkMs();
     compute(_searchBotMove, (_game.state, widget.depth)).then((m) {
       if (!mounted || gen != _botGen) return;
       final waitMs = thinkMs - DateTime.now().difference(started).inMilliseconds;
@@ -126,6 +121,27 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
       _botTimer?.cancel();
       _botTimer = Timer(Duration(milliseconds: waitMs.clamp(0, thinkMs)), () => _playBotMove(gen, m));
     });
+  }
+
+  /// How long the computer "thinks" before replying — paced like a person:
+  /// stronger levels take longer (Easy 2.2–3.5s · Medium 3–5.5s · Hard
+  /// 4–8s), opening moves come quicker (as if from memory), a forced reply
+  /// (one legal move) is near-instant, being in check adds a little, and it
+  /// never uses more than a third of its move clock.
+  int _thinkMs() {
+    final (minMs, spreadMs) = switch (widget.depth) {
+      <= 1 => (2200, 1300),
+      2 => (3000, 2500),
+      _ => (4000, 4000),
+    };
+    var ms = (minMs + _rng.nextInt(spreadMs)).toDouble();
+    final botMoves = _game.history.length ~/ 2;
+    if (botMoves < 3) ms *= 0.55; // opening: book-like moves
+    if (_game.status == GameStatus.check) ms *= 1.15;
+    if (_game.state.legalMoves().length == 1) ms = 700 + _rng.nextInt(500).toDouble();
+    final clock = _clock;
+    if (clock != null) ms = min(ms, clock.msFor(_botColor) / 3);
+    return ms.round();
   }
 
   void _playBotMove(int gen, Move? m) {
@@ -281,6 +297,8 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     // Fixed (non-scrolling) layout: the board takes the free middle space and
     // the action bar stays pinned to the bottom, so nothing moves while playing.
     return AuraScaffold(
+      // Slimmer side margins so the board can be as large as possible.
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -325,36 +343,32 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
           ),
           const SizedBox(height: 12),
           // Auto-flip so the player's side is always at the bottom.
-          // Board + bottom cards stay together (mockup); spare height
-          // collects above the pinned action bar.
           Expanded(
-            child: Column(
+            // The board, centred in the space between the top and bottom rows.
+            child: Center(
+              child: ChessBoardView(controller: _game, flipped: _playerColor == PieceColor.black, perspective: _perspective),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Turn clock + You card, just above the action bar.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Flexible(child: ChessBoardView(controller: _game, flipped: _playerColor == PieceColor.black, perspective: _perspective)),
-                const SizedBox(height: 12),
-                // Turn-clock panel + You card (mockup bottom corners: you bottom-right,
-                // diagonal to the opponent top-left).
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: BoardInfoPanel(label: 'Turn clock', value: _timerText, big: true, urgent: _timerUrgent)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: BoardPlayerCard(
-                          name: 'You',
-                          initials: 'NR',
-                          sub: '${_game.capturesBy(_playerColor)} captures',
-                          color: AuraColors.brandPurple,
-                          color2: AuraColors.brandPink,
-                          active: myTurn && gameLive,
-                          turnText: myTurn && gameLive
-                              ? (_clock == null ? 'Your move' : 'Your move · ${_secs(_clock!.msFor(_playerColor))}s')
-                              : null,
-                          progress: _timeLeft(_playerColor),
-                        ),
-                      ),
-                    ],
+                Expanded(child: BoardInfoPanel(label: 'Turn clock', value: _timerText, big: true, urgent: _timerUrgent)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: BoardPlayerCard(
+                    name: 'You',
+                    initials: ProviderScope.containerOf(context).read(currentUserProvider).initials,
+                    sub: '${_game.capturesBy(_playerColor)} captures',
+                    color: AuraColors.brandPurple,
+                    color2: AuraColors.brandPink,
+                    active: myTurn && gameLive,
+                    turnText: myTurn && gameLive
+                        ? (_clock == null ? 'Your move' : 'Your move · ${_secs(_clock!.msFor(_playerColor))}s')
+                        : null,
+                    progress: _timeLeft(_playerColor),
                   ),
                 ),
               ],

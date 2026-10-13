@@ -262,7 +262,7 @@ class GameYouCard extends StatelessWidget {
     super.key,
     required this.stat,
     this.name = 'You',
-    this.initials = 'NR',
+    required this.initials,
     this.hint = 'Your move · 30s',
   });
 
@@ -518,16 +518,20 @@ class BoardPlayerCard extends StatelessWidget {
     final third = turnText ?? (active ? '' : context.l10n.waiting);
     // Glow lives on an OPAQUE base layer: a Flutter BoxShadow is painted
     // under the box and would show through the translucent tint as an inner
-    // rectangle (CSS box-shadow never draws beneath its element).
+    // rectangle (CSS box-shadow never draws beneath its element). The base
+    // stays opaque in both states and the shadow only fades its colour, so
+    // the turn hand-over cross-fades with no flash of the inner rectangle.
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: active ? const Color(0xFF0E0B1A) : null,
-        boxShadow: active ? [BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 28, spreadRadius: -6)] : null,
+        color: const Color(0xFF0E0B1A),
+        boxShadow: [BoxShadow(color: color.withValues(alpha: active ? 0.55 : 0), blurRadius: 28, spreadRadius: -6)],
       ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
@@ -757,18 +761,25 @@ class BoardInfoPanel extends StatelessWidget {
               ),
             ),
             SizedBox(height: big ? 6 : 4),
-            Text(
-              value,
-              maxLines: big ? 1 : 2,
-              overflow: TextOverflow.ellipsis,
-              style: big
-                  ? TextStyle(
-                      fontFamily: AuraText.displayFamily,
-                      color: urgent ? AuraColors.danger : Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                    )
-                  : TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13.5, height: 1.3),
+            Stack(
+              children: [
+                // Always reserve the full 2 lines, so the panel (and the board
+                // laid out around it) never changes height as the text does.
+                if (!big) Visibility(visible: false, maintainSize: true, maintainAnimation: true, maintainState: true, child: Text('\n', maxLines: 2, style: _valueStyle)),
+                Text(
+                  value,
+                  maxLines: big ? 1 : 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: big
+                      ? TextStyle(
+                          fontFamily: AuraText.displayFamily,
+                          color: urgent ? AuraColors.danger : Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                        )
+                      : _valueStyle,
+                ),
+              ],
             ),
           ],
         ),
@@ -776,6 +787,8 @@ class BoardInfoPanel extends StatelessWidget {
     );
   }
 }
+
+final _valueStyle = TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13.5, height: 1.3);
 
 class _DashedPanelPainter extends CustomPainter {
   @override

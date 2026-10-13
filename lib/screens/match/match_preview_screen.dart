@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
+import '../../services/session.dart';
 import '../../widgets/aura.dart';
 
 /// Match preview — VS card + stake summary + "Create game". Standalone screen.
 /// Create game → Routes.matchmaking (VS → Chess board → result). See docs/DESIGN_SPEC.md.
-class MatchPreviewScreen extends StatelessWidget {
+class MatchPreviewScreen extends ConsumerWidget {
   const MatchPreviewScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AuraScaffold(
       appBar: const AuraAppBar(title: 'Match preview'),
       scroll: true,
@@ -30,8 +32,9 @@ class MatchPreviewScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const LetterAvatar(
-                      letter: 'NR',
+                    // The signed-in player.
+                    LetterAvatar(
+                      letter: ref.watch(currentUserProvider).initials,
                       color: AuraColors.brandPurple,
                       size: 56,
                       glow: true,

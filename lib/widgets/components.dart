@@ -168,11 +168,15 @@ enum Currency { gems, gold }
 
 /// The "10,000 +" / "3,000 +" pills seen in headers.
 class CurrencyPill extends StatelessWidget {
-  const CurrencyPill({super.key, required this.kind, required this.amount, this.showPlus = true});
+  const CurrencyPill({super.key, required this.kind, required this.amount, this.showPlus = true, this.matchWidthOf = const []});
 
   final Currency kind;
   final String amount;
   final bool showPlus;
+
+  /// Other amounts to size for: the pill is as wide as the longest of these
+  /// and [amount], so a Tokens/Gold pair renders at the same width.
+  final List<String> matchWidthOf;
 
   @override
   Widget build(BuildContext context) {
@@ -195,14 +199,20 @@ class CurrencyPill extends StatelessWidget {
         children: [
           CurrencyGlyph(kind: kind, size: 15),
           const SizedBox(width: 6),
-          Text(
-            amount,
-            style: TextStyle(
-              fontFamily: AuraText.displayFamily,
-              color: Colors.white,
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-            ),
+          Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              // Invisible copies reserve the widest amount's width.
+              for (final other in matchWidthOf)
+                Visibility(
+                  visible: false,
+                  maintainSize: true,
+                  maintainAnimation: true,
+                  maintainState: true,
+                  child: Text(other, style: _amountStyle),
+                ),
+              Text(amount, style: _amountStyle),
+            ],
           ),
           if (showPlus) ...[
             const SizedBox(width: 6),
@@ -219,7 +229,15 @@ class CurrencyPill extends StatelessWidget {
   }
 }
 
-/// A drawn currency glyph: a cyan diamond (gems/tokens) or a layered gold coin.
+final _amountStyle = TextStyle(
+  fontFamily: AuraText.displayFamily,
+  color: Colors.white,
+  fontSize: 13.5,
+  fontWeight: FontWeight.w700,
+);
+
+/// A drawn currency glyph: the Aura-ring token (brand gradient ring with a
+/// glowing pink core — matches the app logo) or a layered gold coin.
 class CurrencyGlyph extends StatelessWidget {
   const CurrencyGlyph({super.key, required this.kind, this.size = 16});
   final Currency kind;
@@ -243,16 +261,29 @@ class _CurrencyPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     if (kind == Currency.gems) {
-      // Diamond path echoing the mockup's M6 3 H18 l4 6 L12 21 gem.
-      final w = size.width, h = size.height;
-      final p = Path()
-        ..moveTo(w * 0.25, h * 0.12)
-        ..lineTo(w * 0.75, h * 0.12)
-        ..lineTo(w * 0.95, h * 0.40)
-        ..lineTo(w * 0.5, h * 0.92)
-        ..lineTo(w * 0.05, h * 0.40)
-        ..close();
-      canvas.drawPath(p, Paint()..shader = AuraGradients.token.createShader(rect));
+      // Token: the Aura ring — a violet → pink → orange sweep ring, a dark
+      // core, and a glowing pink dot (design #10, as the app logo).
+      final c = rect.center;
+      final r = size.width / 2;
+      canvas.drawCircle(
+        c,
+        r * 0.86,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = r * 0.24
+          ..shader = const SweepGradient(
+            colors: [AuraColors.brandPurple, AuraColors.brandPink, AuraColors.brandOrange, AuraColors.brandPurple],
+          ).createShader(rect),
+      );
+      canvas.drawCircle(c, r * 0.62, Paint()..color = const Color(0xFF0A0812));
+      canvas.drawCircle(
+        c,
+        r * 0.3,
+        Paint()
+          ..color = AuraColors.brandPink.withValues(alpha: 0.55)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.12),
+      );
+      canvas.drawCircle(c, r * 0.2, Paint()..color = AuraColors.brandPink);
     } else {
       final c = rect.center;
       canvas.drawCircle(c, size.width * 0.5, Paint()..color = const Color(0xFFB45309));

@@ -9,7 +9,7 @@ class GameBoardFrame extends StatelessWidget {
   final Widget child;
 
   /// Bezel thickness around the playing surface.
-  static const double padding = 11;
+  static const double padding = 8; // same bezel as the chess board
 
   @override
   Widget build(BuildContext context) {

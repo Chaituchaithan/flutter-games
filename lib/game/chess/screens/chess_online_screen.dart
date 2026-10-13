@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:snakeladder/configs/configs.dart';
+import 'package:snakeladder/data/repositories/store_repository.dart';
 import 'package:snakeladder/app/routes.dart';
 import 'package:snakeladder/game/chess/chess_board_view.dart';
 import 'package:snakeladder/game/chess/chess_controller.dart';
@@ -12,6 +13,7 @@ import 'package:snakeladder/services/socket/app_socket.dart';
 import 'package:snakeladder/game/chess/chess_session.dart';
 import 'package:snakeladder/services/socket/socket_client.dart';
 import 'package:snakeladder/services/token_store.dart';
+import 'package:snakeladder/services/session.dart';
 import 'package:snakeladder/widgets/aura.dart';
 import 'package:snakeladder/screens/match/match_result_screen.dart';
 import 'package:snakeladder/screens/match/matchmaking_screen.dart';
@@ -186,9 +188,16 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
     }
   }
 
+  /// Last payout seen, so a late `game.wallet_update` still refreshes the balance.
+  int? _seenPayout;
+
   void _onSession() {
     final s = _session;
     if (s == null) return;
+    if (s.payout != _seenPayout) {
+      _seenPayout = s.payout;
+      ref.invalidate(walletProvider);
+    }
     // Auto-ready once we're in a room (server starts when both ready).
     if (s.phase == ChessPhase.inRoom && !_readied) {
       _readied = true;
@@ -331,6 +340,9 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
   void _showResult() {
     final s = _session;
     if (!mounted || s == null) return;
+    // Stake / payout and XP settled server-side: refresh balance + profile.
+    ref.invalidate(walletProvider);
+    ref.read(sessionProvider.notifier).reloadProfile();
     final myColor = s.myColor ?? PieceColor.white;
     final mine = myColor == PieceColor.white ? 'white' : 'black';
     final status = s.game.status;
@@ -424,6 +436,8 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
       // In-game uses the mockup board header (inside the body); other phases
       // keep the standard app bar.
       appBar: inGame ? null : const AuraAppBar(title: 'Online Chess'),
+      // In game: slimmer side margins so the board can be as large as possible.
+      padding: EdgeInsets.symmetric(horizontal: inGame ? 12 : 20),
       // The live board is a fixed layout (board fills the middle, actions
       // pinned to the bottom); the lobby/error phases scroll.
       scroll: !(inGame || phase == ChessPhase.completed),
@@ -570,47 +584,41 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        // Board + bottom cards stay together (mockup); spare height
-        // collects above the pinned action bar.
         Expanded(
-          child: Column(
+          // The board, centred in the space between the top and bottom rows.
+          child: Center(
+            child: ChessBoardView(
+              controller: s.game,
+              flipped: myColor == PieceColor.black,
+              perspective: _perspective,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Turn clock + You card, just above the action bar.
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Flexible(
-                child: ChessBoardView(
-                  controller: s.game,
-                  flipped: myColor == PieceColor.black,
-                  perspective: _perspective,
+              Expanded(
+                child: BoardInfoPanel(
+                  label: 'Turn clock',
+                  value: _mmss(activeMs),
+                  big: true,
+                  urgent: gameLive && activeMs <= 10000,
                 ),
               ),
-              const SizedBox(height: 12),
-              // Turn-clock panel + You card (mockup: you bottom-right, diagonal to
-              // the opponent top-left).
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: BoardInfoPanel(
-                        label: 'Turn clock',
-                        value: _mmss(activeMs),
-                        big: true,
-                        urgent: gameLive && activeMs <= 10000,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: BoardPlayerCard(
-                        name: 'You',
-                        initials: 'NR',
-                        sub: '${s.game.capturesBy(myColor)} captures',
-                        color: AuraColors.brandPurple,
-                        color2: AuraColors.brandPink,
-                        active: myTurn && gameLive,
-                        turnText: myTurn && gameLive ? 'Your move · ${(activeMs / 1000).ceil()}s' : null,
-                        progress: timeLeft(myColor),
-                      ),
-                    ),
-                  ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: BoardPlayerCard(
+                  name: 'You',
+                  initials: ref.watch(currentUserProvider).initials,
+                  sub: '${s.game.capturesBy(myColor)} captures',
+                  color: AuraColors.brandPurple,
+                  color2: AuraColors.brandPink,
+                  active: myTurn && gameLive,
+                  turnText: myTurn && gameLive ? 'Your move · ${(activeMs / 1000).ceil()}s' : null,
+                  progress: timeLeft(myColor),
                 ),
               ),
             ],
@@ -618,16 +626,21 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
         ),
         const SizedBox(height: 14),
         if (drawFromOpponent)
-          Row(
-            children: [
-              Expanded(
-                child: GradientButton(label: 'Accept draw', onPressed: () => s.acceptDraw()),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SecondaryButton(label: 'Decline', onPressed: () => s.declineDraw()),
-              ),
-            ],
+          // Same height as the action bar it replaces: the board doesn't move.
+          SizedBox(
+            height: 54,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: GradientButton(label: 'Accept draw', onPressed: () => s.acceptDraw()),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SecondaryButton(label: 'Decline', onPressed: () => s.declineDraw()),
+                ),
+              ],
+            ),
           )
         else
           // Pinned action bar: chat · status · offer draw · forfeit.
@@ -881,6 +894,8 @@ class _OfflineBoardState extends State<_OfflineBoard> {
         : (white ? 'White to move' : 'Black to move');
     // Fixed layout: board fills the middle, the action bar stays at the bottom.
     return AuraScaffold(
+      // Slimmer side margins so the board can be as large as possible.
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -920,41 +935,37 @@ class _OfflineBoardState extends State<_OfflineBoard> {
             ),
           ),
           const SizedBox(height: 12),
-          // Board + bottom cards stay together (mockup); spare height
-          // collects above the pinned action bar.
           Expanded(
-            child: Column(
+            // The board, centred in the space between the top and bottom rows.
+            child: Center(
+              child: ChessBoardView(controller: g, perspective: _perspective),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Turn clock + You card, just above the action bar.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Flexible(
-                  child: ChessBoardView(controller: g, perspective: _perspective),
+                Expanded(
+                  child: BoardInfoPanel(
+                    label: 'Turn clock',
+                    value: _mmss(activeMs),
+                    big: true,
+                    urgent: live && activeMs <= 10000,
+                  ),
                 ),
-                const SizedBox(height: 12),
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: BoardInfoPanel(
-                          label: 'Turn clock',
-                          value: _mmss(activeMs),
-                          big: true,
-                          urgent: live && activeMs <= 10000,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: BoardPlayerCard(
-                          name: 'White',
-                          initials: 'WH',
-                          sub: '${g.capturesBy(PieceColor.white)} captures',
-                          color: AuraColors.brandPurple,
-                          color2: AuraColors.brandPink,
-                          active: white && live,
-                          turnText: white && live ? 'Your move · ${_mmssSecs(_whiteMs)}s' : null,
-                          progress: _whiteMs / _initialClockMs,
-                        ),
-                      ),
-                    ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: BoardPlayerCard(
+                    name: 'White',
+                    initials: 'WH',
+                    sub: '${g.capturesBy(PieceColor.white)} captures',
+                    color: AuraColors.brandPurple,
+                    color2: AuraColors.brandPink,
+                    active: white && live,
+                    turnText: white && live ? 'Your move · ${_mmssSecs(_whiteMs)}s' : null,
+                    progress: _whiteMs / _initialClockMs,
                   ),
                 ),
               ],

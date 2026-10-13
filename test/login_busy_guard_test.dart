@@ -34,6 +34,10 @@ class _MemTokens implements TokenStore {
   @override
   Future<void> save({required String access, String? refresh}) async {}
   @override
+  Future<String?> readProfile() async => null;
+  @override
+  Future<void> saveProfile(String json) async {}
+  @override
   Future<void> clear() async {}
 }
 

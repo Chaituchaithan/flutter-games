@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/store_repository.dart';
+import '../../services/session.dart';
 import '../../widgets/aura.dart';
 import '../../app/game_area.dart';
 import '../../app/game_module.dart';
@@ -61,14 +62,8 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
 
   String get _currency => _isTokens ? 'Tokens' : 'Gold';
 
-  /// Wallet balance for a currency, read from the shared wallet (falls back to
-  /// the demo balances while it loads).
-  int _walletBalance(bool tokens) {
-    final s = ref
-        .read(walletProvider)
-        .maybeWhen(data: (w) => tokens ? w.gems : w.gold, orElse: () => tokens ? '5,000' : '2,000');
-    return int.tryParse(s.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-  }
+  /// Wallet balance for a currency, from the shared wallet (0 until it loads).
+  int _walletBalance(bool tokens) => walletBalance(ref, tokens ? Currency.gems : Currency.gold) ?? 0;
 
   /// Buy-in balance for the chosen currency.
   int get _balance => _walletBalance(_isTokens);
@@ -442,7 +437,8 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const LetterAvatar(letter: 'NR', color: AuraColors.brandPurple, size: 56, glow: true),
+                  // The signed-in player.
+                  LetterAvatar(letter: ref.watch(currentUserProvider).initials, color: AuraColors.brandPurple, size: 56, glow: true),
                   const SizedBox(width: 20),
                   Text(
                     'VS',
