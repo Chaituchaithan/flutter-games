@@ -65,11 +65,12 @@ mixin LocalGameFlow<T extends StatefulWidget> on State<T> {
   }
 
   /// Game over: after a beat (let the last move land) show the result once.
-  void endGame({bool immediate = false}) {
+  /// [delay] overrides the beat (e.g. a longer win celebration).
+  void endGame({bool immediate = false, Duration? delay}) {
     if (_resultShown) return;
     _resultShown = true;
     botTimer?.cancel();
-    _resultTimer = Timer(Duration(milliseconds: immediate ? 0 : 1100), () {
+    _resultTimer = Timer(immediate ? Duration.zero : (delay ?? const Duration(milliseconds: 1100)), () {
       if (mounted) showResult();
     });
   }

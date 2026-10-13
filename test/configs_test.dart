@@ -8,6 +8,7 @@ import 'package:snakeladder/game/ludo/ludo_module.dart';
 import 'package:snakeladder/game/snakes/snakes_module.dart';
 import 'package:snakeladder/configs/configs.dart';
 import 'package:snakeladder/screens/home/home_screen.dart';
+import 'package:snakeladder/main.dart' show allGamesApp;
 
 void main() {
   group('ServerConfig', () {
@@ -64,12 +65,19 @@ void main() {
         GameId.checkers,
         GameId.crash,
         GameId.bingo,
+        GameId.roulette,
+        GameId.poker,
+        GameId.racing,
+        GameId.rummy,
       ]);
       expect(chessConfig.playersLabel, '2P');
       expect(ludoConfig.playersLabel, '2–4P');
     });
 
-    test('defaults to chess; switching to a game without a game area is ignored', () {
+    test('defaults to chess; switching to a game not in this app is ignored', () {
+      // An app with only Chess and Ludo.
+      GameRegistry.setAppGames([GameId.chess, GameId.ludo]);
+      addTearDown(() => GameRegistry.setAppGames([for (final m in allGamesApp.modules) m.id]));
       final c = ProviderContainer();
       addTearDown(c.dispose);
       expect(c.read(activeGameProvider), GameId.chess);

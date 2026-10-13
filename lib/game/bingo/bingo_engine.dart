@@ -48,6 +48,20 @@ List<List<int>> patternGroups(BingoPattern p) => switch (p) {
 int cellsNeeded(Set<int> marked, BingoPattern p) =>
     patternGroups(p).map((g) => g.where((i) => !marked.contains(i)).length).reduce(math.min);
 
+/// The completed group for [p] (the winning cells), or null.
+List<int>? winningGroup(Set<int> marked, BingoPattern p) {
+  for (final g in patternGroups(p)) {
+    if (g.every(marked.contains)) return g;
+  }
+  return null;
+}
+
+/// Cells that would each complete a group on their own ("1 to go").
+Set<int> oneToGo(Set<int> marked, BingoPattern p) => {
+  for (final g in patternGroups(p))
+    if (g.where((i) => !marked.contains(i)).length == 1) g.firstWhere((i) => !marked.contains(i)),
+};
+
 /// One seat: the card and what's daubed (the FREE centre always is).
 class BingoSeat {
   BingoSeat(this.card) : marked = {BingoCard.free};

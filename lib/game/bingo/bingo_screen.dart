@@ -152,6 +152,16 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
   late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
     ..repeat();
 
+  /// Tumbling balls in the blower.
+  late final AnimationController _tumble = AnimationController(vsync: this, duration: const Duration(seconds: 6))
+    ..repeat();
+
+  /// The win celebration (winning cells light up in turn + confetti).
+  late final AnimationController _party = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
+
+  /// Your completed group when you win (lit cell by cell).
+  List<int>? _winGroup;
+
   Timer? _caller;
   final List<Timer> _botTimers = [];
   bool _autoDaub = false;
@@ -169,6 +179,8 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
     disposeFlow();
     _callRing.dispose();
     _pulse.dispose();
+    _tumble.dispose();
+    _party.dispose();
     _game.removeListener(_onChange);
     _game.dispose();
     super.dispose();
@@ -258,6 +270,17 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
 
   void _finish() {
     _stopTimers();
+    _tumble.stop();
+    final w = _game.winner;
+    if (!resigned && w != null) {
+      // Celebrate first: your winning cells light up with confetti, or the
+      // computer's BINGO! banner shows — then the result screen.
+      if (w == 0) _winGroup = winningGroup(_game.seats[0].marked, _game.pattern);
+      _party.forward(from: 0);
+      setState(() {});
+      endGame(delay: Duration(milliseconds: w == 0 ? 2800 : 2200));
+      return;
+    }
     endGame(immediate: resigned);
   }
 
@@ -265,10 +288,17 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
   void pauseGame() {
     super.pauseGame();
     _stopTimers();
+    _tumble.stop();
   }
 
   @override
   String get pauseSubtitle => context.l10n.ballOf(_game.called.length);
+
+  @override
+  void resumeGame() {
+    _tumble.repeat();
+    super.resumeGame();
+  }
 
   @override
   void onResumeGame() {
@@ -332,10 +362,13 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
     final l = context.l10n;
     final me = _game.seats[0];
     final ready = me.needed(_game.pattern) == 0 && !_isOver;
+    final w = _game.winner;
     return AuraScaffold(
       // Slimmer side margins so the board can be as large as possible.
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      body: Column(
+      body: Stack(
+        children: [
+          Positioned.fill(child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           LocalGameHeader(
@@ -367,13 +400,29 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
             ),
           ),
           const SizedBox(height: 12),
-          _Caller(game: _game, ring: _callRing),
+          _Caller(
+            game: _game,
+            ring: _callRing,
+            tumble: _tumble,
+            phrases: Localizations.localeOf(context).languageCode == 'en',
+            onTap: () => _showCalledBoard(context, _game.called.toSet()),
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: Center(
               child: AspectRatio(
                 aspectRatio: 0.91, // 5×5 square cells + the B-I-N-G-O header
-                child: _CardView(seat: me, called: _game.called.toSet(), onTap: _tapCell),
+                child: _CardView(
+                  seat: me,
+                  called: _game.called.toSet(),
+                  onTap: _tapCell,
+                  pulse: _pulse,
+                  party: _party,
+                  // Hint called-but-unmarked numbers only when daubing by hand.
+                  hintCalled: !_autoDaub && !_isOver,
+                  nearWin: _isOver ? const {} : oneToGo(me.marked, _game.pattern),
+                  winGroup: _winGroup,
+                ),
               ),
             ),
           ),
@@ -408,77 +457,314 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
           ),
           const SizedBox(height: 10),
         ],
+      )),
+          // Win moment: confetti (you) or the computer's BINGO! banner.
+          if (w != null && !resigned)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _party,
+                  builder: (_, _) => CustomPaint(
+                    painter: w == 0 ? _ConfettiPainter(_party.value) : null,
+                    child: Center(
+                      child: _BingoShout(
+                        t: _party.value,
+                        text: w == 0 ? l.bingoButton : l.botCalledBingo(_name(w)),
+                        color: w == 0 ? AuraColors.brandPink : _colColors[(w + 1) % 5],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-/// The caller: the current ball (drops in), a ring counting to the next
-/// call, and the last balls called.
+/// Every number 1–75 by column, the called ones lit (tap on the caller).
+void _showCalledBoard(BuildContext context, Set<int> called) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: const Color(0xFF120E22),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${context.l10n.calledNumbers} · ${called.length}/75',
+              style: AuraText.cardTitle.copyWith(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            for (var c = 0; c < 5; c++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: _colColors[c], borderRadius: BorderRadius.circular(7)),
+                      child: Text(
+                        'BINGO'[c],
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 3,
+                        runSpacing: 3,
+                        children: [
+                          for (var n = c * 15 + 1; n <= c * 15 + 15; n++)
+                            Container(
+                              width: 19,
+                              height: 19,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: called.contains(n) ? _colColors[c] : Colors.white.withValues(alpha: 0.06),
+                                boxShadow: called.contains(n)
+                                    ? [BoxShadow(color: _colColors[c].withValues(alpha: 0.5), blurRadius: 6)]
+                                    : null,
+                              ),
+                              child: Text(
+                                '$n',
+                                style: TextStyle(
+                                  color: called.contains(n) ? Colors.white : Colors.white38,
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Classic bingo calls for a few numbers (English only).
+const _calls = {
+  1: "Kelly's eye",
+  7: 'Lucky seven',
+  11: 'Legs eleven',
+  13: 'Unlucky for some',
+  21: 'Key of the door',
+  22: 'Two little ducks',
+  45: 'Halfway there',
+  50: 'Half a century',
+  66: 'Clickety click',
+  75: 'The last one',
+};
+
+/// The caller: the ball blower (tumbling balls), the drawn ball beside it
+/// with a ring counting to the next call, the call line, and the last balls.
+/// Tap for the full called-numbers board.
 class _Caller extends StatelessWidget {
-  const _Caller({required this.game, required this.ring});
+  const _Caller({
+    required this.game,
+    required this.ring,
+    required this.tumble,
+    required this.phrases,
+    required this.onTap,
+  });
   final BingoGame game;
   final Animation<double> ring;
+  final Animation<double> tumble;
+  final bool phrases;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final recent = game.called.reversed.skip(1).take(5).toList();
+    final recent = game.called.reversed.skip(1).take(4).toList();
     final current = game.current;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: AuraGlass.decoration(radius: 20, shadow: false),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 92,
-            height: 92,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                AnimatedBuilder(
-                  animation: ring,
-                  builder: (_, _) => CircularProgressIndicator(
-                    value: 1 - ring.value,
-                    strokeWidth: 4,
-                    color: AuraColors.accentGlow,
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
-                  ),
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 450),
-                  transitionBuilder: (child, a) => ScaleTransition(
-                    scale: CurvedAnimation(parent: a, curve: Curves.elasticOut),
-                    child: RotationTransition(turns: Tween(begin: -0.25, end: 0.0).animate(a), child: child),
-                  ),
-                  child: current == null
-                      ? const SizedBox(key: ValueKey(0), width: 74, height: 74)
-                      : BingoBall(key: ValueKey(current), number: current, size: 74),
-                ),
-              ],
+    final call = current == null ? null : '${bingoLetter(current)}-$current';
+    final phrase = current != null && phrases ? _calls[current] : null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: AuraGlass.decoration(radius: 20, shadow: false),
+        child: Row(
+          children: [
+            // The blower.
+            SizedBox(
+              width: 70,
+              height: 78,
+              child: AnimatedBuilder(
+                animation: tumble,
+                builder: (_, _) => CustomPaint(painter: _BlowerPainter(tumble.value, game.called.length)),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(context.l10n.ballOf(game.called.length), style: AuraText.cardTitle.copyWith(fontSize: 15)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    for (final n in recent) ...[
-                      Opacity(opacity: 0.85, child: BingoBall(number: n, size: 34)),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 84,
+              height: 84,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  AnimatedBuilder(
+                    animation: ring,
+                    builder: (_, _) => SizedBox.expand(
+                      child: CircularProgressIndicator(
+                        value: 1 - ring.value,
+                        strokeWidth: 4,
+                        color: AuraColors.accentGlow,
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                  ),
+                  // The drawn ball rolls in from the blower (left).
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 650),
+                    transitionBuilder: (child, a) {
+                      // The previous ball just fades; only the new one rolls in.
+                      if (child.key != ValueKey(current)) return FadeTransition(opacity: a, child: child);
+                      final c = CurvedAnimation(parent: a, curve: Curves.easeOutBack);
+                      return SlideTransition(
+                        position: Tween(begin: const Offset(-1.1, -0.2), end: Offset.zero).animate(c),
+                        child: RotationTransition(
+                          turns: Tween(begin: -0.6, end: 0.0).animate(c),
+                          child: ScaleTransition(scale: Tween(begin: 0.5, end: 1.0).animate(c), child: child),
+                        ),
+                      );
+                    },
+                    child: current == null
+                        ? const SizedBox(key: ValueKey(0), width: 68, height: 68)
+                        : BingoBall(key: ValueKey(current), number: current, size: 68),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          call ?? context.l10n.ballOf(game.called.length),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AuraText.cardTitle.copyWith(fontSize: 17),
+                        ),
+                      ),
                       const SizedBox(width: 6),
+                      Text(context.l10n.ballOf(game.called.length), style: AuraText.caption),
                     ],
-                  ],
-                ),
-              ],
+                  ),
+                  SizedBox(
+                    height: 16,
+                    child: Text(
+                      phrase ?? context.l10n.tapForBoard,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: phrase != null ? AuraColors.amber : Colors.white38,
+                        fontSize: 11.5,
+                        fontStyle: phrase != null ? FontStyle.italic : FontStyle.normal,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      for (var i = 0; i < recent.length; i++) ...[
+                        Opacity(opacity: 1 - i * 0.15, child: BingoBall(number: recent[i], size: 28)),
+                        const SizedBox(width: 5),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
+
+/// A glass blower dome with balls tumbling in the air jet; it empties a
+/// little as balls are called.
+class _BlowerPainter extends CustomPainter {
+  _BlowerPainter(this.t, this.calledCount);
+  final double t;
+  final int calledCount;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.width / 2 + 2);
+    final r = size.width / 2 - 2;
+    // Stand.
+    final stand = Path()
+      ..moveTo(c.dx - r * 0.45, c.dy + r * 0.85)
+      ..lineTo(c.dx + r * 0.45, c.dy + r * 0.85)
+      ..lineTo(c.dx + r * 0.6, size.height)
+      ..lineTo(c.dx - r * 0.6, size.height)
+      ..close();
+    canvas.drawPath(
+      stand,
+      Paint()..shader = const LinearGradient(colors: [Color(0xFFB45309), Color(0xFFFDE68A), Color(0xFF92400E)]).createShader(stand.getBounds()),
+    );
+    // Dome glass.
+    canvas.drawCircle(c, r, Paint()..color = const Color(0xFF22D3EE).withValues(alpha: 0.06));
+    canvas.save();
+    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: c, radius: r - 1.5)));
+    final balls = math.max(6, 16 - calledCount ~/ 6);
+    for (var i = 0; i < balls; i++) {
+      final speed = 1 + (i % 4) * 0.35;
+      final a = t * 2 * math.pi * speed + i * 2.399;
+      final orbit = r * (0.25 + 0.55 * ((i * 0.618) % 1));
+      // The jet lifts balls from the bottom: bias upward with a bounce.
+      final bounce = math.sin(t * 2 * math.pi * (2 + i % 3) + i) * r * 0.18;
+      final p = c + Offset(math.cos(a) * orbit, math.sin(a) * orbit * 0.8 + bounce);
+      final col = _colColors[i % 5];
+      canvas.drawCircle(p, r * 0.16, Paint()..color = col);
+      canvas.drawCircle(p - Offset(r * 0.05, r * 0.05), r * 0.06, Paint()..color = Colors.white.withValues(alpha: 0.7));
+    }
+    canvas.restore();
+    // Rim + glass highlight.
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = Colors.white.withValues(alpha: 0.35),
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: r - 5),
+      math.pi * 1.1,
+      math.pi * 0.45,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: 0.4),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BlowerPainter old) => old.t != t || old.calledCount != calledCount;
 }
 
 /// A glossy bingo ball: column colour with a white face showing the letter
@@ -533,12 +819,28 @@ class BingoBall extends StatelessWidget {
   }
 }
 
-/// Your card: B I N G O header and the 5×5 numbers; daubs stamp on.
+/// Your card: B I N G O header and the 5×5 numbers. Daubs stamp on with an
+/// ink splash; called-but-unmarked numbers glow (hand daubing), "1 to go"
+/// cells shine amber, and your winning cells light up in turn.
 class _CardView extends StatelessWidget {
-  const _CardView({required this.seat, required this.called, required this.onTap});
+  const _CardView({
+    required this.seat,
+    required this.called,
+    required this.onTap,
+    required this.pulse,
+    required this.party,
+    required this.hintCalled,
+    required this.nearWin,
+    this.winGroup,
+  });
   final BingoSeat seat;
   final Set<int> called;
   final ValueChanged<int> onTap;
+  final Animation<double> pulse;
+  final Animation<double> party;
+  final bool hintCalled;
+  final Set<int> nearWin;
+  final List<int>? winGroup;
 
   @override
   Widget build(BuildContext context) {
@@ -563,7 +865,15 @@ class _CardView extends StatelessWidget {
                   child: Container(
                     margin: const EdgeInsets.all(3),
                     padding: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(color: _colColors[c], borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color.lerp(_colColors[c], Colors.white, 0.18)!, _colColors[c]],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [BoxShadow(color: _colColors[c].withValues(alpha: 0.45), blurRadius: 10, spreadRadius: -2)],
+                    ),
                     child: Text(
                       'BINGO'[c],
                       textAlign: TextAlign.center,
@@ -572,6 +882,7 @@ class _CardView extends StatelessWidget {
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
+                        shadows: const [Shadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 1))],
                       ),
                     ),
                   ),
@@ -579,45 +890,98 @@ class _CardView extends StatelessWidget {
             ],
           ),
           Expanded(
-            child: GridView.count(
-              crossAxisCount: 5,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              children: [
-                for (var i = 0; i < 25; i++)
-                  GestureDetector(
-                    onTap: () => onTap(i),
-                    child: _Cell(number: seat.card.cells[i], daubed: seat.marked.contains(i)),
-                  ),
-              ],
+            child: AnimatedBuilder(
+              animation: Listenable.merge([pulse, party]),
+              builder: (_, _) => GridView.count(
+                crossAxisCount: 5,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                children: [
+                  for (var i = 0; i < 25; i++)
+                    GestureDetector(
+                      onTap: () => onTap(i),
+                      child: _Cell(
+                        number: seat.card.cells[i],
+                        color: _colColors[i % 5],
+                        daubed: seat.marked.contains(i),
+                        callable: hintCalled && !seat.marked.contains(i) && called.contains(seat.card.cells[i]),
+                        near: nearWin.contains(i),
+                        pulse: math.sin(pulse.value * 2 * math.pi) * 0.5 + 0.5,
+                        win: _winLight(i),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  /// 0 → 1 as this winning cell lights up (one after another); 0 otherwise.
+  double _winLight(int i) {
+    final g = winGroup;
+    if (g == null) return 0;
+    final k = g.indexOf(i);
+    if (k < 0) return 0;
+    final start = k * 0.08;
+    return ((party.value - start) / 0.12).clamp(0.0, 1.0);
+  }
 }
 
 class _Cell extends StatelessWidget {
-  const _Cell({required this.number, required this.daubed});
+  const _Cell({
+    required this.number,
+    required this.color,
+    required this.daubed,
+    required this.callable,
+    required this.near,
+    required this.pulse,
+    required this.win,
+  });
   final int number;
+  final Color color;
   final bool daubed;
+
+  /// Called but not marked yet (hand daubing hint).
+  final bool callable;
+
+  /// Marking this cell would complete a pattern.
+  final bool near;
+  final double pulse;
+
+  /// Winning-cell light (0..1).
+  final double win;
 
   @override
   Widget build(BuildContext context) {
     final free = number == 0;
+    final glow = win > 0
+        ? AuraColors.amber
+        : near
+        ? AuraColors.amber
+        : callable
+        ? color
+        : null;
+    final glowA = win > 0 ? 0.9 * win : (near ? 0.35 + 0.35 * pulse : (callable ? 0.25 + 0.4 * pulse : 0.0));
     return Container(
       margin: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFDFBFF), Color(0xFFE3DDF2)],
+          colors: win > 0
+              ? [Color.lerp(const Color(0xFFFDFBFF), const Color(0xFFFDE68A), win)!, Color.lerp(const Color(0xFFE3DDF2), AuraColors.amber, win)!]
+              : const [Color(0xFFFDFBFF), Color(0xFFE3DDF2)],
         ),
+        border: glow == null ? null : Border.all(color: glow.withValues(alpha: glowA), width: 2),
+        boxShadow: glow == null ? null : [BoxShadow(color: glow.withValues(alpha: glowA * 0.8), blurRadius: 10)],
       ),
       child: Stack(
         alignment: Alignment.center,
+        clipBehavior: Clip.none,
         children: [
           Text(
             free ? '★' : '$number',
@@ -628,24 +992,17 @@ class _Cell extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          // The daub stamp pops on.
-          AnimatedScale(
-            scale: daubed ? 1 : 0,
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutBack,
-            child: Container(
-              margin: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AuraColors.brandPink.withValues(alpha: 0.75),
-                    AuraColors.brandPurple.withValues(alpha: 0.75),
-                  ],
-                ),
+          // The daub: an ink splash ring, then the stamp.
+          if (daubed)
+            TweenAnimationBuilder<double>(
+              key: const ValueKey('daub'),
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 520),
+              builder: (_, t, _) => CustomPaint(
+                size: Size.infinite,
+                painter: _DaubPainter(t, free ? AuraColors.brandPink : color),
               ),
             ),
-          ),
           if (daubed)
             Text(
               free ? '★' : '$number',
@@ -654,9 +1011,143 @@ class _Cell extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
+                shadows: const [Shadow(color: Colors.black38, blurRadius: 3)],
+              ),
+            ),
+          if (near && !daubed)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                decoration: BoxDecoration(color: AuraColors.amber, borderRadius: BorderRadius.circular(5)),
+                child: Text(
+                  context.l10n.oneToGoTag,
+                  style: const TextStyle(color: Color(0xFF1F1A2E), fontSize: 6.5, fontWeight: FontWeight.w900),
+                ),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Ink-stamp daub: a splash ring bursts out, the round stamp lands with a
+/// slight overshoot and a few droplets.
+class _DaubPainter extends CustomPainter {
+  _DaubPainter(this.t, this.color);
+  final double t;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = math.min(size.width, size.height) / 2 - 5;
+    // Splash ring.
+    if (t < 1) {
+      canvas.drawCircle(
+        c,
+        r * (0.6 + 0.8 * t),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3 * (1 - t)
+          ..color = color.withValues(alpha: 0.6 * (1 - t)),
+      );
+    }
+    final land = Curves.easeOutBack.transform((t / 0.6).clamp(0.0, 1.0));
+    final rr = r * land;
+    canvas.drawCircle(
+      c,
+      rr,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.3, -0.3),
+          colors: [Color.lerp(color, Colors.white, 0.25)!.withValues(alpha: 0.92), color.withValues(alpha: 0.88)],
+        ).createShader(Rect.fromCircle(center: c, radius: math.max(rr, 1))),
+    );
+    // Droplets.
+    for (var i = 0; i < 5; i++) {
+      final a = i * 1.257 + 0.4;
+      final d = rr + 2 + 2 * (i % 2);
+      canvas.drawCircle(c + Offset(math.cos(a), math.sin(a)) * d, 1.4 * land, Paint()..color = color.withValues(alpha: 0.8));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DaubPainter old) => old.t != t || old.color != color;
+}
+
+/// Falling confetti over the screen while you celebrate.
+class _ConfettiPainter extends CustomPainter {
+  _ConfettiPainter(this.t);
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rng = math.Random(42);
+    for (var i = 0; i < 90; i++) {
+      final x0 = rng.nextDouble() * size.width;
+      final speed = 0.6 + rng.nextDouble() * 0.8;
+      final delay = rng.nextDouble() * 0.35;
+      final p = ((t - delay) * speed * 1.6).clamp(0.0, 1.2);
+      if (p <= 0) continue;
+      final y = -20 + p * (size.height + 40);
+      final sway = math.sin(p * 9 + i) * 18;
+      final spin = p * 14 + i;
+      canvas.save();
+      canvas.translate(x0 + sway, y);
+      canvas.rotate(spin);
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset.zero, width: 7, height: 3 + 4 * math.cos(spin).abs()),
+        Paint()..color = _colColors[i % 5].withValues(alpha: t > 0.85 ? (1 - t) / 0.15 : 1),
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter old) => old.t != t;
+}
+
+/// The big "BINGO!" (or "Mia called BINGO!") that pops over the card.
+class _BingoShout extends StatelessWidget {
+  const _BingoShout({required this.t, required this.text, required this.color});
+  final double t;
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final inT = Curves.elasticOut.transform((t / 0.3).clamp(0.0, 1.0));
+    return Opacity(
+      opacity: t < 0.05 ? t / 0.05 : 1,
+      child: Transform.scale(
+        scale: 0.4 + 0.6 * inT,
+        child: Transform.rotate(
+          angle: -0.08,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(colors: [color, Color.lerp(color, AuraColors.amber, 0.5)!]),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2),
+              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.7), blurRadius: 40)],
+            ),
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AuraText.displayFamily,
+                color: Colors.white,
+                fontSize: text.length > 10 ? 24 : 44,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+                shadows: const [Shadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 3))],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

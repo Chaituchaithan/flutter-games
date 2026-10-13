@@ -2,14 +2,16 @@ import '../core/game_config.dart';
 import '../core/game_id.dart';
 
 /// Roulette — roulette-service on its own port (WS `/ws` verified reachable).
-/// Game area not built yet; player counts to confirm when it is.
+/// Practice table (European, single zero, practice chips) is built; online
+/// play (shared table, real stakes) waits for its socket protocol.
 const rouletteConfig = GameConfig(
   id: GameId.roulette,
   displayName: 'Roulette',
   icon: '🎡',
   port: 31289,
   socketPath: '/ws',
-  minPlayers: 2, // TODO: confirm
-  maxPlayers: 2, // TODO: confirm
+  minPlayers: 1, // everyone bets on the same spin
+  maxPlayers: 1,
+  available: true,
   wsUrlOverride: String.fromEnvironment('ROULETTE_WS_URL'),
 );
