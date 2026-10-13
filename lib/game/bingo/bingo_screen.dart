@@ -377,29 +377,25 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
             live: !_isOver,
             onPause: openPause,
           ),
-          const SizedBox(height: 12),
-          // Other players' progress.
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var s = 1; s < _game.seats.length; s++) ...[
-                  if (s > 1) const SizedBox(width: 8),
-                  Expanded(
-                    child: BoardPlayerCard(
-                      name: _name(s),
-                      initials: diceBotNames[s - 1].$2,
-                      sub: l.needsN(_game.seats[s].needed(_game.pattern)),
-                      color: _colColors[(s + 1) % 5],
-                      active: _game.seats[s].needed(_game.pattern) <= 1 && !_isOver,
-                      turnText: '',
-                    ),
+          const SizedBox(height: 8),
+          // Other players' progress: compact chips (the card gets the room).
+          Row(
+            children: [
+              for (var s = 1; s < _game.seats.length; s++) ...[
+                if (s > 1) const SizedBox(width: 6),
+                Expanded(
+                  child: _RivalChip(
+                    name: _name(s),
+                    initials: diceBotNames[s - 1].$2,
+                    needs: l.needsN(_game.seats[s].needed(_game.pattern)),
+                    color: _colColors[(s + 1) % 5],
+                    hot: _game.seats[s].needed(_game.pattern) <= 1 && !_isOver,
                   ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _Caller(
             game: _game,
             ring: _callRing,
@@ -481,6 +477,52 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
       ),
     );
   }
+}
+
+/// A computer player: avatar, name and how close they are ("Needs 2");
+/// glows when one away.
+class _RivalChip extends StatelessWidget {
+  const _RivalChip({required this.name, required this.initials, required this.needs, required this.color, required this.hot});
+  final String name;
+  final String initials;
+  final String needs;
+  final Color color;
+  final bool hot;
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+    duration: const Duration(milliseconds: 300),
+    height: 42,
+    padding: const EdgeInsets.symmetric(horizontal: 6),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(14),
+      color: hot ? color.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.05),
+      border: Border.all(color: hot ? color : Colors.white.withValues(alpha: 0.12)),
+      boxShadow: [BoxShadow(color: color.withValues(alpha: hot ? 0.45 : 0), blurRadius: 12)],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [color, Color.lerp(color, Colors.black, 0.3)!])),
+          child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+              Text(needs, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: hot ? color : Colors.white60, fontSize: 10.5, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Every number 1–75 by column, the called ones lit (tap on the caller).
@@ -597,14 +639,14 @@ class _Caller extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: AuraGlass.decoration(radius: 20, shadow: false),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: AuraGlass.decoration(radius: 18, shadow: false),
         child: Row(
           children: [
             // The blower.
             SizedBox(
-              width: 70,
-              height: 78,
+              width: 56,
+              height: 64,
               child: AnimatedBuilder(
                 animation: tumble,
                 builder: (_, _) => CustomPaint(painter: _BlowerPainter(tumble.value, game.called.length)),
@@ -612,8 +654,8 @@ class _Caller extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             SizedBox(
-              width: 84,
-              height: 84,
+              width: 68,
+              height: 68,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -644,8 +686,8 @@ class _Caller extends StatelessWidget {
                       );
                     },
                     child: current == null
-                        ? const SizedBox(key: ValueKey(0), width: 68, height: 68)
-                        : BingoBall(key: ValueKey(current), number: current, size: 68),
+                        ? const SizedBox(key: ValueKey(0), width: 56, height: 56)
+                        : BingoBall(key: ValueKey(current), number: current, size: 56),
                   ),
                 ],
               ),
@@ -687,7 +729,7 @@ class _Caller extends StatelessWidget {
                   Row(
                     children: [
                       for (var i = 0; i < recent.length; i++) ...[
-                        Opacity(opacity: 1 - i * 0.15, child: BingoBall(number: recent[i], size: 28)),
+                        Opacity(opacity: 1 - i * 0.15, child: BingoBall(number: recent[i], size: 26)),
                         const SizedBox(width: 5),
                       ],
                     ],
@@ -892,22 +934,18 @@ class _CardView extends StatelessWidget {
           Expanded(
             child: AnimatedBuilder(
               animation: Listenable.merge([pulse, party]),
-              builder: (_, _) => GridView.count(
-                crossAxisCount: 5,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
+              // Five rows sharing the height (cells stretch to fit — never
+              // cut off when the card is short).
+              builder: (_, _) => Column(
                 children: [
-                  for (var i = 0; i < 25; i++)
-                    GestureDetector(
-                      onTap: () => onTap(i),
-                      child: _Cell(
-                        number: seat.card.cells[i],
-                        color: _colColors[i % 5],
-                        daubed: seat.marked.contains(i),
-                        callable: hintCalled && !seat.marked.contains(i) && called.contains(seat.card.cells[i]),
-                        near: nearWin.contains(i),
-                        pulse: math.sin(pulse.value * 2 * math.pi) * 0.5 + 0.5,
-                        win: _winLight(i),
+                  for (var row = 0; row < 5; row++)
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var col = 0; col < 5; col++)
+                            Expanded(child: _cell(row * 5 + col)),
+                        ],
                       ),
                     ),
                 ],
@@ -918,6 +956,19 @@ class _CardView extends StatelessWidget {
       ),
     );
   }
+
+  Widget _cell(int i) => GestureDetector(
+    onTap: () => onTap(i),
+    child: _Cell(
+      number: seat.card.cells[i],
+      color: _colColors[i % 5],
+      daubed: seat.marked.contains(i),
+      callable: hintCalled && !seat.marked.contains(i) && called.contains(seat.card.cells[i]),
+      near: nearWin.contains(i),
+      pulse: math.sin(pulse.value * 2 * math.pi) * 0.5 + 0.5,
+      win: _winLight(i),
+    ),
+  );
 
   /// 0 → 1 as this winning cell lights up (one after another); 0 otherwise.
   double _winLight(int i) {
