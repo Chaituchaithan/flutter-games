@@ -28,6 +28,8 @@ abstract final class ApiEndpoints {
 
   // Economy
   static const walletBalance = '/wallet/balance';
+  static const referralMyCode = '/referrals/my-code';
+  static const referralStats = '/referrals/stats';
   static const dailyBonusStatus = '/sensitive/daily-bonus/status';
   static const dailyBonusClaim = '/sensitive/daily-bonus/claim';
   static const subscriptionPlans = '/sensitive/subscriptions/plans';

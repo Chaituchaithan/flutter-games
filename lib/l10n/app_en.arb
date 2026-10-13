@@ -1155,5 +1155,68 @@
   },
   "rummyPicking": "Picking…",
   "rummyThinking": "Thinking…",
-  "droppedLabel": "Dropped"
+  "droppedLabel": "Dropped",
+  "referralHeadline": "Play together, earn together",
+  "referralBody": "Share your code. When a friend signs up with it, you both get a reward.",
+  "yourInviteCode": "YOUR INVITE CODE",
+  "copyLabel": "Copy",
+  "codeCopied": "Code copied",
+  "shareInvite": "Share invite",
+  "inviteMessage": "Join me on {app}! Sign up with my code {code} to get a welcome bonus.",
+  "@inviteMessage": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      },
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "codeUses": "{n, plural, =0{Not used yet} =1{Used once} other{Used {n} times}}",
+  "@codeUses": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "codeUsesOf": "{n} of {max} uses",
+  "@codeUsesOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "codeExpires": "Expires {date}",
+  "@codeExpires": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "codeExpired": "This code has expired",
+  "codeUsedUp": "This code has reached its limit",
+  "friendsJoined": "Friends joined",
+  "rewardsEarned": "Rewards earned",
+  "howItWorks": "How it works",
+  "referralStep1": "Share your code with friends",
+  "referralStep2": "They sign up using your code",
+  "referralStep3": "You both receive a reward",
+  "noReferralsYet": "No friends have joined yet — share your code to get started.",
+  "referralsJoined": "{n, plural, =1{1 friend joined with your code} other{{n} friends joined with your code}}",
+  "@referralsJoined": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralCouldntLoad": "Couldn't load your invite code.",
+  "inviteFriendsTitle": "Invite friends"
 }
