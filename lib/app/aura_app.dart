@@ -67,6 +67,52 @@ class _AuraAppState extends ConsumerState<AuraApp> {
       // multi-route stack ['/', '/splash'] on web and mis-navigate.)
       initialRoute: '/',
       onGenerateRoute: Routes.onGenerateRoute,
+      // Portrait layout everywhere, even where the orientation lock can't
+      // apply (browser / desktop windows, Android 16 large screens).
+      builder: (context, child) => PortraitFrame(child: child ?? const SizedBox.shrink()),
+    );
+  }
+}
+
+/// Keeps the app in its portrait (phone) layout on wide windows: when the
+/// window is wider than it is tall, or wider than a big phone, the app is
+/// shown centred at phone width with dark side bars instead of stretching.
+/// Phones in portrait are untouched.
+class PortraitFrame extends StatelessWidget {
+  const PortraitFrame({super.key, required this.child});
+  final Widget child;
+
+  /// Widest the app gets (a large phone).
+  static const maxWidth = 520.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final size = mq.size;
+    final landscape = size.width > size.height;
+    final width = landscape ? (size.height * 0.5).clamp(320.0, maxWidth) : size.width.clamp(0.0, maxWidth);
+    if (width >= size.width) return child;
+    return ColoredBox(
+      color: const Color(0xFF05040A),
+      child: Center(
+        child: SizedBox(
+          width: width,
+          height: size.height,
+          child: ClipRect(
+            // Screens size themselves from MediaQuery: give them the frame's
+            // size (and no side insets) so layouts compute for phone width.
+            child: MediaQuery(
+              data: mq.copyWith(
+                size: Size(width, size.height),
+                padding: mq.padding.copyWith(left: 0, right: 0),
+                viewPadding: mq.viewPadding.copyWith(left: 0, right: 0),
+                viewInsets: mq.viewInsets.copyWith(left: 0, right: 0),
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

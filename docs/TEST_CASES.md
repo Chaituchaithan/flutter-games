@@ -74,6 +74,9 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | HOME-04 | ✅ | Quick Play | Tap Quick Play | The active game's setup / table opens | | |
 | HOME-05 | ✅ | Online Play | Chess → Online Play | Stake sheet with the real balance; preview shows your initials | | |
 | HOME-06 | ✅ | Bottom bar | Any phone (gesture bar, 3-button, iPhone) | Bar sits just above the phone's own bottom area; nothing overlaps | | |
+| HOME-10 | ✅ | Single-game Home (e.g. `main_chess.dart`) | Open Home on a normal phone | No game list; small gap under the player bar; Online Play, Quick Play + Friends, Tournaments and the banner fill the screen with no scrolling | | |
+| HOME-11 | ✅ | Single-game Home on a tall phone | Open Home on a large phone | Cards keep their normal size (not stretched); the slim ad strip sits just above the bottom bar, spare space above it | | |
+| HOME-12 | ❌ | Single-game Home on a short phone | Open Home on a small phone | The banner drops first; if still too short the page scrolls; nothing cut off | | |
 | HOME-07 | ❌ | Daily bonus already claimed | Log in again the same day | Daily Rewards does **not** open | | |
 | HOME-08 | ❌ | Online Play for a game without it | Ludo active → Online Play | "Coming soon" message; no blank screen | | |
 | HOME-09 | ❌ | Balance call fails | Server error on `/wallet/balance` | Pills show "—"; no crash; fills in on the next refresh | | |
@@ -126,6 +129,7 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | ID | Type | Scenario | Steps | Expected | Status | Notes |
 |---|---|---|---|---|---|---|
 | GEN-01 | ✅ | Portrait only | Rotate the phone to landscape on every screen and in every game | Stays in portrait; nothing re-lays out or breaks | | |
+| GEN-08 | ✅ | Wide window (Chrome, macOS, tablet) | Run on web / desktop, or a tablet in landscape | The app keeps its phone layout, centred, with dark side bars; nothing stretches | | |
 | GEN-02 | ✅ | Hindi | Switch to Hindi, open each screen | Texts translated (English only where not yet translated) | | |
 | GEN-03 | ✅ | Small and large phones | 5" phone and a large phone | No cut-off boards or cards; nothing overflows | | |
 | GEN-04 | ❌ | Rotation lock on with auto-rotate on | Auto-rotate on, rotate during a game | Game keeps playing in portrait; no restart | | |

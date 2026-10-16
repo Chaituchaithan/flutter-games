@@ -39,6 +39,88 @@ class _HomeScreenState extends State<HomeScreen> {
     return false;
   }
 
+  Widget _quickPlayTile(BuildContext context) => _QuickTile(
+    icon: Icons.play_arrow_rounded,
+    iconColor: AuraColors.green,
+    title: context.l10n.quickPlay,
+    sub: context.l10n.quickPlaySub,
+    minHeight: 122,
+    onTap: () {
+      // The active game's practice / vs-computer setup.
+      final route = GameArea.practiceRoute(ProviderScope.containerOf(context).read(activeGameProvider));
+      if (route != null) Navigator.pushNamed(context, route);
+    },
+  );
+
+  Widget _friendsTile(BuildContext context) => _QuickTile(
+    icon: Icons.group_rounded,
+    iconColor: AuraColors.brandPurple,
+    title: context.l10n.friends,
+    sub: context.l10n.friendsSub,
+    minHeight: 122,
+    onTap: () async {
+      if (!_hasOnline()) return;
+      // Play with Friends pops 'store' from its "Buy more".
+      final r = await Navigator.pushNamed(context, Routes.playFriends);
+      if (r == 'store') _selectTab(2);
+    },
+  );
+
+  Widget _tournaments(BuildContext context) => _TournamentsRow(
+    onTap: () async {
+      // Tournaments pops 'store' from "Buy more".
+      final r = await Navigator.pushNamed(context, Routes.tournaments);
+      if (r == 'store') _selectTab(2);
+    },
+  );
+
+  /// Single-game Home: Online Play, Quick Play + Friends, Tournaments and
+  /// the banner on one screen. Cards keep their normal size; spare height
+  /// sits above the banner at the bottom. On short
+  /// phones the banner goes first, and only if it still doesn't fit does the
+  /// page scroll (nothing is ever cut off).
+  Widget _singleGameBody(BuildContext context) {
+    const gap = 12.0;
+    return LayoutBuilder(
+      builder: (context, box) {
+        // Short phones drop the banner first (the core actions stay).
+        final banner = !_adClosed && box.maxHeight >= 440;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(kPageGutter, 12, kPageGutter, 12),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: box.maxHeight - 24),
+            child: IntrinsicHeight(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Cards at their normal design size (never stretched).
+                  _FeaturedHero(onTap: _openMatchFlow),
+                  const SizedBox(height: gap),
+                  Row(
+                    children: [
+                      Expanded(child: _quickPlayTile(context)),
+                      const SizedBox(width: gap),
+                      Expanded(child: _friendsTile(context)),
+                    ],
+                  ),
+                  const SizedBox(height: gap),
+                  _tournaments(context),
+                  // Spare height sits above the banner (an ad slot at the
+                  // bottom, just over the bottom bar).
+                  const Spacer(),
+                  if (banner) ...[
+                    const SizedBox(height: gap),
+                    _AdBanner(compact: true, onClose: () => setState(() => _adClosed = true)),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// Switch bottom-tab via the shell (no-op outside MainShell, e.g. in tests).
   void _selectTab(int i) => MainShellScope.maybeOf(context)?.selectTab(i);
 
@@ -55,7 +137,11 @@ class _HomeScreenState extends State<HomeScreen> {
             onShop: () => _selectTab(2),
           ),
         ),
-        // ── Scrolling content ──
+        // ── Single-game app: one screen, no scrolling ──
+        if (AppProfile.current.singleGame)
+          Expanded(child: _singleGameBody(context))
+        else
+        // ── All games: scrolling content ──
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(kPageGutter, 14, kPageGutter, 20),
@@ -526,11 +612,55 @@ class _Dot extends StatelessWidget {
 }
 
 class _AdBanner extends StatelessWidget {
-  const _AdBanner({required this.onClose});
+  const _AdBanner({required this.onClose, this.compact = false});
   final VoidCallback onClose;
+
+  /// A real 320×50-style strip (single-game Home) instead of the card.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    if (compact) {
+      return Container(
+        height: 56,
+        padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
+        decoration: BoxDecoration(
+          color: AuraColors.card.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AuraColors.textSecondary.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(5)),
+              child: Text('AD', style: AuraText.cardSub.copyWith(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Banner placement',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontFamily: AuraText.displayFamily, color: AuraColors.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w700),
+                  ),
+                  Text('House ad fallback · remove with VIP', maxLines: 1, overflow: TextOverflow.ellipsis, style: AuraText.cardSub.copyWith(fontSize: 11.5)),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: onClose,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(Icons.close, size: 16, color: AuraColors.textPrimary.withValues(alpha: 0.6)),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

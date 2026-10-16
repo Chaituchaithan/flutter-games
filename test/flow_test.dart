@@ -22,8 +22,10 @@ class _FirstLaunch implements AppPrefs {
 
 void main() {
   testWidgets('Splash -> Language -> intro carousel', (WidgetTester tester) async {
-    await tester.binding.setSurfaceSize(const Size(430, 932));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    // A portrait phone screen (the app reads this size).
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
     await tester.pumpWidget(ProviderScope(
       overrides: [appPrefsProvider.overrideWithValue(_FirstLaunch())],
