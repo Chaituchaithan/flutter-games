@@ -18,6 +18,11 @@ class AppPrefs {
   Future<int?> language() async => int.tryParse(await _read(_languageKey) ?? '');
   Future<void> setLanguage(int index) => _write(_languageKey, '$index');
 
+  /// A small named setting (games keep their own options here, e.g. the
+  /// chess board style). Null = never set.
+  Future<String?> get(String key) => _read('aura.prefs.$key');
+  Future<void> set(String key, String value) => _write('aura.prefs.$key', value);
+
   Future<String?> _read(String key) async {
     try {
       return await _storage.read(key: key);

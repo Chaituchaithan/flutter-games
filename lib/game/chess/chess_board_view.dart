@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:snakeladder/game/common/board_frame.dart';
 
+import 'chess_board_style.dart';
 import 'chess_controller.dart';
 import 'chess_engine.dart';
 import 'chess_pieces.dart';
@@ -26,7 +28,7 @@ class ChessBoardView extends StatefulWidget {
     required this.controller,
     this.flipped = false,
     this.perspective = false,
-    this.tilt = 0.46,
+    this.tilt = 0.56,
     this.turnColor,
     this.yourTurn = false,
   });
@@ -66,6 +68,10 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
   /// The move currently being animated + the piece in flight (null when idle).
   Move? _animMove;
   Piece? _animPiece;
+
+  /// The board style in use (set from the provider in build).
+  ChessBoardStyle _style = ChessBoardStyle.aura;
+  ChessBoardLook get _look => _style.look;
 
   /// Identity guard so we only animate each new move once.
   Move? _seenMove;
@@ -190,14 +196,19 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
   /// via a [Transform] with `transformHitTests`, so its inverse maps taps back
   /// to squares automatically.
   Matrix4 _perspectiveMatrix() => Matrix4.identity()
-    ..setEntry(3, 2, 0.0016)
+    ..setEntry(3, 2, 0.0018)
     ..rotateX(-widget.tilt)
-    ..scaleByDouble(0.9, 0.9, 0.9, 1);
+    ..scaleByDouble(0.84, 0.84, 0.84, 1);
 
   /// Billboards a piece upright in perspective mode (counter-rotating the
   /// board's backward tilt), with an optional in-flight lift scale.
   Widget _pieceWidget(Piece piece, double cell, {double scale = 1}) {
-    Widget p = ChessPiece(piece: piece, size: cell * 0.82);
+    Widget p = ChessPiece(
+      piece: piece,
+      size: cell * (widget.perspective ? 0.9 : 0.82),
+      rounded: widget.perspective,
+      neon: _look.neonPieces,
+    );
     if (scale != 1) p = Transform.scale(scale: scale, child: p);
     if (widget.perspective) {
       p = Transform(
@@ -240,7 +251,11 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
       if (flying && _animRook != null) _animRook!.$2,
     };
 
-    return AspectRatio(
+    // The board style (Aura / Wood / Marble) chosen on the setup screen.
+    return Consumer(
+      builder: (context, ref, _) {
+        _style = ref.watch(chessBoardStyleProvider);
+        return AspectRatio(
       aspectRatio: 1,
       // The shared board frame (bezel, inner lip, sheen); in a match it glows
       // in the colour of whoever is to move.
@@ -250,7 +265,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
         child: LayoutBuilder(
               builder: (context, constraints) {
                 final cell = constraints.maxWidth / 8;
-                final key = (_version, flying, cell, widget.flipped, widget.perspective);
+                final key = (_version, flying, cell, widget.flipped, widget.perspective, _style);
                 if (_squaresKey != key || _squares == null) {
                   _squaresKey = key;
                   _squares = RepaintBoundary(
@@ -278,16 +293,33 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
                     // (default true) maps every pointer event back through this
                     // matrix's INVERSE before hit-testing the square
                     // GestureDetectors, so taps land on the right square.
-                    : Transform(
-                        alignment: Alignment.center,
-                        transform: _perspectiveMatrix(),
-                        child: board,
+                    : Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Board thickness + its shadow on the table.
+                          IgnorePointer(
+                            child: CustomPaint(painter: _SlabPainter(_perspectiveMatrix(), constraints.biggest, _look)),
+                          ),
+                          Transform(
+                            alignment: Alignment.center,
+                            transform: _perspectiveMatrix(),
+                            child: Stack(
+                              children: [
+                                board,
+                                // Overhead lamp: bright centre, softer corners.
+                                const Positioned.fill(child: IgnorePointer(child: _BoardLight())),
+                              ],
+                            ),
+                          ),
+                        ],
                       );
                 // (The frame draws the glass sheen over the board.)
                 return boardWidget;
               },
             ),
       ),
+    );
+      },
     );
   }
 
@@ -395,13 +427,14 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: light
-                      ? const [Color(0xFFE4DCFA), Color(0xFFD6CBF2)]
-                      : const [Color(0xFF2B2452), Color(0xFF221B45)],
+                  colors: light ? _look.light : _look.dark,
                 ),
               ),
               child: const SizedBox.expand(),
             ),
+            // Wood grain / marble veins (each square its own pattern).
+            if (_style != ChessBoardStyle.aura)
+              CustomPaint(size: Size.square(cell), painter: _MaterialPainter(_style, sq, light)),
             // Last-move highlight (soft inset glow).
             if (isLast)
               DecoratedBox(
@@ -462,6 +495,21 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
             // Rank/file coordinate labels on the edges.
             if (col == 0) _coord(squareName(sq)[1], cell, topLeft: true, light: light),
             if (row == 7) _coord(squareName(sq)[0], cell, topLeft: false, light: light),
+            // 3D: a soft contact shadow where the piece stands.
+            if (widget.perspective && piece != null && !hide.contains(sq))
+              Align(
+                alignment: const Alignment(0.08, 0.72),
+                child: Container(
+                  width: cell * 0.62,
+                  height: cell * 0.3,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.all(Radius.elliptical(cell * 0.31, cell * 0.15)),
+                    gradient: RadialGradient(
+                      colors: [Colors.black.withValues(alpha: 0.55), Colors.black.withValues(alpha: 0)],
+                    ),
+                  ),
+                ),
+              ),
             // The piece (hidden on the destination square while it slides in).
             if (piece != null && !hide.contains(sq)) _pieceWidget(piece, cell),
             // Legal-move indicator: glowing dot on empty, ring on a capture.
@@ -516,7 +564,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
   }
 
   Widget _coord(String label, double cell, {required bool topLeft, required bool light}) {
-    final color = (light ? const Color(0xFF3B3160) : const Color(0xFFEDE7F8)).withValues(alpha: 0.75);
+    final color = (light ? _look.onLight : _look.onDark).withValues(alpha: 0.75);
     return Align(
       alignment: topLeft ? Alignment.topLeft : Alignment.bottomRight,
       child: Padding(
@@ -525,6 +573,256 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
       ),
     );
   }
+}
+
+/// The board's thickness in 3D: the front and side edges below the tilted
+/// surface (dark violet wood-like gradient with a lit top edge) and its soft
+/// shadow on the table. Corners come from the same perspective matrix.
+class _SlabPainter extends CustomPainter {
+  _SlabPainter(this.m, this.box, this.look);
+  final ChessBoardLook look;
+  final Matrix4 m;
+  final Size box;
+
+  Offset _project(Offset p) {
+    final c = box.center(Offset.zero);
+    final t = Matrix4.translationValues(c.dx, c.dy, 0)
+      ..multiply(m)
+      ..multiply(Matrix4.translationValues(-c.dx, -c.dy, 0));
+    return MatrixUtils.transformPoint(t, p);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = box.width, h = box.height;
+    final tl = _project(Offset.zero), tr = _project(Offset(w, 0));
+    final br = _project(Offset(w, h)), bl = _project(Offset(0, h));
+    final depth = w * 0.06;
+    final down = Offset(0, depth);
+    // Shadow on the table.
+    canvas.drawPath(
+      Path()
+        ..moveTo(tl.dx + 6, tl.dy + depth)
+        ..lineTo(tr.dx - 6, tr.dy + depth)
+        ..lineTo(br.dx + 10, br.dy + depth * 2.2)
+        ..lineTo(bl.dx - 10, bl.dy + depth * 2.2)
+        ..close(),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.55)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, depth * 0.9),
+    );
+    // Side edges (thin, darker).
+    final side = Paint()..color = look.slabSide;
+    canvas.drawPath(Path()..moveTo(tl.dx, tl.dy)..lineTo(bl.dx, bl.dy)..lineTo(bl.dx, bl.dy + depth)..lineTo(tl.dx, tl.dy + depth * 0.4)..close(), side);
+    canvas.drawPath(Path()..moveTo(tr.dx, tr.dy)..lineTo(br.dx, br.dy)..lineTo(br.dx, br.dy + depth)..lineTo(tr.dx, tr.dy + depth * 0.4)..close(), side);
+    // Front edge facing you.
+    final front = Path()
+      ..moveTo(bl.dx, bl.dy)
+      ..lineTo(br.dx, br.dy)
+      ..lineTo(br.dx, br.dy + depth)
+      ..lineTo(bl.dx, bl.dy + depth)
+      ..close();
+    canvas.drawPath(
+      front,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: look.slab,
+        ).createShader(Rect.fromPoints(bl, br + down)),
+    );
+    // Lit top edge where the surface meets the front.
+    canvas.drawLine(
+      bl,
+      br,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.55)
+        ..strokeWidth = 1.4,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SlabPainter old) => old.box != box || old.m != m || old.look != look;
+}
+
+/// Real-material texture over a square: wood grain (light maple / dark
+/// walnut, grain direction alternating like a real inlaid board) or marble
+/// veins. Seeded by the square, so the pattern is stable.
+class _MaterialPainter extends CustomPainter {
+  _MaterialPainter(this.style, this.square, this.light);
+  final ChessBoardStyle style;
+  final int square;
+  final bool light;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rng = math.Random(square * 7919 + (light ? 1 : 0));
+    final w = size.width, h = size.height;
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    if (style == ChessBoardStyle.wood) {
+      final vertical = square.isEven;
+      final grain = Paint()..style = PaintingStyle.stroke;
+      final base = light ? const Color(0xFFB98A57) : const Color(0xFF5E3A1F);
+      for (var i = 0; i < 9; i++) {
+        final t = (i + rng.nextDouble()) / 9;
+        final amp = (0.015 + rng.nextDouble() * 0.03) * w;
+        final freq = 1 + rng.nextDouble() * 2.5;
+        final phase = rng.nextDouble() * math.pi * 2;
+        grain
+          ..strokeWidth = 0.5 + rng.nextDouble() * 1.4
+          ..color = base.withValues(alpha: 0.12 + rng.nextDouble() * 0.18);
+        final path = Path();
+        for (var k = 0; k <= 20; k++) {
+          final u = k / 20;
+          final off = math.sin(u * math.pi * freq + phase) * amp;
+          final p = vertical ? Offset(t * w + off, u * h) : Offset(u * w, t * h + off);
+          k == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
+        }
+        canvas.drawPath(path, grain);
+      }
+      // Satin varnish sheen.
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white.withValues(alpha: 0.08), Colors.transparent, Colors.black.withValues(alpha: 0.06)],
+          ).createShader(Offset.zero & size),
+      );
+    } else if (style == ChessBoardStyle.ebony) {
+      // Fine grain (ebony dark streaks, faint on ivory) + a gold inlay.
+      final grain = Paint()..style = PaintingStyle.stroke;
+      for (var i = 0; i < 12; i++) {
+        final y = (i + rng.nextDouble()) / 12 * h;
+        grain
+          ..strokeWidth = 0.4 + rng.nextDouble() * 0.8
+          ..color = (light ? const Color(0xFFC9B48C) : const Color(0xFF0B0806)).withValues(alpha: light ? 0.2 : 0.45);
+        final path = Path()..moveTo(0, y);
+        for (var k = 1; k <= 12; k++) {
+          path.lineTo(k / 12 * w, y + math.sin(k * 0.9 + i) * h * 0.012);
+        }
+        canvas.drawPath(path, grain);
+      }
+      canvas.drawRect(
+        (Offset.zero & size).deflate(w * 0.03),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(0.8, w * 0.018)
+          ..color = const Color(0xFFD4AF37).withValues(alpha: 0.75),
+      );
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white.withValues(alpha: light ? 0.1 : 0.06), Colors.transparent],
+            stops: const [0, 0.6],
+          ).createShader(Offset.zero & size),
+      );
+    } else if (style == ChessBoardStyle.crystal) {
+      // Frosted glass: light streaks, a soft inner glow and a few sparkles.
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..shader = RadialGradient(
+            center: const Alignment(-0.4, -0.5),
+            colors: [Colors.white.withValues(alpha: light ? 0.35 : 0.22), Colors.transparent],
+          ).createShader(Offset.zero & size),
+      );
+      final streak = Paint()..style = PaintingStyle.stroke;
+      for (var i = 0; i < 2; i++) {
+        final x = rng.nextDouble() * w;
+        streak
+          ..strokeWidth = w * (0.04 + rng.nextDouble() * 0.06)
+          ..color = Colors.white.withValues(alpha: 0.12 + rng.nextDouble() * 0.1)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.03);
+        canvas.drawLine(Offset(x - w * 0.4, h), Offset(x + w * 0.2, 0), streak);
+      }
+      for (var i = 0; i < 3; i++) {
+        canvas.drawCircle(
+          Offset(rng.nextDouble() * w, rng.nextDouble() * h),
+          0.6 + rng.nextDouble() * 0.9,
+          Paint()..color = Colors.white.withValues(alpha: 0.5 + rng.nextDouble() * 0.4),
+        );
+      }
+      canvas.drawRect(
+        (Offset.zero & size).deflate(0.5),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = Colors.white.withValues(alpha: light ? 0.5 : 0.25),
+      );
+    } else {
+      // Marble / onyx: soft cloudiness and a few thin veins (gold in black
+      // onyx).
+      for (var i = 0; i < 3; i++) {
+        final c = Offset(rng.nextDouble() * w, rng.nextDouble() * h);
+        canvas.drawCircle(
+          c,
+          w * (0.3 + rng.nextDouble() * 0.4),
+          Paint()
+            ..color = (style == ChessBoardStyle.onyx
+                    ? (light ? const Color(0xFFD7D0C3) : const Color(0xFF34343A))
+                    : (light ? const Color(0xFFCFD3CC) : const Color(0xFF7FA295)))
+                .withValues(alpha: 0.25)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.15),
+        );
+      }
+      final vein = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+      for (var i = 0; i < 1 + rng.nextInt(2); i++) {
+        final start = Offset(rng.nextDouble() * w, 0);
+        final end = Offset(rng.nextDouble() * w, h);
+        final c1 = Offset(rng.nextDouble() * w, h * (0.2 + rng.nextDouble() * 0.3));
+        final c2 = Offset(rng.nextDouble() * w, h * (0.5 + rng.nextDouble() * 0.3));
+        vein
+          ..strokeWidth = 0.4 + rng.nextDouble() * 0.7
+          ..color = (style == ChessBoardStyle.onyx
+                  ? (light ? const Color(0xFF9C9284) : const Color(0xFFD4AF37))
+                  : (light ? const Color(0xFFA7ADA5) : const Color(0xFFC9D8D1)))
+              .withValues(alpha: style == ChessBoardStyle.onyx && !light ? 0.45 + rng.nextDouble() * 0.25 : 0.16 + rng.nextDouble() * 0.14);
+        canvas.drawPath(Path()..moveTo(start.dx, start.dy)..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, end.dx, end.dy), vein);
+      }
+      // Polished gloss.
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white.withValues(alpha: 0.16), Colors.transparent],
+            stops: const [0, 0.6],
+          ).createShader(Offset.zero & size),
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_MaterialPainter old) => old.style != style || old.square != square || old.light != light;
+}
+
+/// An overhead lamp over the 3D board: a soft bright pool in the middle,
+/// gently darker towards the corners.
+class _BoardLight extends StatelessWidget {
+  const _BoardLight();
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: RadialGradient(
+        center: const Alignment(0, -0.1),
+        radius: 0.95,
+        colors: [Colors.white.withValues(alpha: 0.10), Colors.transparent, Colors.black.withValues(alpha: 0.28)],
+        stops: const [0, 0.55, 1],
+      ),
+    ),
+    child: const SizedBox.expand(),
+  );
 }
 
 /// Promotion picker shown when a pawn reaches the last rank.

@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:snakeladder/game/chess/chess_board_view.dart';
@@ -35,7 +36,7 @@ Future<void> _render(
   addTearDown(tester.view.resetDevicePixelRatio);
 
   await tester.pumpWidget(
-    MaterialApp(
+    ProviderScope(child: MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         backgroundColor: const Color(0xFF05040C),
@@ -53,7 +54,7 @@ Future<void> _render(
           ),
         ),
       ),
-    ),
+    )),
   );
 
   // Let layout/paint complete (ignore the harmless font-fetch artifact).

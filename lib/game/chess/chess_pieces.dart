@@ -9,23 +9,31 @@ import 'chess_engine.dart';
 /// multi-stop metallic fill, ambient occlusion at the foot, a glossy top
 /// specular, a crisp outline, and a neon rim light tying it to the Aura theme.
 class ChessPiece extends StatelessWidget {
-  const ChessPiece({super.key, required this.piece, required this.size});
+  const ChessPiece({super.key, required this.piece, required this.size, this.rounded = false, this.neon = true});
   final Piece piece;
   final double size;
+
+  /// 3D view: cylindrical side shading so the piece reads as solid and round.
+  final bool rounded;
+
+  /// The Aura neon rim light and halo (off on the wood / marble boards).
+  final bool neon;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(painter: _PiecePainter(piece)),
+      child: CustomPaint(painter: _PiecePainter(piece, rounded: rounded, neon: neon)),
     );
   }
 }
 
 class _PiecePainter extends CustomPainter {
-  _PiecePainter(this.piece);
+  _PiecePainter(this.piece, {this.rounded = false, this.neon = true});
   final Piece piece;
+  final bool rounded;
+  final bool neon;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -48,12 +56,14 @@ class _PiecePainter extends CustomPainter {
     );
 
     // 1b. Neon bloom halo behind the piece — the "lit" glass-arena glow.
-    canvas.drawPath(
+    if (neon) {
+      canvas.drawPath(
       path,
       Paint()
         ..color = rim.withValues(alpha: 0.30)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
     );
+    }
 
     // 2. Extruded body: stack darker copies downward to fake height/thickness.
     const depth = 6.0;
@@ -84,6 +94,32 @@ class _PiecePainter extends CustomPainter {
             stops: [0.0, 0.5, 1.0],
           );
     canvas.drawPath(path, Paint()..shader = fill.createShader(const Rect.fromLTWH(0, 0, 100, 100)));
+
+    // 3b. 3D: turned-wood / lacquer roundness — light from the left, shadow
+    // falling off to the right, and a narrow gloss streak down the lit side.
+    if (rounded) {
+      canvas.save();
+      canvas.clipPath(path);
+      canvas.drawRect(
+        const Rect.fromLTWH(0, 0, 100, 100),
+        Paint()
+          ..shader = LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: isWhite ? 0.22 : 0.14),
+              Colors.transparent,
+              Colors.black.withValues(alpha: isWhite ? 0.28 : 0.45),
+            ],
+            stops: const [0.0, 0.42, 1.0],
+          ).createShader(const Rect.fromLTWH(18, 0, 64, 100)),
+      );
+      canvas.drawRect(
+        const Rect.fromLTWH(33, 0, 7, 100),
+        Paint()
+          ..color = Colors.white.withValues(alpha: isWhite ? 0.38 : 0.22)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+      );
+      canvas.restore();
+    }
 
     // 4. Ambient occlusion at the foot — darkens the base for weight.
     canvas.drawPath(
@@ -120,7 +156,8 @@ class _PiecePainter extends CustomPainter {
 
     // 7. Neon rim light — the signature Aura accent that makes the piece pop
     // and feel lit by the board's glow. A soft blurred pass + a crisp edge.
-    canvas.drawPath(
+    if (neon) {
+      canvas.drawPath(
       path,
       Paint()
         ..style = PaintingStyle.stroke
@@ -134,7 +171,9 @@ class _PiecePainter extends CustomPainter {
           stops: const [0.0, 0.5],
         ).createShader(const Rect.fromLTWH(0, 0, 100, 100)),
     );
-    canvas.drawPath(
+    }
+    if (neon) {
+      canvas.drawPath(
       path,
       Paint()
         ..style = PaintingStyle.stroke
@@ -147,12 +186,13 @@ class _PiecePainter extends CustomPainter {
           stops: const [0.0, 0.5],
         ).createShader(const Rect.fromLTWH(0, 0, 100, 100)),
     );
+    }
 
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _PiecePainter old) => old.piece != piece;
+  bool shouldRepaint(covariant _PiecePainter old) => old.piece != piece || old.rounded != rounded || old.neon != neon;
 }
 
 // ── Piece silhouettes (unioned primitives in a 100×100 box, base at bottom) ──

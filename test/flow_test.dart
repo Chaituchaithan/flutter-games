@@ -18,6 +18,10 @@ class _FirstLaunch implements AppPrefs {
   Future<int?> language() async => null;
   @override
   Future<void> setLanguage(int index) async {}
+  @override
+  Future<String?> get(String key) async => null;
+  @override
+  Future<void> set(String key, String value) async {}
 }
 
 void main() {

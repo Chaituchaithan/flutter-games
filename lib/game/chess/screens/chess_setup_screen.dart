@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:snakeladder/game/chess/screens/chess_vs_computer_screen.dart';
+import 'package:snakeladder/game/chess/chess_board_style.dart';
 import 'package:snakeladder/game/chess/chess_engine.dart';
 import 'package:snakeladder/widgets/aura.dart';
 
@@ -56,8 +58,42 @@ class _ChessSetupScreenState extends State<ChessSetupScreen> {
           const SizedBox(height: 4),
           Text('Play vs Computer', style: AuraText.headline.copyWith(fontSize: 24)),
           const SizedBox(height: 6),
-          Text('Pick your side, difficulty and time control.', style: AuraText.cardSub),
+          Text('Pick your board, side, difficulty and time control.', style: AuraText.cardSub),
           const SizedBox(height: 20),
+          // Board style: remembered, and used for online games too.
+          const SectionBar('Board'),
+          const SizedBox(height: 10),
+          Consumer(
+            builder: (context, ref, _) {
+              final current = ref.watch(chessBoardStyleProvider);
+              // Two rows of three: the classics, then the premium boards.
+              final styles = ChessBoardStyle.values;
+              return Column(
+                children: [
+                  for (var row = 0; row < (styles.length / 3).ceil(); row++) ...[
+                    if (row > 0) const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        for (var i = row * 3; i < row * 3 + 3; i++) ...[
+                          if (i > row * 3) const SizedBox(width: 10),
+                          Expanded(
+                            child: i < styles.length
+                                ? _BoardStyleTile(
+                                    style: styles[i],
+                                    selected: current == styles[i],
+                                    onTap: () => ref.read(chessBoardStyleProvider.notifier).select(styles[i]),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 22),
           const SectionBar('Play as'),
           const SizedBox(height: 10),
           Wrap(
@@ -196,6 +232,106 @@ class _Chip extends StatelessWidget {
             fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A board style choice: a small 3×3 preview of its squares and the name.
+class _BoardStyleTile extends StatelessWidget {
+  const _BoardStyleTile({required this.style, required this.selected, required this.onTap});
+  final ChessBoardStyle style;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const _names = {
+    ChessBoardStyle.aura: 'Aura',
+    ChessBoardStyle.wood: 'Wood',
+    ChessBoardStyle.marble: 'Marble',
+    ChessBoardStyle.ebony: 'Ebony',
+    ChessBoardStyle.onyx: 'Onyx',
+    ChessBoardStyle.crystal: 'Crystal',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final look = style.look;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: selected
+              ? AuraGradients.brand
+              : LinearGradient(colors: [Colors.white.withValues(alpha: 0.08), Colors.white.withValues(alpha: 0.03)]),
+          border: Border.all(color: selected ? Colors.white.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.14), width: 2),
+        ),
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+            AspectRatio(
+              aspectRatio: 1,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Column(
+                  children: [
+                    for (var row = 0; row < 3; row++)
+                      Expanded(
+                        child: Row(
+                          children: [
+                            for (var col = 0; col < 3; col++)
+                              Expanded(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: (row + col).isEven ? look.light : look.dark,
+                                    ),
+                                  ),
+                                  child: const SizedBox.expand(),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+                // Premium boards wear a gold crown.
+                if (look.premium)
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFD97706)]),
+                        boxShadow: [BoxShadow(color: const Color(0xFFD97706).withValues(alpha: 0.5), blurRadius: 6)],
+                      ),
+                      child: const Icon(Icons.workspace_premium_rounded, size: 13, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _names[style]!,
+              style: TextStyle(
+                fontFamily: AuraText.displayFamily,
+                color: Colors.white,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );
