@@ -93,9 +93,9 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
 
   bool get _isOver => _game.isOver || _flagged != null || _resigned;
 
-  /// Hand-over buffer: the piece slide (up to ~0.76s) + a short beat before
+  /// Hand-over buffer: the piece move (up to ~0.95s) + a short beat before
   /// the next mover's clock starts counting (both directions).
-  static const int _handoverMs = 900;
+  static const int _handoverMs = 1000;
 
   /// Bumped to invalidate an in-flight bot search (pause, game over, dispose).
   int _botGen = 0;

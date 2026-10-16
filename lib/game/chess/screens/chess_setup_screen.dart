@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:snakeladder/game/chess/screens/chess_vs_computer_screen.dart';
 import 'package:snakeladder/game/chess/chess_board_style.dart';
 import 'package:snakeladder/game/chess/chess_engine.dart';
+import 'package:snakeladder/game/chess/chess_pieces.dart';
 import 'package:snakeladder/widgets/aura.dart';
 
 /// Quick Play setup: pick the computer's difficulty and a time control, then
@@ -58,7 +59,7 @@ class _ChessSetupScreenState extends State<ChessSetupScreen> {
           const SizedBox(height: 4),
           Text('Play vs Computer', style: AuraText.headline.copyWith(fontSize: 24)),
           const SizedBox(height: 6),
-          Text('Pick your board, side, difficulty and time control.', style: AuraText.cardSub),
+          Text('Pick your board, pieces, side, difficulty and time control.', style: AuraText.cardSub),
           const SizedBox(height: 20),
           // Board style: remembered, and used for online games too.
           const SectionBar('Board'),
@@ -82,6 +83,39 @@ class _ChessSetupScreenState extends State<ChessSetupScreen> {
                                     style: styles[i],
                                     selected: current == styles[i],
                                     onTap: () => ref.read(chessBoardStyleProvider.notifier).select(styles[i]),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 22),
+          // Piece set: remembered, used online too.
+          const SectionBar('Pieces'),
+          const SizedBox(height: 10),
+          Consumer(
+            builder: (context, ref, _) {
+              final current = ref.watch(chessPieceSetProvider);
+              final sets = ChessPieceSet.values;
+              return Column(
+                children: [
+                  for (var row = 0; row < (sets.length / 3).ceil(); row++) ...[
+                    if (row > 0) const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        for (var i = row * 3; i < row * 3 + 3; i++) ...[
+                          if (i > row * 3) const SizedBox(width: 10),
+                          Expanded(
+                            child: i < sets.length
+                                ? _PieceSetTile(
+                                    set: sets[i],
+                                    selected: current == sets[i],
+                                    onTap: () => ref.read(chessPieceSetProvider.notifier).select(sets[i]),
                                   )
                                 : const SizedBox.shrink(),
                           ),
@@ -330,6 +364,76 @@ class _BoardStyleTile extends StatelessWidget {
                 fontSize: 13.5,
                 fontWeight: FontWeight.w700,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A piece-set choice: a white king and a black queen in that material.
+class _PieceSetTile extends StatelessWidget {
+  const _PieceSetTile({required this.set, required this.selected, required this.onTap});
+  final ChessPieceSet set;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: selected
+              ? AuraGradients.brand
+              : LinearGradient(colors: [Colors.white.withValues(alpha: 0.08), Colors.white.withValues(alpha: 0.03)]),
+          border: Border.all(color: selected ? Colors.white.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.14), width: 2),
+        ),
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  height: 62,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.black.withValues(alpha: 0.25),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ChessPiece(piece: const Piece(PieceColor.white, PieceType.king), size: 44, set: set, rounded: true, neon: set == ChessPieceSet.classic),
+                      ChessPiece(piece: const Piece(PieceColor.black, PieceType.queen), size: 40, set: set, rounded: true, neon: set == ChessPieceSet.classic),
+                    ],
+                  ),
+                ),
+                if (set.premium)
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFD97706)]),
+                        boxShadow: [BoxShadow(color: const Color(0xFFD97706).withValues(alpha: 0.5), blurRadius: 6)],
+                      ),
+                      child: const Icon(Icons.workspace_premium_rounded, size: 13, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              set.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700),
             ),
           ],
         ),

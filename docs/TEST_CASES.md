@@ -154,6 +154,8 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | CHESS-17 | ✅ | Board style | Quick Play setup → Board: Aura / Wood / Marble / Ebony / Onyx / Crystal → Start | The game uses that board (wood grain, marble / onyx veins, ebony gold inlay, crystal glass); premium boards show a crown in the picker; neon on pieces only for Aura | | |
 | CHESS-18 | ✅ | Board style is remembered | Pick Wood, close the app, reopen, play Quick Play and an online match | Wood is still selected and used online too | | |
 | CHESS-19 | ✅ | Realistic 3D | Toggle 3D on each board style | Lower camera, board thickness and shadow, rounded pieces with contact shadows, soft overhead light | | |
+| CHESS-20 | ✅ | Piece set | Quick Play setup → Pieces: Classic / Gold & Silver / Ivory & Ebony / Crystal / Rose Gold / Jade & Onyx → Start | The game (and the promotion picker) uses that set; premium sets show a crown; the choice is remembered and used online | | |
+| CHESS-21 | ✅ | Smooth piece move | Make moves, including long ones and captures | The piece lifts, glides and settles; its shadow fades into the resting look on landing (no pop or jump) | | |
 | CHESS-09 | ❌ | Illegal move | Tap a square the piece can't reach | Nothing moves; selection changes or clears | | |
 | CHESS-10 | ❌ | Move while in check | Try a move that leaves the king in check | Not allowed | | |
 | CHESS-11 | ❌ | Time runs out | Let your clock reach 0 | You lose on time; correct subtitle | | |

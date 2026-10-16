@@ -71,6 +71,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
 
   /// The board style in use (set from the provider in build).
   ChessBoardStyle _style = ChessBoardStyle.aura;
+  ChessPieceSet _set = ChessPieceSet.classic;
   ChessBoardLook get _look => _style.look;
 
   /// Identity guard so we only animate each new move once.
@@ -153,7 +154,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
       _captured = taken == null ? null : (takenSq, taken);
       // Longer moves take a little longer, so every slide reads at one pace.
       final dist = math.max((fileOf(m.to) - fileOf(m.from)).abs(), (rankOf(m.to) - rankOf(m.from)).abs());
-      _moveCtrl.duration = Duration(milliseconds: (300 + 70 * dist).clamp(380, 760));
+      _moveCtrl.duration = Duration(milliseconds: (420 + 75 * dist).clamp(520, 950));
       _moveCtrl.forward(from: 0);
     }
     _before = _snapshot();
@@ -208,6 +209,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
       size: cell * (widget.perspective ? 0.9 : 0.82),
       rounded: widget.perspective,
       neon: _look.neonPieces,
+      set: _set,
     );
     if (scale != 1) p = Transform.scale(scale: scale, child: p);
     if (widget.perspective) {
@@ -232,7 +234,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
     return showDialog<PieceType>(
       context: context,
       barrierColor: const Color(0xCC05040C),
-      builder: (ctx) => _PromotionPicker(color: color),
+      builder: (ctx) => _PromotionPicker(color: color, set: _set),
     );
   }
 
@@ -255,6 +257,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
     return Consumer(
       builder: (context, ref, _) {
         _style = ref.watch(chessBoardStyleProvider);
+        _set = ref.watch(chessPieceSetProvider);
         return AspectRatio(
       aspectRatio: 1,
       // The shared board frame (bezel, inner lip, sheen); in a match it glows
@@ -265,7 +268,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
         child: LayoutBuilder(
               builder: (context, constraints) {
                 final cell = constraints.maxWidth / 8;
-                final key = (_version, flying, cell, widget.flipped, widget.perspective, _style);
+                final key = (_version, flying, cell, widget.flipped, widget.perspective, _style, _set);
                 if (_squaresKey != key || _squares == null) {
                   _squaresKey = key;
                   _squares = RepaintBoundary(
@@ -337,33 +340,49 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
         child: AnimatedBuilder(
           animation: _moveCtrl,
           builder: (context, _) {
+            // Like a hand moving a piece: pick it up (0–18%), carry it
+            // (18–80%), put it down with a soft settle (80–100%).
             final v = _moveCtrl.value;
-            final t = Curves.easeInOutCubic.transform(v);
-            final dx = (fc + (tc - fc) * t) * cell;
-            final dy = (fr + (tr - fr) * t) * cell;
-            // Lift arc: up to ~8% bigger mid-flight, back to 1 on landing.
-            final arc = math.sin(math.pi * v);
+            final carry = Curves.easeInOutCubic.transform(((v - 0.18) / 0.62).clamp(0.0, 1.0));
+            final double height;
+            if (v < 0.18) {
+              height = Curves.easeOutCubic.transform(v / 0.18);
+            } else if (v < 0.8) {
+              height = 1;
+            } else {
+              final u = (v - 0.8) / 0.2;
+              // Down, a hair past the board, back to rest.
+              height = (1 - Curves.easeInCubic.transform(u)) - math.sin(u * math.pi) * 0.06;
+            }
+            final dx = (fc + (tc - fc) * carry) * cell;
+            final dy = (fr + (tr - fr) * carry) * cell;
+            final h = height.clamp(0.0, 1.0);
             return Transform.translate(
               offset: Offset(dx, dy),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Contact shadow: spreads and fades as the piece lifts.
-                  Transform.translate(
-                    offset: Offset(0, cell * 0.30),
+                  // Shadow on the board: soft and wide while carried, gone
+                  // (2D) / the resting contact shadow (3D) once it lands — no pop.
+                  Align(
+                    alignment: const Alignment(0.08, 0.72),
                     child: Container(
-                      width: cell * (0.50 + 0.12 * arc),
-                      height: cell * 0.14,
+                      width: cell * (0.62 + 0.14 * h),
+                      height: cell * (0.3 - 0.06 * h),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(cell),
-                        color: Colors.black.withValues(alpha: 0.35 - 0.15 * arc),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: cell * 0.12)],
+                        borderRadius: BorderRadius.all(Radius.elliptical(cell * 0.38, cell * 0.15)),
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.black.withValues(alpha: widget.perspective ? 0.55 - 0.25 * h : 0.32 * h),
+                            Colors.black.withValues(alpha: 0),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                   Transform.translate(
-                    offset: Offset(0, -cell * 0.10 * arc),
-                    child: _pieceWidget(piece, cell, scale: 1 + 0.08 * arc),
+                    offset: Offset(0, -cell * 0.22 * height),
+                    child: _pieceWidget(piece, cell, scale: 1 + 0.07 * h),
                   ),
                 ],
               ),
@@ -827,8 +846,9 @@ class _BoardLight extends StatelessWidget {
 
 /// Promotion picker shown when a pawn reaches the last rank.
 class _PromotionPicker extends StatelessWidget {
-  const _PromotionPicker({required this.color});
+  const _PromotionPicker({required this.color, this.set = ChessPieceSet.classic});
   final PieceColor color;
+  final ChessPieceSet set;
 
   @override
   Widget build(BuildContext context) {
@@ -863,7 +883,7 @@ class _PromotionPicker extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                       ),
-                      child: ChessPiece(piece: Piece(color, t), size: 42),
+                      child: ChessPiece(piece: Piece(color, t), size: 42, set: set, neon: set == ChessPieceSet.classic),
                     ),
                   ),
               ],

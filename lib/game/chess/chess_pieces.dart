@@ -8,8 +8,167 @@ import 'chess_engine.dart';
 /// contact shadow, an extruded base (stacked darker copies) for height, a
 /// multi-stop metallic fill, ambient occlusion at the foot, a glossy top
 /// specular, a crisp outline, and a neon rim light tying it to the Aura theme.
+/// Piece sets: one shape, different materials. [classic] is the Aura set;
+/// the rest are premium.
+enum ChessPieceSet { classic, goldSilver, ivoryEbony, crystal, roseGunmetal, jadeOnyx }
+
+/// What one side of a set is made of.
+@immutable
+class PieceMaterial {
+  const PieceMaterial({
+    required this.fill,
+    required this.edgeLight,
+    required this.edgeDark,
+    required this.outline,
+    this.gloss = 0.5,
+    this.metallic = false,
+    this.glass = false,
+  });
+
+  /// Body colours, top → bottom.
+  final List<Color> fill;
+
+  /// Extruded base (height), top → bottom of the stack.
+  final Color edgeLight, edgeDark;
+  final Color outline;
+
+  /// Top specular strength (0..1).
+  final double gloss;
+
+  /// Polished metal: sharp mirror bands down the body.
+  final bool metallic;
+
+  /// Glass: see-through body with bright inner edges.
+  final bool glass;
+}
+
+extension ChessPieceSetX on ChessPieceSet {
+  bool get premium => this != ChessPieceSet.classic;
+
+  String get label => switch (this) {
+    ChessPieceSet.classic => 'Classic',
+    ChessPieceSet.goldSilver => 'Gold & Silver',
+    ChessPieceSet.ivoryEbony => 'Ivory & Ebony',
+    ChessPieceSet.crystal => 'Crystal',
+    ChessPieceSet.roseGunmetal => 'Rose Gold',
+    ChessPieceSet.jadeOnyx => 'Jade & Onyx',
+  };
+
+  PieceMaterial material(PieceColor c) {
+    final w = c == PieceColor.white;
+    return switch (this) {
+      ChessPieceSet.classic => w
+          ? const PieceMaterial(
+              fill: [Color(0xFFFFFFFF), Color(0xFFF2E8CF), Color(0xFFD5C7A4)],
+              edgeLight: Color(0xFFCBBFA0),
+              edgeDark: Color(0xFF7E7252),
+              outline: Color(0xFF6B6350),
+              gloss: 0.75,
+            )
+          : const PieceMaterial(
+              fill: [Color(0xFF9A9AA8), Color(0xFF55555F), Color(0xFF2E2E38)],
+              edgeLight: Color(0xFF3A3A46),
+              edgeDark: Color(0xFF17171E),
+              outline: Color(0xFF04040A),
+              gloss: 0.3,
+            ),
+      ChessPieceSet.goldSilver => w
+          ? const PieceMaterial(
+              fill: [Color(0xFFFFF4C2), Color(0xFFE9B949), Color(0xFF9A6A12)],
+              edgeLight: Color(0xFFB8860B),
+              edgeDark: Color(0xFF5C3D05),
+              outline: Color(0xFF5C3D05),
+              gloss: 0.8,
+              metallic: true,
+            )
+          : const PieceMaterial(
+              fill: [Color(0xFFF4F6F8), Color(0xFFA9B0B8), Color(0xFF4E555D)],
+              edgeLight: Color(0xFF7D848C),
+              edgeDark: Color(0xFF2E3338),
+              outline: Color(0xFF262A2E),
+              gloss: 0.8,
+              metallic: true,
+            ),
+      ChessPieceSet.ivoryEbony => w
+          ? const PieceMaterial(
+              fill: [Color(0xFFFFFBF0), Color(0xFFF1E3C4), Color(0xFFD9C29A)],
+              edgeLight: Color(0xFFC9AF85),
+              edgeDark: Color(0xFF8A7149),
+              outline: Color(0xFF7A6340),
+              gloss: 0.55,
+            )
+          : const PieceMaterial(
+              fill: [Color(0xFF5A4636), Color(0xFF2E231B), Color(0xFF15100C)],
+              edgeLight: Color(0xFF2A1F17),
+              edgeDark: Color(0xFF0C0806),
+              outline: Color(0xFF070504),
+              gloss: 0.4,
+            ),
+      ChessPieceSet.crystal => w
+          ? const PieceMaterial(
+              fill: [Color(0xFFFFFFFF), Color(0xFFDDF3FF), Color(0xFFA9D9F2)],
+              edgeLight: Color(0xFFBFE6F8),
+              edgeDark: Color(0xFF6FA9C6),
+              outline: Color(0xFF5E93AE),
+              gloss: 0.9,
+              glass: true,
+            )
+          : const PieceMaterial(
+              fill: [Color(0xFF8E97A6), Color(0xFF4B5361), Color(0xFF222832)],
+              edgeLight: Color(0xFF3D4452),
+              edgeDark: Color(0xFF151A22),
+              outline: Color(0xFF0E1218),
+              gloss: 0.7,
+              glass: true,
+            ),
+      ChessPieceSet.roseGunmetal => w
+          ? const PieceMaterial(
+              fill: [Color(0xFFFFE3DA), Color(0xFFE8A997), Color(0xFFA9614F)],
+              edgeLight: Color(0xFFC07E6B),
+              edgeDark: Color(0xFF6E3829),
+              outline: Color(0xFF6E3829),
+              gloss: 0.75,
+              metallic: true,
+            )
+          : const PieceMaterial(
+              fill: [Color(0xFF8A9099), Color(0xFF4A4F57), Color(0xFF23262B)],
+              edgeLight: Color(0xFF3B3F46),
+              edgeDark: Color(0xFF15171A),
+              outline: Color(0xFF0F1113),
+              gloss: 0.6,
+              metallic: true,
+            ),
+      ChessPieceSet.jadeOnyx => w
+          ? const PieceMaterial(
+              fill: [Color(0xFFC9F2DA), Color(0xFF5FBF8B), Color(0xFF2B7A50)],
+              edgeLight: Color(0xFF3E8F62),
+              edgeDark: Color(0xFF1B4D31),
+              outline: Color(0xFF17452B),
+              gloss: 0.7,
+            )
+          : const PieceMaterial(
+              fill: [Color(0xFF55555C), Color(0xFF222226), Color(0xFF0B0B0D)],
+              edgeLight: Color(0xFF1E1E22),
+              edgeDark: Color(0xFF060607),
+              outline: Color(0xFF000000),
+              gloss: 0.55,
+            ),
+    };
+  }
+}
+
 class ChessPiece extends StatelessWidget {
-  const ChessPiece({super.key, required this.piece, required this.size, this.rounded = false, this.neon = true});
+  const ChessPiece({
+    super.key,
+    required this.piece,
+    required this.size,
+    this.rounded = false,
+    this.neon = true,
+    this.set = ChessPieceSet.classic,
+  });
+
+  /// The piece set (material) to draw with.
+  final ChessPieceSet set;
   final Piece piece;
   final double size;
 
@@ -24,14 +183,15 @@ class ChessPiece extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(painter: _PiecePainter(piece, rounded: rounded, neon: neon)),
+      child: CustomPaint(painter: _PiecePainter(piece, rounded: rounded, neon: neon && set == ChessPieceSet.classic, set: set)),
     );
   }
 }
 
 class _PiecePainter extends CustomPainter {
-  _PiecePainter(this.piece, {this.rounded = false, this.neon = true});
+  _PiecePainter(this.piece, {this.rounded = false, this.neon = true, this.set = ChessPieceSet.classic});
   final Piece piece;
+  final ChessPieceSet set;
   final bool rounded;
   final bool neon;
 
@@ -44,6 +204,7 @@ class _PiecePainter extends CustomPainter {
 
     final path = _pathFor(piece.type);
     final isWhite = piece.color == PieceColor.white;
+    final mat = set.material(piece.color);
     // Neon accent that lights the piece: cyan for pearl, violet for obsidian.
     final rim = isWhite ? const Color(0xFF7DE3FF) : const Color(0xFFB98BFF);
 
@@ -67,8 +228,8 @@ class _PiecePainter extends CustomPainter {
 
     // 2. Extruded body: stack darker copies downward to fake height/thickness.
     const depth = 6.0;
-    final edgeLight = isWhite ? const Color(0xFFCBBFA0) : const Color(0xFF3A3A46);
-    final edgeDark = isWhite ? const Color(0xFF7E7252) : const Color(0xFF17171E);
+    final edgeLight = mat.edgeLight;
+    final edgeDark = mat.edgeDark;
     for (var dy = depth; dy >= 1; dy -= 1) {
       final f = dy / depth;
       canvas.drawPath(
@@ -78,22 +239,57 @@ class _PiecePainter extends CustomPainter {
     }
 
     // 3. Main metallic fill (multi-stop for a rounded, lit body).
-    final fill = isWhite
-        ? const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF2E8CF), Color(0xFFD5C7A4)],
-            stops: [0.0, 0.55, 1.0],
-          )
-        // Graphite (not near-black) so black pieces stay visible on the dark
-        // squares — the old #08080D blended into the board's dark tiles.
-        : const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF9A9AA8), Color(0xFF55555F), Color(0xFF2E2E38)],
-            stops: [0.0, 0.5, 1.0],
-          );
+    final fill = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: mat.glass ? [for (final c in mat.fill) c.withValues(alpha: 0.72)] : mat.fill,
+      stops: const [0.0, 0.52, 1.0],
+    );
     canvas.drawPath(path, Paint()..shader = fill.createShader(const Rect.fromLTWH(0, 0, 100, 100)));
+
+    // 3a. Polished metal: sharp mirror bands down the body.
+    if (mat.metallic) {
+      canvas.save();
+      canvas.clipPath(path);
+      canvas.drawRect(
+        const Rect.fromLTWH(0, 0, 100, 100),
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white.withValues(alpha: 0.55),
+              Colors.transparent,
+              Colors.black.withValues(alpha: 0.22),
+              Colors.white.withValues(alpha: 0.35),
+              Colors.transparent,
+              Colors.black.withValues(alpha: 0.18),
+            ],
+            stops: const [0.1, 0.24, 0.42, 0.55, 0.7, 0.92],
+          ).createShader(const Rect.fromLTWH(0, 0, 100, 100)),
+      );
+      canvas.restore();
+    }
+    // 3c. Glass: bright refracted inner edge and a light caustic band.
+    if (mat.glass) {
+      canvas.save();
+      canvas.clipPath(path);
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 7
+          ..color = Colors.white.withValues(alpha: isWhite ? 0.55 : 0.28)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+      canvas.drawRect(
+        const Rect.fromLTWH(56, 0, 9, 100),
+        Paint()
+          ..color = Colors.white.withValues(alpha: isWhite ? 0.3 : 0.18)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+      canvas.restore();
+    }
 
     // 3b. 3D: turned-wood / lacquer roundness — light from the left, shadow
     // falling off to the right, and a narrow gloss streak down the lit side.
@@ -133,7 +329,7 @@ class _PiecePainter extends CustomPainter {
     );
 
     // 5. Glossy top specular highlight.
-    final highlight = isWhite ? Colors.white.withValues(alpha: 0.75) : Colors.white.withValues(alpha: 0.30);
+    final highlight = Colors.white.withValues(alpha: mat.gloss);
     canvas.drawPath(
       path,
       Paint()
@@ -151,7 +347,7 @@ class _PiecePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.0
         ..strokeJoin = StrokeJoin.round
-        ..color = isWhite ? const Color(0xFF6B6350) : const Color(0xFF04040A),
+        ..color = mat.outline,
     );
 
     // 7. Neon rim light — the signature Aura accent that makes the piece pop
@@ -192,7 +388,8 @@ class _PiecePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PiecePainter old) => old.piece != piece || old.rounded != rounded || old.neon != neon;
+  bool shouldRepaint(covariant _PiecePainter old) =>
+      old.piece != piece || old.rounded != rounded || old.neon != neon || old.set != set;
 }
 
 // ── Piece silhouettes (unioned primitives in a 100×100 box, base at bottom) ──

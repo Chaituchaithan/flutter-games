@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:snakeladder/game/chess/chess_pieces.dart';
 import 'package:snakeladder/services/app_prefs.dart';
 
 /// How the chess board looks. Chosen on the chess setup screen and used
@@ -137,6 +138,27 @@ class ChessBoardStyleNotifier extends Notifier<ChessBoardStyle> {
   }
 
   void select(ChessBoardStyle s) {
+    state = s;
+    ref.read(appPrefsProvider).set(_key, s.name);
+  }
+}
+
+/// The chosen piece set, remembered on the device.
+final chessPieceSetProvider = NotifierProvider<ChessPieceSetNotifier, ChessPieceSet>(ChessPieceSetNotifier.new);
+
+class ChessPieceSetNotifier extends Notifier<ChessPieceSet> {
+  static const _key = 'chess_piece_set';
+
+  @override
+  ChessPieceSet build() {
+    ref.read(appPrefsProvider).get(_key).then((v) {
+      final saved = ChessPieceSet.values.where((s) => s.name == v).firstOrNull;
+      if (saved != null && saved != state) state = saved;
+    });
+    return ChessPieceSet.classic;
+  }
+
+  void select(ChessPieceSet s) {
     state = s;
     ref.read(appPrefsProvider).set(_key, s.name);
   }
