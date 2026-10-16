@@ -79,7 +79,7 @@ void main() {
   testWidgets('Store: switch all four tabs', (tester) async {
     await pumpScreen(tester, const StoreScreen(), tabHost: true);
     await settle(tester, 'Store load');
-    for (final t in ['Gold', 'Power-Ups', 'VIP', 'Tokens']) {
+    for (final t in ['Gold', 'Boosts', 'VIP', 'Tokens']) {
       await tapText(tester, t, 'Store');
     }
   });

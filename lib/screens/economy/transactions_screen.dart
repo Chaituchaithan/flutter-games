@@ -11,7 +11,7 @@ class TransactionsScreen extends StatelessWidget {
     _Txn(title: 'Online Play stake', subtitle: 'Match #4821 · Today 09:40', amount: '200', earn: false),
     _Txn(title: 'Victory payout', subtitle: 'Match #4821 · Today 09:46', amount: '800', earn: true),
     _Txn(title: 'Daily bonus', subtitle: 'Day 2 · Yesterday', amount: '800', earn: true),
-    _Txn(title: 'Double XP', subtitle: 'Power-up · Yesterday', amount: '500', earn: false),
+    _Txn(title: 'Double XP', subtitle: 'Boost · Yesterday', amount: '500', earn: false),
     _Txn(title: 'Lucky wheel', subtitle: 'Spin · Yesterday', amount: '200', earn: true),
     _Txn(title: 'Gold pack · Stack', subtitle: '\$4.99 · Mon', amount: '1,200', earn: true, gold: true),
   ];

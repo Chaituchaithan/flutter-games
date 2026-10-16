@@ -31,6 +31,7 @@ Checks: `flutter analyze` and `flutter test`.
 | [docs/RUN_AND_TEST.md](docs/RUN_AND_TEST.md) | Running (web / emulator, proxy on/off), logs, socket diagnostics, tests, builds |
 | [docs/SERVICES_AND_REALTIME.md](docs/SERVICES_AND_REALTIME.md) | Configuration, REST + socket flows, profile API, game switching |
 | [docs/DESIGN_SPEC.md](docs/DESIGN_SPEC.md) | Design tokens, shared widgets, differences from the mockup, required assets |
+| [docs/TEST_CASES.md](docs/TEST_CASES.md) | Manual QA test cases (by area, with status) and the automated test map |
 
 ## Project layout
 

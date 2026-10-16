@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -66,6 +67,9 @@ class _WheelScreenState extends State<WheelScreen>
   double _toAngle = 0;
   _Seg? _result;
 
+  /// Hides the win message 3 s after the wheel stops.
+  Timer? _hideResult;
+
   bool get _canSpin => _spinsLeft > 0 && !_controller.isAnimating;
 
   @override
@@ -90,6 +94,7 @@ class _WheelScreenState extends State<WheelScreen>
 
   @override
   void dispose() {
+    _hideResult?.cancel();
     _lights.dispose();
     _controller.dispose();
     super.dispose();
@@ -106,6 +111,7 @@ class _WheelScreenState extends State<WheelScreen>
     _fromAngle = current;
     _toAngle = current + 2 * math.pi * 5 + delta; // 5 full turns + align
 
+    _hideResult?.cancel();
     setState(() {
       _spinsLeft -= 1;
       _result = null;
@@ -113,6 +119,9 @@ class _WheelScreenState extends State<WheelScreen>
     _controller.forward(from: 0).then((_) {
       if (!mounted) return;
       setState(() => _result = _segs[i]);
+      _hideResult = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _result = null);
+      });
     });
   }
 
@@ -227,10 +236,7 @@ class _WheelScreenState extends State<WheelScreen>
                                   // Centre hub: brass bezel around the SPIN button.
                                   Positioned(
                                     top: 12 + 150 - 50,
-                                    child: _SpinButton(
-                                      onTap: _spin,
-                                      enabled: _canSpin,
-                                    ),
+                                    child: _SpinButton(onTap: _spin, enabled: _canSpin, phase: _lights.value),
                                   ),
                                   // Flapper pointer: kicks back as each peg passes, then settles.
                                   Positioned(
@@ -255,14 +261,22 @@ class _WheelScreenState extends State<WheelScreen>
                       SizedBox(
                         height: 46,
                         child: Center(
-                          child: _result != null
-                              ? _ResultBanner(text: _resultText)
-                              : Text(
-                                  _spinsLeft > 0
-                                      ? 'Land on a wedge to win tokens or gold'
-                                      : 'No spins left — come back tomorrow',
-                                  style: AuraText.cardSub,
-                                ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 350),
+                            transitionBuilder: (c, a) => FadeTransition(
+                              opacity: a,
+                              child: ScaleTransition(scale: Tween(begin: 0.92, end: 1.0).animate(a), child: c),
+                            ),
+                            child: _result != null
+                                ? _ResultBanner(key: ValueKey(_resultText), text: _resultText)
+                                : Text(
+                                    _spinsLeft > 0
+                                        ? 'Land on a wedge to win tokens or gold'
+                                        : 'No spins left — come back tomorrow',
+                                    key: ValueKey(_spinsLeft > 0),
+                                    style: AuraText.cardSub,
+                                  ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -279,7 +293,7 @@ class _WheelScreenState extends State<WheelScreen>
 }
 
 class _ResultBanner extends StatelessWidget {
-  const _ResultBanner({required this.text});
+  const _ResultBanner({super.key, required this.text});
   final String text;
 
   @override
@@ -340,11 +354,16 @@ class _FreeSpinsChip extends StatelessWidget {
   }
 }
 
-/// Centre hub: a brass bezel with rivets around a glossy domed SPIN button.
+/// Centre hub: a brass bezel with rivets around a casino-style jewel
+/// button — deep red dome with a bevel and gloss, embossed gold SPIN, a
+/// breathing glow and a shine sweep while a spin is available.
 class _SpinButton extends StatefulWidget {
-  const _SpinButton({required this.onTap, required this.enabled});
+  const _SpinButton({required this.onTap, required this.enabled, required this.phase});
   final VoidCallback onTap;
   final bool enabled;
+
+  /// 0 → 1, repeating (drives the glow and the shine).
+  final double phase;
 
   @override
   State<_SpinButton> createState() => _SpinButtonState();
@@ -356,6 +375,7 @@ class _SpinButtonState extends State<_SpinButton> {
   @override
   Widget build(BuildContext context) {
     final on = widget.enabled;
+    final breathe = 0.5 + 0.5 * math.sin(widget.phase * 2 * math.pi);
     return GestureDetector(
       onTapDown: on ? (_) => setState(() => _down = true) : null,
       onTapCancel: () => setState(() => _down = false),
@@ -372,85 +392,13 @@ class _SpinButtonState extends State<_SpinButton> {
           painter: _HubPainter(),
           child: Center(
             child: AnimatedScale(
-              scale: _down ? 0.93 : 1,
+              scale: _down ? 0.9 : 1,
               duration: const Duration(milliseconds: 90),
-              child: Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    center: const Alignment(-0.3, -0.45),
-                    radius: 0.95,
-                    colors: on
-                        ? const [
-                            Color(0xFFFF8AC6),
-                            Color(0xFFEC4899),
-                            Color(0xFF7C3AED),
-                            Color(0xFF3B0764),
-                          ]
-                        : const [
-                            Color(0xFF9CA3AF),
-                            Color(0xFF6B7280),
-                            Color(0xFF374151),
-                            Color(0xFF1F2937),
-                          ],
-                    stops: const [0, 0.35, 0.8, 1],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                    if (on)
-                      BoxShadow(
-                        color: AuraColors.brandPink.withValues(alpha: 0.55),
-                        blurRadius: 18,
-                      ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Gloss highlight on the dome.
-                    Positioned(
-                      top: 7,
-                      child: Container(
-                        width: 40,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.white.withValues(alpha: 0.45),
-                              Colors.white.withValues(alpha: 0),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      'SPIN',
-                      style: TextStyle(
-                        fontFamily: AuraText.displayFamily,
-                        color: on ? Colors.white : Colors.white70,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                        shadows: const [
-                          Shadow(
-                            color: Colors.black54,
-                            blurRadius: 4,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              child: SizedBox.square(
+                dimension: 72,
+                child: CustomPaint(
+                  painter: _JewelPainter(on: on, pressed: _down, glow: on ? breathe : 0, shine: on ? widget.phase : -1),
+                  child: Center(child: _SpinLabel(on: on)),
                 ),
               ),
             ),
@@ -459,6 +407,147 @@ class _SpinButtonState extends State<_SpinButton> {
       ),
     );
   }
+}
+
+/// Embossed gold "SPIN": a dark under-stroke, then the gold face.
+class _SpinLabel extends StatelessWidget {
+  const _SpinLabel({required this.on});
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontFamily: AuraText.displayFamily,
+      fontSize: 18,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1.5,
+      height: 1,
+    );
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Depth: a dark copy just below.
+        Transform.translate(
+          offset: const Offset(0, 1.6),
+          child: Text('SPIN', style: style.copyWith(color: on ? const Color(0xFF5A0610) : Colors.black45)),
+        ),
+        ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (r) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: on
+                ? const [Color(0xFFFFF7D1), Color(0xFFFCD34D), Color(0xFFD97706)]
+                : const [Color(0xFFE5E7EB), Color(0xFF9CA3AF), Color(0xFF6B7280)],
+            stops: const [0, 0.5, 1],
+          ).createShader(r),
+          child: Text('SPIN', style: style.copyWith(color: Colors.white)),
+        ),
+      ],
+    );
+  }
+}
+
+/// The dome: outer glow, a bevelled rim (light top, dark bottom), the red
+/// jewel with depth, a glossy crescent, and a shine that sweeps across.
+class _JewelPainter extends CustomPainter {
+  _JewelPainter({required this.on, required this.pressed, required this.glow, required this.shine});
+  final bool on;
+  final bool pressed;
+  final double glow;
+
+  /// Shine position 0 → 1 (−1 = none).
+  final double shine;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2;
+    final rect = Rect.fromCircle(center: c, radius: r);
+    final base = on ? const Color(0xFFDC2626) : const Color(0xFF6B7280);
+    if (on) {
+      canvas.drawCircle(
+        c,
+        r + 2,
+        Paint()
+          ..color = const Color(0xFFFBBF24).withValues(alpha: 0.25 + 0.35 * glow)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 + 6 * glow),
+      );
+    }
+    // Bevelled rim.
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: pressed
+              ? [Color.lerp(base, Colors.black, 0.55)!, Color.lerp(base, Colors.white, 0.35)!]
+              : [Color.lerp(base, Colors.white, 0.45)!, Color.lerp(base, Colors.black, 0.6)!],
+        ).createShader(rect),
+    );
+    // The jewel.
+    final jr = r - 4;
+    canvas.drawCircle(
+      c,
+      jr,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0, -0.35),
+          radius: 0.95,
+          colors: on
+              ? [const Color(0xFFFF6B6B), base, const Color(0xFF7F1D1D), const Color(0xFF450A0A)]
+              : [const Color(0xFFD1D5DB), base, const Color(0xFF374151), const Color(0xFF1F2937)],
+          stops: const [0, 0.45, 0.85, 1],
+        ).createShader(Rect.fromCircle(center: c, radius: jr)),
+    );
+    canvas.save();
+    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: c, radius: jr)));
+    // Shine sweep (a soft diagonal band crossing the dome).
+    if (shine >= 0 && shine < 0.45) {
+      final t = shine / 0.45;
+      final x = c.dx - jr * 1.6 + t * jr * 3.2;
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white.withValues(alpha: 0), Colors.white.withValues(alpha: 0.32), Colors.white.withValues(alpha: 0)],
+            stops: const [0.4, 0.5, 0.6],
+          ).createShader(Rect.fromCenter(center: Offset(x, c.dy), width: jr * 2, height: jr * 2)),
+      );
+    }
+    canvas.restore();
+    // Glossy crescent on the top half.
+    if (!pressed) {
+      final gloss = Rect.fromCenter(center: c - Offset(0, jr * 0.45), width: jr * 1.4, height: jr * 0.8);
+      canvas.drawOval(
+        gloss,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white.withValues(alpha: on ? 0.55 : 0.35), Colors.white.withValues(alpha: 0)],
+          ).createShader(gloss),
+      );
+      canvas.drawCircle(c + Offset(-jr * 0.42, -jr * 0.5), jr * 0.07, Paint()..color = Colors.white.withValues(alpha: 0.85));
+    }
+    // Thin dark ring between rim and jewel.
+    canvas.drawCircle(
+      c,
+      jr,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = Colors.black.withValues(alpha: 0.35),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_JewelPainter old) =>
+      old.on != on || old.pressed != pressed || old.glow != glow || old.shine != shine;
 }
 
 /// Brass bezel (metallic sweep) with eight rivets.

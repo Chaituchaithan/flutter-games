@@ -15,7 +15,7 @@ import '../system/loading_skeleton_screen.dart' show Shimmer, SkeletonBox;
 /// Store tab (v2). Body only — the shell provides scaffold + nav.
 /// Wallet + packs come from `storeRepositoryProvider` (static source today; live
 /// API when remote sources are switched on). See docs/DESIGN_SPEC.md.
-/// Active Store sub-tab (0 Tokens · 1 Gold · 2 Power-Ups · 3 VIP). A provider
+/// Active Store sub-tab (0 Tokens · 1 Gold · 2 Boosts · 3 VIP). A provider
 /// so other screens can deep-link, e.g. Settings → "Upgrade to VIP".
 class StoreTabController extends Notifier<int> {
   @override
@@ -35,7 +35,7 @@ class StoreScreen extends ConsumerStatefulWidget {
 class _StoreScreenState extends ConsumerState<StoreScreen> {
   int get _tab => ref.watch(storeTabProvider);
 
-  static const List<String> _tabs = ['Tokens', 'Gold', 'Power-Ups', 'VIP'];
+  static const List<String> _tabs = ['Tokens', 'Gold', 'Boosts', 'VIP'];
 
   /// Open the purchase sheet for a specific pack, carrying its real name,
   /// amount, price, currency and the resulting balance.
@@ -358,7 +358,7 @@ class _PriceButton extends StatelessWidget {
   }
 }
 
-// ── Power-Ups tab ──
+// ── Boosts tab ──
 
 class _PowerUp {
   const _PowerUp({
@@ -408,7 +408,7 @@ class _PowerUpsTabState extends State<_PowerUpsTab> {
 
   void _buy(_PowerUp p) {
     setState(() => _owned[p.name] = (_owned[p.name] ?? 0) + 1);
-    showAuraToast(context, '${p.name} added to your inventory', kind: AuraToastKind.success);
+    showAuraToast(context, '${p.name} added to your boosts', kind: AuraToastKind.success);
   }
 
   @override

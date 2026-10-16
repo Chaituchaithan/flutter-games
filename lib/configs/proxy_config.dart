@@ -22,9 +22,12 @@ const bool proxyEnabledByDefault = true;
 const int proxyPort = 8899;
 
 abstract final class ProxyConfig {
-  /// Whether REST + WS route through the local proxy.
-  static const bool enabled =
-      BuildOverrides.useProxy == '' ? proxyEnabledByDefault : BuildOverrides.useProxy == 'true';
+  /// Whether REST + WS route through the local proxy. Release builds (real
+  /// phones, demos) never do — the proxy only exists on the developer's
+  /// machine — unless `--dart-define=USE_PROXY=true` asks for it.
+  static const bool enabled = BuildOverrides.useProxy == ''
+      ? proxyEnabledByDefault && !kReleaseMode
+      : BuildOverrides.useProxy == 'true';
 
   /// `host:port` of the proxy. The Android emulator reaches the host machine's
   /// localhost via 10.0.2.2.

@@ -124,14 +124,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       child: AuraScaffold(
         // Login is the app's entry point (nothing under it), so no back
         // button unless something was actually pushed beneath it.
-        appBar: AuraAppBar(showBack: Navigator.canPop(context)),
+        // Login is the entry point: no top bar (an empty one only adds a
+        // gap) unless something was pushed beneath it.
+        appBar: Navigator.canPop(context) ? const AuraAppBar(showBack: true) : null,
         glowColor: AuraColors.brandPurple,
         glowAlignment: const Alignment(1.4, -1.1),
         scroll: true,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 4),
+            SizedBox(height: Navigator.canPop(context) ? 4 : 18),
             // Logo row: gradient ring + dot, then the app name.
             Row(
               children: [

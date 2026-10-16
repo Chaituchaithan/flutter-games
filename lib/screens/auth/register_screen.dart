@@ -99,15 +99,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return BusyGuard(
       busy: _busy,
       child: AuraScaffold(
-        appBar: const AuraAppBar(showBack: true),
+
         glowColor: AuraColors.brandPink,
         glowAlignment: const Alignment(-1.4, -1.1),
         scroll: true,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 4),
-            Text(context.l10n.createAccount, style: AuraText.headline.copyWith(fontSize: 32)),
+            const SizedBox(height: 12),
+            // Back button inline with the heading (no separate top bar row).
+            Row(
+              children: [
+                GlassIconButton(icon: Icons.chevron_left, iconSize: 24, onTap: () => Navigator.of(context).maybePop()),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(context.l10n.createAccount, style: AuraText.headline.copyWith(fontSize: 30)),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Text(
               context.l10n.registerSubtitle,
