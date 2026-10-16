@@ -591,6 +591,10 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
               controller: s.game,
               flipped: myColor == PieceColor.black,
               perspective: _perspective,
+              // Glows in the colour of the side to move (your purple /
+              // the opponent's blue, as on the player cards).
+              turnColor: gameLive ? (myTurn ? AuraColors.brandPurple : AuraColors.avatarBlue) : null,
+              yourTurn: gameLive && myTurn,
             ),
           ),
         ),

@@ -32,6 +32,8 @@ class LudoBoardView extends StatefulWidget {
     this.onPick,
     this.perspective = false,
     this.banner,
+    this.turnColor,
+    this.yourTurn = false,
     this.tilt = 0.5,
   });
 
@@ -44,6 +46,11 @@ class LudoBoardView extends StatefulWidget {
 
   /// Shown centred on the board frame's top edge (whose turn / the roll).
   final Widget? banner;
+
+  /// Colour of the player whose turn it is (the frame glows in it) and
+  /// whether that's you (the glow breathes).
+  final Color? turnColor;
+  final bool yourTurn;
   final double tilt;
 
   static const stepMs = 170;
@@ -127,7 +134,9 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
       builder: (context, c) {
         // The chess frame around the board; the board tilts inside it (3D).
         const frame = GameBoardFrame.padding * 2 + 5; // bezel + borders
-        final outer = math.min(c.maxWidth, c.maxHeight);
+        // Room for the turn banner above the frame.
+        final bannerSpace = widget.banner != null ? 38.0 : 0.0;
+        final outer = math.min(c.maxWidth, c.maxHeight - bannerSpace);
         final side = outer - frame;
         final cell = side / 15;
         final board = SizedBox(
@@ -149,20 +158,28 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
           ),
         );
         return Center(
-          child: SizedBox.square(
-            dimension: outer,
+          child: SizedBox(
+            width: outer,
+            height: outer + bannerSpace,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                Positioned.fill(
+                Positioned(
+                  top: bannerSpace,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: GameBoardFrame(
+                    turnColor: widget.turnColor,
+                    pulse: widget.yourTurn,
                     child: widget.perspective
                         ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
                         : board,
                   ),
                 ),
+                // Its own row above the frame — never over the board.
                 if (widget.banner != null)
-                  Positioned(top: -15, left: 8, right: 8, child: Center(child: widget.banner)),
+                  Positioned(top: 0, left: 8, right: 8, height: bannerSpace - 6, child: Center(child: widget.banner)),
               ],
             ),
           ),
@@ -269,6 +286,9 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
             }
           } else if (progress == LudoRules.home) {
             scale = 0.6;
+          } else if (progress == LudoRules.base && !widget.perspective) {
+            // 2D: the pawn's base sits in its circle (not floating above it).
+            feet = 0.3;
           }
         }
         if (moving && !widget.perspective) {

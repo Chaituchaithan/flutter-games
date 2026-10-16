@@ -379,6 +379,9 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
           onMoveAnimated: _onMoveAnimated,
           // Whose turn / what was rolled, on the board's top edge.
           banner: _banner(),
+          // The board glows in the current player's colour (breathing on yours).
+          turnColor: _isOver ? null : ludoColor(_game.current),
+          yourTurn: _myTurn,
         ),
         actionBar: BoardActionBar(statusLabel: _status, active: _canRoll || _canPick, onResign: live ? forfeit : null),
       ),

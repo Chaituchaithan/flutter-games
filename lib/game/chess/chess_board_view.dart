@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:snakeladder/game/common/board_frame.dart';
+
 import 'chess_controller.dart';
 import 'chess_engine.dart';
 import 'chess_pieces.dart';
@@ -25,7 +27,14 @@ class ChessBoardView extends StatefulWidget {
     this.flipped = false,
     this.perspective = false,
     this.tilt = 0.46,
+    this.turnColor,
+    this.yourTurn = false,
   });
+
+  /// In a match: the colour of the side to move (the frame glows in it) and
+  /// whether that's you (the glow breathes). Null = the plain neon frame.
+  final Color? turnColor;
+  final bool yourTurn;
 
   final ChessController controller;
 
@@ -233,34 +242,12 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
 
     return AspectRatio(
       aspectRatio: 1,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        // Board frame: polished obsidian bezel with a cyan neon edge + bloom.
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF1A1630), Color(0xFF070510)],
-          ),
-          border: Border.all(color: const Color(0xFF22D3EE).withValues(alpha: 0.30), width: 1.5),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.65), blurRadius: 40, spreadRadius: -8, offset: const Offset(0, 20)),
-            // Dual neon bloom — violet below, cyan above — the glass-arena glow.
-            BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.34), blurRadius: 40, spreadRadius: -2, offset: const Offset(0, 8)),
-            BoxShadow(color: const Color(0xFF22D3EE).withValues(alpha: 0.26), blurRadius: 32, spreadRadius: -6, offset: const Offset(0, -6)),
-          ],
-        ),
-        child: Container(
-          // Inner lip: a thin inset frame separating the felt from the bezel.
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(11),
-            border: Border.all(color: Colors.black.withValues(alpha: 0.45), width: 1),
-            boxShadow: [BoxShadow(color: Colors.white.withValues(alpha: 0.06), blurRadius: 1, spreadRadius: 0.5)],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LayoutBuilder(
+      // The shared board frame (bezel, inner lip, sheen); in a match it glows
+      // in the colour of whoever is to move.
+      child: GameBoardFrame(
+        turnColor: widget.turnColor,
+        pulse: widget.yourTurn,
+        child: LayoutBuilder(
               builder: (context, constraints) {
                 final cell = constraints.maxWidth / 8;
                 final key = (_version, flying, cell, widget.flipped, widget.perspective);
@@ -296,19 +283,10 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
                         transform: _perspectiveMatrix(),
                         child: board,
                       );
-                // A soft glass sheen over the whole board (never tilted, never
-                // intercepts taps) for a lit, premium finish.
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    boardWidget,
-                    const IgnorePointer(child: _BoardSheen()),
-                  ],
-                );
+                // (The frame draws the glass sheen over the board.)
+                return boardWidget;
               },
             ),
-          ),
-        ),
       ),
     );
   }
@@ -545,31 +523,6 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
         padding: const EdgeInsets.all(2),
         child: Text(label, style: TextStyle(color: color, fontSize: cell * 0.16, fontWeight: FontWeight.w700)),
       ),
-    );
-  }
-}
-
-/// A soft diagonal glass sheen painted over the whole board for a lit finish.
-class _BoardSheen extends StatelessWidget {
-  const _BoardSheen();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.07),
-            Colors.transparent,
-            Colors.transparent,
-            Colors.black.withValues(alpha: 0.10),
-          ],
-          stops: const [0.0, 0.28, 0.72, 1.0],
-        ),
-      ),
-      child: const SizedBox.expand(),
     );
   }
 }

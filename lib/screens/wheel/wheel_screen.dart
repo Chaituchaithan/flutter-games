@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../widgets/aura.dart';
 import '../../widgets/wallet_pill.dart';
@@ -35,6 +36,10 @@ class WheelScreen extends StatefulWidget {
 class _WheelScreenState extends State<WheelScreen>
     with TickerProviderStateMixin {
   late final AnimationController _controller;
+
+  /// The jackpot celebration (only when the jackpot wedge wins).
+  late final AnimationController _jackpot = AnimationController(vsync: this, duration: const Duration(milliseconds: 3600))
+    ..addListener(() => setState(() {}));
 
   /// Marquee bulbs around the rim: a slow blink at rest, a chase while spinning.
   late final AnimationController _lights;
@@ -96,6 +101,7 @@ class _WheelScreenState extends State<WheelScreen>
   void dispose() {
     _hideResult?.cancel();
     _lights.dispose();
+    _jackpot.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -119,6 +125,10 @@ class _WheelScreenState extends State<WheelScreen>
     _controller.forward(from: 0).then((_) {
       if (!mounted) return;
       setState(() => _result = _segs[i]);
+      if (_segs[i].jackpot) {
+        HapticFeedback.heavyImpact();
+        _jackpot.forward(from: 0);
+      }
       _hideResult = Timer(const Duration(seconds: 3), () {
         if (mounted) setState(() => _result = null);
       });
@@ -146,7 +156,9 @@ class _WheelScreenState extends State<WheelScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Stack(
+      children: [
+        Padding(
       // Same insets as the Store tab, so the header pills line up.
       padding: const EdgeInsets.fromLTRB(kPageGutter, 8, kPageGutter, 0),
       child: Column(
@@ -216,6 +228,7 @@ class _WheelScreenState extends State<WheelScreen>
                                       painter: _RimPainter(
                                         phase: _lights.value,
                                         spinning: _controller.isAnimating,
+                                        jackpot: _jackpot.isAnimating,
                                       ),
                                     ),
                                   ),
@@ -288,6 +301,21 @@ class _WheelScreenState extends State<WheelScreen>
           ),
         ],
       ),
+    ),
+        // Jackpot only: golden burst, coin shower and the JACKPOT! shout.
+        if (_jackpot.isAnimating)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _jackpot,
+                builder: (_, _) => CustomPaint(
+                  painter: _JackpotPainter(_jackpot.value),
+                  child: Center(child: _JackpotShout(t: _jackpot.value)),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -605,7 +633,10 @@ const _brass = SweepGradient(
 
 /// The fixed outer rim: brass ring with 16 marquee bulbs.
 class _RimPainter extends CustomPainter {
-  _RimPainter({required this.phase, required this.spinning});
+  _RimPainter({required this.phase, required this.spinning, this.jackpot = false});
+
+  /// Jackpot: every bulb flashes together, fast.
+  final bool jackpot;
 
   /// 0 → 1, repeating.
   final double phase;
@@ -643,7 +674,9 @@ class _RimPainter extends CustomPainter {
       final a = -math.pi / 2 + i * 2 * math.pi / bulbs;
       final p = c + Offset(math.cos(a), math.sin(a)) * (r - 11);
       final bool lit;
-      if (spinning) {
+      if (jackpot) {
+        lit = (phase * 14).floor().isEven;
+      } else if (spinning) {
         lit =
             (i - (phase * bulbs * 2).floor()) % 4 == 0 ||
             (i - (phase * bulbs * 2).floor()) % 4 == 1;
@@ -680,7 +713,7 @@ class _RimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RimPainter old) =>
-      old.phase != phase || old.spinning != spinning;
+      old.phase != phase || old.spinning != spinning || old.jackpot != jackpot;
 }
 
 class _WheelPainter extends CustomPainter {
@@ -850,4 +883,109 @@ class _PointerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PointerPainter oldDelegate) => false;
+}
+
+/// Jackpot celebration behind the shout: golden rays turning, a flash, and
+/// spinning gold coins raining down. [t] runs 0 → 1 once.
+class _JackpotPainter extends CustomPainter {
+  _JackpotPainter(this.t);
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height * 0.48);
+    final fade = t < 0.08 ? t / 0.08 : (t > 0.82 ? (1 - t) / 0.18 : 1.0);
+    // Dim + opening flash.
+    canvas.drawRect(Offset.zero & size, Paint()..color = Colors.black.withValues(alpha: 0.35 * fade));
+    if (t < 0.18) {
+      canvas.drawCircle(
+        c,
+        size.width * (0.2 + t * 4),
+        Paint()
+          ..color = const Color(0xFFFDE68A).withValues(alpha: 0.5 * (1 - t / 0.18))
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 40),
+      );
+    }
+    // Turning rays.
+    final rays = Paint()
+      ..shader = RadialGradient(
+        colors: [const Color(0xFFFBBF24).withValues(alpha: 0.55 * fade), const Color(0x00FBBF24)],
+      ).createShader(Rect.fromCircle(center: c, radius: size.width * 0.9));
+    final turn = t * math.pi * 0.8;
+    for (var k = 0; k < 14; k++) {
+      final a = turn + k * 2 * math.pi / 14;
+      final r = size.width * 0.95;
+      canvas.drawPath(
+        Path()
+          ..moveTo(c.dx, c.dy)
+          ..lineTo(c.dx + r * math.cos(a - 0.09), c.dy + r * math.sin(a - 0.09))
+          ..lineTo(c.dx + r * math.cos(a + 0.09), c.dy + r * math.sin(a + 0.09))
+          ..close(),
+        rays,
+      );
+    }
+    // Coin shower.
+    final rng = math.Random(9);
+    for (var i = 0; i < 46; i++) {
+      final x = rng.nextDouble() * size.width;
+      final delay = rng.nextDouble() * 0.4;
+      final speed = 0.7 + rng.nextDouble() * 0.6;
+      final p = ((t - delay) * speed * 1.7).clamp(0.0, 1.3);
+      if (p <= 0) continue;
+      final y = -30 + p * (size.height + 60);
+      final spin = p * 18 + i;
+      final r = 7 + rng.nextDouble() * 6;
+      final w = r * (0.25 + 0.75 * math.cos(spin).abs());
+      final rect = Rect.fromCenter(center: Offset(x + math.sin(p * 6 + i) * 14, y), width: w * 2, height: r * 2);
+      canvas.drawOval(rect, Paint()..color = const Color(0xFFB45309).withValues(alpha: fade));
+      canvas.drawOval(rect.deflate(1.5), Paint()..color = const Color(0xFFFBBF24).withValues(alpha: fade));
+      canvas.drawOval(
+        Rect.fromCenter(center: rect.center - Offset(w * 0.25, r * 0.3), width: w * 0.7, height: r * 0.6),
+        Paint()..color = Colors.white.withValues(alpha: 0.55 * fade),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_JackpotPainter old) => old.t != t;
+}
+
+/// "JACKPOT!" in gold, dropping in with a bounce and a short shake.
+class _JackpotShout extends StatelessWidget {
+  const _JackpotShout({required this.t});
+  final double t;
+
+  @override
+  Widget build(BuildContext context) {
+    final inT = Curves.elasticOut.transform((t / 0.3).clamp(0.0, 1.0));
+    final out = t > 0.85 ? (t - 0.85) / 0.15 : 0.0;
+    final shake = t > 0.12 && t < 0.4 ? math.sin(t * 90) * 4 * (1 - (t - 0.12) / 0.28) : 0.0;
+    return Opacity(
+      opacity: (1 - out).clamp(0.0, 1.0),
+      child: Transform.translate(
+        offset: Offset(shake, -40),
+        child: Transform.scale(
+          scale: 0.3 + 0.7 * inT,
+          child: ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (r) => const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFF7D1), Color(0xFFFCD34D), Color(0xFFD97706)],
+            ).createShader(r),
+            child: Text(
+              'JACKPOT!',
+              style: TextStyle(
+                fontFamily: AuraText.displayFamily,
+                fontSize: 54,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                shadows: const [Shadow(color: Color(0xFF7C2D12), blurRadius: 0, offset: Offset(0, 4)), Shadow(color: Colors.black54, blurRadius: 18)],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -27,10 +27,17 @@ class SnakesBoardView extends StatefulWidget {
     this.tilt = 0.5,
     this.delay = Duration.zero,
     this.banner,
+    this.turnColor,
+    this.yourTurn = false,
   });
 
   /// Shown centred on the board frame's top edge (whose turn / the roll).
   final Widget? banner;
+
+  /// Colour of the player whose turn it is (the frame glows in it) and
+  /// whether that's you (the glow breathes).
+  final Color? turnColor;
+  final bool yourTurn;
 
   final SnakesGame game;
 
@@ -62,6 +69,9 @@ class SnakesBoardView extends StatefulWidget {
   @override
   State<SnakesBoardView> createState() => _SnakesBoardViewState();
 }
+
+/// Height of the turn-banner row above the board.
+const _bannerRow = 38.0;
 
 class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderStateMixin {
   late final AnimationController _move = AnimationController(vsync: this)
@@ -129,7 +139,9 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
         // The chess frame around the board + the START pad below it
         // (pad = 0.12 × side); the board tilts inside the frame (3D).
         const frame = GameBoardFrame.padding * 2 + 5; // bezel + borders
-        final outerW = math.min(c.maxWidth, (c.maxHeight - frame) / 1.12 + frame);
+        // Room for the turn banner above the frame.
+        final bannerSpace = widget.banner != null ? _bannerRow : 0.0;
+        final outerW = math.min(c.maxWidth, (c.maxHeight - bannerSpace - frame) / 1.12 + frame);
         final side = outerW - frame;
         final cell = side / 10;
         final padH = side * 0.12;
@@ -159,19 +171,26 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
         return Center(
           child: SizedBox(
             width: outerW,
-            height: side + padH + frame,
+            height: side + padH + frame + bannerSpace,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                Positioned.fill(
+                Positioned(
+                  top: bannerSpace,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: GameBoardFrame(
+                    turnColor: widget.turnColor,
+                    pulse: widget.yourTurn,
                     child: widget.perspective
                         ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
                         : board,
                   ),
                 ),
+                // Its own row above the frame — never over the board.
                 if (widget.banner != null)
-                  Positioned(top: -15, left: 8, right: 8, child: Center(child: widget.banner)),
+                  Positioned(top: 0, left: 8, right: 8, height: bannerSpace - 6, child: Center(child: widget.banner)),
               ],
             ),
           ),

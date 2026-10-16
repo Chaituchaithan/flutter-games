@@ -326,6 +326,9 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
           onMoveAnimated: _onMoveAnimated,
           // Whose turn / what was rolled, on the board's top edge.
           banner: _banner(),
+          // The board glows in the current player's colour (breathing on yours).
+          turnColor: _isOver ? null : _seats[_game.turn].color,
+          yourTurn: _myTurn,
         ),
         actionBar: BoardActionBar(statusLabel: _status, active: _canRoll, onResign: live ? forfeit : null),
       ),

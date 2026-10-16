@@ -10,6 +10,9 @@ import 'aura_app.dart';
 /// calls this — the only difference between the apps is the profile.
 void runAuraApp(AppProfile profile) {
   WidgetsFlutterBinding.ensureInitialized();
+  // Portrait only: every screen and game board is designed for it (also set
+  // in AndroidManifest / Info.plist so the screen never flips at launch).
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   AppProfile.current = profile;
   GameRegistry.setAppGames([for (final m in profile.modules) m.id]);
   // Light status-bar icons over the dark background.
