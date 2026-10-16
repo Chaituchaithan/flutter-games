@@ -45,7 +45,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onRefresh: () => ref.read(sessionProvider.notifier).reloadProfile(),
             child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            padding: const EdgeInsets.fromLTRB(kPageGutter, 8, kPageGutter, 24),
             children: [
               _HeaderCard(
                 user: user,

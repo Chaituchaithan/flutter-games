@@ -8,13 +8,15 @@ import '../../widgets/aura.dart';
 import '../common/playing_cards.dart' show CasinoChip;
 import 'roulette_engine.dart';
 
-String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+String _fmt(int n) =>
+    n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 
 const _green = Color(0xFF0F7A47);
 const _redPocket = Color(0xFFC81E32);
 const _blackPocket = Color(0xFF15121F);
 
-Color pocketColor(int n) => n == 0 ? _green : (RouletteRules.isRed(n) ? _redPocket : _blackPocket);
+Color pocketColor(int n) =>
+    n == 0 ? _green : (RouletteRules.isRed(n) ? _redPocket : _blackPocket);
 
 const _chipValues = [10, 25, 100, 500, 1000];
 
@@ -30,11 +32,17 @@ class RouletteScreen extends StatefulWidget {
   State<RouletteScreen> createState() => _RouletteScreenState();
 }
 
-class _RouletteScreenState extends State<RouletteScreen> with TickerProviderStateMixin {
+class _RouletteScreenState extends State<RouletteScreen>
+    with TickerProviderStateMixin {
   late final RouletteGame _game = widget.game ?? RouletteGame();
-  late final AnimationController _spin = AnimationController(vsync: this, duration: const Duration(milliseconds: 7200));
-  late final AnimationController _glow = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))
-    ..repeat();
+  late final AnimationController _spin = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 7200),
+  );
+  late final AnimationController _glow = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
   final _rng = math.Random();
 
   int _chip = 25;
@@ -67,16 +75,28 @@ class _RouletteScreenState extends State<RouletteScreen> with TickerProviderStat
   void _place(BetSpot spot) {
     if (_game.phase != RoulettePhase.betting) return;
     if (_chip > _game.balance) {
-      showAuraToast(context, context.l10n.notEnoughChips, kind: AuraToastKind.error);
+      showAuraToast(
+        context,
+        context.l10n.notEnoughChips,
+        kind: AuraToastKind.error,
+      );
     } else if (!_game.place(spot, _chip)) {
-      showAuraToast(context, context.l10n.tableLimitReached, kind: AuraToastKind.info);
+      showAuraToast(
+        context,
+        context.l10n.tableLimitReached,
+        kind: AuraToastKind.info,
+      );
     }
   }
 
   Future<void> _doSpin() async {
     if (_game.phase != RoulettePhase.betting) return;
     if (_game.bets.isEmpty) {
-      showAuraToast(context, context.l10n.placeYourBets, kind: AuraToastKind.info);
+      showAuraToast(
+        context,
+        context.l10n.placeYourBets,
+        kind: AuraToastKind.info,
+      );
       return;
     }
     final result = _game.spin();
@@ -113,7 +133,10 @@ class _RouletteScreenState extends State<RouletteScreen> with TickerProviderStat
                   title: '🎡 Roulette',
                   subtitle: l.practiceChips,
                   pot: '0',
-                  leading: GlassIconButton(icon: Icons.arrow_back_rounded, onTap: () => Navigator.of(context).maybePop()),
+                  leading: GlassIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => Navigator.of(context).maybePop(),
+                  ),
                   trailing: _BalancePill(balance: g.balance),
                 ),
                 const SizedBox(height: 8),
@@ -126,7 +149,14 @@ class _RouletteScreenState extends State<RouletteScreen> with TickerProviderStat
                     children: [
                       SizedBox.square(
                         dimension: 116,
-                        child: CustomPaint(painter: _WheelPainter(wheel: _wheelRest, highlight: g.results.isEmpty ? null : g.results.first)),
+                        child: CustomPaint(
+                          painter: _WheelPainter(
+                            wheel: _wheelRest,
+                            highlight: g.results.isEmpty
+                                ? null
+                                : g.results.first,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -134,12 +164,17 @@ class _RouletteScreenState extends State<RouletteScreen> with TickerProviderStat
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(l.placeYourBets, style: AuraText.cardTitle.copyWith(fontSize: 18)),
+                            Text(
+                              l.placeYourBets,
+                              style: AuraText.cardTitle.copyWith(fontSize: 18),
+                            ),
                             const SizedBox(height: 4),
                             Flexible(
                               child: Text(
                                 l.rouletteHint,
-                                style: AuraText.caption.copyWith(fontSize: 11.5),
+                                style: AuraText.caption.copyWith(
+                                  fontSize: 11.5,
+                                ),
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -175,23 +210,47 @@ class _RouletteScreenState extends State<RouletteScreen> with TickerProviderStat
                 if (broke)
                   _TopUp(onTap: g.refill)
                 else
-                  _ChipBar(selected: _chip, balance: g.balance, onPick: (v) => setState(() => _chip = v)),
+                  _ChipBar(
+                    selected: _chip,
+                    balance: g.balance,
+                    onPick: (v) => setState(() => _chip = v),
+                  ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _ActionChip(icon: Icons.undo_rounded, label: l.undo, onTap: betting && g.bets.isNotEmpty ? g.undo : null),
+                    _ActionChip(
+                      icon: Icons.undo_rounded,
+                      label: l.undo,
+                      onTap: betting && g.bets.isNotEmpty ? g.undo : null,
+                    ),
                     const SizedBox(width: 6),
-                    _ActionChip(icon: Icons.delete_outline_rounded, label: l.clearBets, onTap: betting && g.bets.isNotEmpty ? g.clear : null),
+                    _ActionChip(
+                      icon: Icons.delete_outline_rounded,
+                      label: l.clearBets,
+                      onTap: betting && g.bets.isNotEmpty ? g.clear : null,
+                    ),
                     const SizedBox(width: 6),
                     g.canRepeat
-                        ? _ActionChip(icon: Icons.replay_rounded, label: l.repeatBets, onTap: betting ? () => g.repeat() : null)
+                        ? _ActionChip(
+                            icon: Icons.replay_rounded,
+                            label: l.repeatBets,
+                            onTap: betting ? () => g.repeat() : null,
+                          )
                         : _ActionChip(
                             icon: Icons.exposure_plus_2_rounded,
                             label: l.doubleBets,
-                            onTap: betting && g.bets.isNotEmpty ? () => g.double() : null,
+                            onTap: betting && g.bets.isNotEmpty
+                                ? () => g.double()
+                                : null,
                           ),
                     const SizedBox(width: 8),
-                    Expanded(child: GradientButton(label: l.spinButton, enabled: betting, onPressed: _doSpin)),
+                    Expanded(
+                      child: GradientButton(
+                        label: l.spinButton,
+                        enabled: betting,
+                        onPressed: _doSpin,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -203,7 +262,12 @@ class _RouletteScreenState extends State<RouletteScreen> with TickerProviderStat
             Positioned.fill(
               child: GestureDetector(
                 onTap: g.phase == RoulettePhase.result ? _continue : null,
-                child: _SpinOverlay(game: g, plan: _plan!, spin: _spin, glow: _glow),
+                child: _SpinOverlay(
+                  game: g,
+                  plan: _plan!,
+                  spin: _spin,
+                  glow: _glow,
+                ),
               ),
             ),
         ],
@@ -228,12 +292,18 @@ class _SpinPlan {
   static const land = 0.8;
   static const seg = 2 * math.pi / 37;
 
-  double wheelAt(double t) => start + wheelTurns * 2 * math.pi * Curves.easeOutCubic.transform(t.clamp(0.0, 1.0));
+  double wheelAt(double t) =>
+      start +
+      wheelTurns *
+          2 *
+          math.pi *
+          Curves.easeOutCubic.transform(t.clamp(0.0, 1.0));
 
   double ballAt(double t) {
     if (t >= land) return wheelAt(t) + pocket * seg;
     final target = wheelAt(land) + pocket * seg;
-    return target + ballTurns * 2 * math.pi * (1 - Curves.easeOutQuad.transform(t / land));
+    return target +
+        ballTurns * 2 * math.pi * (1 - Curves.easeOutQuad.transform(t / land));
   }
 
   /// Ball distance from the centre as a fraction of the wheel radius.
@@ -245,12 +315,18 @@ class _SpinPlan {
     final v = (u - 0.55) / 0.45;
     final base = track + (rest - track) * Curves.easeIn.transform(v);
     // Deflectors make it hop a few times on the way in.
-    return base + (track - rest) * 0.22 * (1 - v) * math.sin(v * math.pi * 5).abs();
+    return base +
+        (track - rest) * 0.22 * (1 - v) * math.sin(v * math.pi * 5).abs();
   }
 }
 
 class _SpinOverlay extends StatelessWidget {
-  const _SpinOverlay({required this.game, required this.plan, required this.spin, required this.glow});
+  const _SpinOverlay({
+    required this.game,
+    required this.plan,
+    required this.spin,
+    required this.glow,
+  });
   final RouletteGame game;
   final _SpinPlan plan;
   final Animation<double> spin;
@@ -272,7 +348,11 @@ class _SpinOverlay extends StatelessWidget {
             children: [
               Text(
                 done ? '' : l.noMoreBets,
-                style: AuraText.cardTitle.copyWith(fontSize: 16, color: Colors.white70, letterSpacing: 1),
+                style: AuraText.cardTitle.copyWith(
+                  fontSize: 16,
+                  color: Colors.white70,
+                  letterSpacing: 1,
+                ),
               ),
               const SizedBox(height: 14),
               SizedBox.square(
@@ -313,10 +393,20 @@ class _SpinOverlay extends StatelessWidget {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: pocketColor(r),
-                                border: Border.all(color: AuraColors.amber, width: 3),
+                                border: Border.all(
+                                  color: AuraColors.amber,
+                                  width: 3,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: pocketColor(r).withValues(alpha: 0.5 + 0.4 * math.sin(glow.value * 2 * math.pi).abs()),
+                                    color: pocketColor(r).withValues(
+                                      alpha:
+                                          0.5 +
+                                          0.4 *
+                                              math
+                                                  .sin(glow.value * 2 * math.pi)
+                                                  .abs(),
+                                    ),
                                     blurRadius: 30,
                                   ),
                                 ],
@@ -335,13 +425,26 @@ class _SpinOverlay extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            net > 0 ? l.youWinAmount(_fmt(net)) : l.noWinThisTime,
+                            net > 0
+                                ? l.youWinAmount(_fmt(net))
+                                : l.noWinThisTime,
                             style: TextStyle(
                               fontFamily: AuraText.displayFamily,
-                              color: net > 0 ? AuraColors.green : Colors.white70,
+                              color: net > 0
+                                  ? AuraColors.green
+                                  : Colors.white70,
                               fontSize: net > 0 ? 24 : 17,
                               fontWeight: FontWeight.w900,
-                              shadows: net > 0 ? [Shadow(color: AuraColors.green.withValues(alpha: 0.6), blurRadius: 18)] : null,
+                              shadows: net > 0
+                                  ? [
+                                      Shadow(
+                                        color: AuraColors.green.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                        blurRadius: 18,
+                                      ),
+                                    ]
+                                  : null,
                             ),
                           ),
                         ],
@@ -372,23 +475,46 @@ class _WheelPainter extends CustomPainter {
     final c = size.center(Offset.zero);
     final r = size.width / 2;
     // Shadow + wooden rim.
-    canvas.drawCircle(c + Offset(0, r * 0.03), r, Paint()..color = Colors.black54..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.05));
+    canvas.drawCircle(
+      c + Offset(0, r * 0.03),
+      r,
+      Paint()
+        ..color = Colors.black54
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.05),
+    );
     canvas.drawCircle(
       c,
       r,
       Paint()
         ..shader = const SweepGradient(
-          colors: [Color(0xFF7C2D12), Color(0xFFB45309), Color(0xFF5B2108), Color(0xFFA16207), Color(0xFF7C2D12)],
+          colors: [
+            Color(0xFF7C2D12),
+            Color(0xFFB45309),
+            Color(0xFF5B2108),
+            Color(0xFFA16207),
+            Color(0xFF7C2D12),
+          ],
         ).createShader(Rect.fromCircle(center: c, radius: r)),
     );
-    canvas.drawCircle(c, r * 0.97, Paint()..style = PaintingStyle.stroke..strokeWidth = r * 0.015..color = const Color(0xFFFDE68A).withValues(alpha: 0.5));
+    canvas.drawCircle(
+      c,
+      r * 0.97,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.015
+        ..color = const Color(0xFFFDE68A).withValues(alpha: 0.5),
+    );
     // Ball track.
     canvas.drawCircle(
       c,
       r * 0.88,
       Paint()
         ..shader = RadialGradient(
-          colors: const [Color(0xFF3F3A4D), Color(0xFF1C1828), Color(0xFF0C0A12)],
+          colors: const [
+            Color(0xFF3F3A4D),
+            Color(0xFF1C1828),
+            Color(0xFF0C0A12),
+          ],
           stops: const [0.82, 0.92, 1],
         ).createShader(Rect.fromCircle(center: c, radius: r * 0.88)),
     );
@@ -421,17 +547,43 @@ class _WheelPainter extends CustomPainter {
       final a0 = -math.pi / 2 + i * seg - seg / 2;
       final col = pocketColor(n);
       final ring = Path()
-        ..arcTo(Rect.fromCircle(center: Offset.zero, radius: ringOuter), a0, seg, true)
-        ..arcTo(Rect.fromCircle(center: Offset.zero, radius: ringInner), a0 + seg, -seg, false)
+        ..arcTo(
+          Rect.fromCircle(center: Offset.zero, radius: ringOuter),
+          a0,
+          seg,
+          true,
+        )
+        ..arcTo(
+          Rect.fromCircle(center: Offset.zero, radius: ringInner),
+          a0 + seg,
+          -seg,
+          false,
+        )
         ..close();
       canvas.drawPath(ring, Paint()..color = col);
       final pocket = Path()
-        ..arcTo(Rect.fromCircle(center: Offset.zero, radius: ringInner), a0, seg, true)
-        ..arcTo(Rect.fromCircle(center: Offset.zero, radius: pocketInner), a0 + seg, -seg, false)
+        ..arcTo(
+          Rect.fromCircle(center: Offset.zero, radius: ringInner),
+          a0,
+          seg,
+          true,
+        )
+        ..arcTo(
+          Rect.fromCircle(center: Offset.zero, radius: pocketInner),
+          a0 + seg,
+          -seg,
+          false,
+        )
         ..close();
-      canvas.drawPath(pocket, Paint()..color = Color.lerp(col, Colors.black, 0.45)!);
+      canvas.drawPath(
+        pocket,
+        Paint()..color = Color.lerp(col, Colors.black, 0.45)!,
+      );
       if (n == highlight) {
-        canvas.drawPath(ring, Paint()..color = Colors.white.withValues(alpha: 0.28));
+        canvas.drawPath(
+          ring,
+          Paint()..color = Colors.white.withValues(alpha: 0.28),
+        );
       }
       // Separators (frets).
       final sep = Paint()
@@ -458,32 +610,70 @@ class _WheelPainter extends CustomPainter {
       )..layout();
       canvas.save();
       canvas.rotate(mid + math.pi / 2);
-      tp.paint(canvas, Offset(-tp.width / 2, -(ringOuter + ringInner) / 2 - tp.height / 2));
+      tp.paint(
+        canvas,
+        Offset(-tp.width / 2, -(ringOuter + ringInner) / 2 - tp.height / 2),
+      );
       canvas.restore();
     }
-    canvas.drawCircle(Offset.zero, ringOuter, Paint()..style = PaintingStyle.stroke..strokeWidth = r * 0.012..color = const Color(0xFFFCD34D));
-    canvas.drawCircle(Offset.zero, ringInner, Paint()..style = PaintingStyle.stroke..strokeWidth = r * 0.008..color = const Color(0xFFFCD34D));
+    canvas.drawCircle(
+      Offset.zero,
+      ringOuter,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.012
+        ..color = const Color(0xFFFCD34D),
+    );
+    canvas.drawCircle(
+      Offset.zero,
+      ringInner,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.008
+        ..color = const Color(0xFFFCD34D),
+    );
     // Cone.
     canvas.drawCircle(
       Offset.zero,
       pocketInner,
       Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(-0.3, -0.3),
-          colors: const [Color(0xFFD97706), Color(0xFF92400E), Color(0xFF451A03)],
-        ).createShader(Rect.fromCircle(center: Offset.zero, radius: pocketInner)),
+        ..shader =
+            RadialGradient(
+              center: const Alignment(-0.3, -0.3),
+              colors: const [
+                Color(0xFFD97706),
+                Color(0xFF92400E),
+                Color(0xFF451A03),
+              ],
+            ).createShader(
+              Rect.fromCircle(center: Offset.zero, radius: pocketInner),
+            ),
     );
     for (var i = 0; i < 4; i++) {
       canvas.save();
       canvas.rotate(i * math.pi / 2);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(-r * 0.018, -r * 0.3, r * 0.036, r * 0.3), Radius.circular(r * 0.02)),
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(-r * 0.018, -r * 0.3, r * 0.036, r * 0.3),
+          Radius.circular(r * 0.02),
+        ),
         Paint()..color = const Color(0xFFFDE68A),
       );
-      canvas.drawCircle(Offset(0, -r * 0.3), r * 0.03, Paint()..color = const Color(0xFFFEF3C7));
+      canvas.drawCircle(
+        Offset(0, -r * 0.3),
+        r * 0.03,
+        Paint()..color = const Color(0xFFFEF3C7),
+      );
       canvas.restore();
     }
-    canvas.drawCircle(Offset.zero, r * 0.07, Paint()..shader = const RadialGradient(colors: [Color(0xFFFFFBEB), Color(0xFFD97706)]).createShader(Rect.fromCircle(center: Offset.zero, radius: r * 0.07)));
+    canvas.drawCircle(
+      Offset.zero,
+      r * 0.07,
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Color(0xFFFFFBEB), Color(0xFFD97706)],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: r * 0.07)),
+    );
     canvas.restore();
 
     // Ball.
@@ -492,7 +682,13 @@ class _WheelPainter extends CustomPainter {
       final a = -math.pi / 2 + b;
       final p = c + Offset(math.cos(a), math.sin(a)) * r * ballR!;
       final br = r * 0.036;
-      canvas.drawCircle(p + Offset(br * 0.3, br * 0.4), br, Paint()..color = Colors.black54..maskFilter = MaskFilter.blur(BlurStyle.normal, br * 0.4));
+      canvas.drawCircle(
+        p + Offset(br * 0.3, br * 0.4),
+        br,
+        Paint()
+          ..color = Colors.black54
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, br * 0.4),
+      );
       canvas.drawCircle(
         p,
         br,
@@ -507,7 +703,10 @@ class _WheelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_WheelPainter old) =>
-      old.wheel != wheel || old.ball != ball || old.ballR != ballR || old.highlight != highlight;
+      old.wheel != wheel ||
+      old.ball != ball ||
+      old.ballR != ballR ||
+      old.highlight != highlight;
 }
 
 /// The betting table, vertical (0 at the top, 12 rows of 3, column bets at
@@ -515,7 +714,11 @@ class _WheelPainter extends CustomPainter {
 /// for a straight bet, the line between two numbers for a split, a crossing
 /// for a corner, the left edge of a row for a street.
 class _RouletteTable extends StatelessWidget {
-  const _RouletteTable({required this.game, required this.onPlace, required this.glow});
+  const _RouletteTable({
+    required this.game,
+    required this.onPlace,
+    required this.glow,
+  });
   final RouletteGame game;
   final ValueChanged<BetSpot> onPlace;
   final double glow;
@@ -529,7 +732,9 @@ class _RouletteTable extends StatelessWidget {
         final chips = <Widget>[];
         for (final e in game.bets.entries) {
           final p = geo.anchor(e.key);
-          final won = game.phase == RoulettePhase.result && game.winningSpots.contains(e.key);
+          final won =
+              game.phase == RoulettePhase.result &&
+              game.winningSpots.contains(e.key);
           final cs = geo.rh * 0.78;
           chips.add(
             Positioned(
@@ -540,7 +745,15 @@ class _RouletteTable extends StatelessWidget {
                   decoration: won
                       ? BoxDecoration(
                           shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: AuraColors.green.withValues(alpha: 0.5 + 0.4 * glow), blurRadius: 14, spreadRadius: 2)],
+                          boxShadow: [
+                            BoxShadow(
+                              color: AuraColors.green.withValues(
+                                alpha: 0.5 + 0.4 * glow,
+                              ),
+                              blurRadius: 14,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         )
                       : null,
                   child: CasinoChip(value: e.value, size: cs),
@@ -566,7 +779,9 @@ class _RouletteTable extends StatelessWidget {
                       painter: _TablePainter(
                         geo: geo,
                         labels: (l.betRed, l.betBlack, l.betOdd, l.betEven),
-                        win: game.phase == RoulettePhase.result ? game.result : null,
+                        win: game.phase == RoulettePhase.result
+                            ? game.result
+                            : null,
                         glow: glow,
                       ),
                     ),
@@ -611,7 +826,14 @@ class _TableGeo {
   Rect dozen(int d) => Rect.fromLTWH(side, y0 + d * 4 * rh, side, 4 * rh);
 
   /// Even-money spots top to bottom: 1–18, EVEN, RED, BLACK, ODD, 19–36.
-  static final evenMoney = [BetSpot.lowBet, BetSpot.evenBet, BetSpot.redBet, BetSpot.blackBet, BetSpot.oddBet, BetSpot.highBet];
+  static final evenMoney = [
+    BetSpot.lowBet,
+    BetSpot.evenBet,
+    BetSpot.redBet,
+    BetSpot.blackBet,
+    BetSpot.oddBet,
+    BetSpot.highBet,
+  ];
   Rect even(int i) => Rect.fromLTWH(0, y0 + i * 2 * rh, side, 2 * rh);
 
   BetSpot? spotAt(Offset p) {
@@ -637,10 +859,14 @@ class _TableGeo {
         if (bottom) return BetSpot.split(n, n + 3);
         return BetSpot.straight(n);
       }
-      if (x >= side) return BetSpot.dozen(((y - y0) / (4 * rh)).floor().clamp(0, 2));
+      if (x >= side) {
+        return BetSpot.dozen(((y - y0) / (4 * rh)).floor().clamp(0, 2));
+      }
       return evenMoney[((y - y0) / (2 * rh)).floor().clamp(0, 5)];
     }
-    if (y >= y0 + 12 * rh && x >= x0) return BetSpot.column(((x - x0) / cw).floor().clamp(0, 2));
+    if (y >= y0 + 12 * rh && x >= x0) {
+      return BetSpot.column(((x - x0) / cw).floor().clamp(0, 2));
+    }
     return null;
   }
 
@@ -652,7 +878,9 @@ class _TableGeo {
       case BetKind.split:
         final a = s.numbers.reduce(math.min), b = s.numbers.reduce(math.max);
         final ra = number(a);
-        return b == a + 1 ? Offset(ra.right, ra.center.dy) : Offset(ra.center.dx, ra.bottom);
+        return b == a + 1
+            ? Offset(ra.right, ra.center.dy)
+            : Offset(ra.center.dx, ra.bottom);
       case BetKind.street:
         return Offset(x0, y0 + s.index * rh + rh / 2);
       case BetKind.corner:
@@ -669,7 +897,12 @@ class _TableGeo {
 }
 
 class _TablePainter extends CustomPainter {
-  _TablePainter({required this.geo, required this.labels, required this.win, required this.glow});
+  _TablePainter({
+    required this.geo,
+    required this.labels,
+    required this.win,
+    required this.glow,
+  });
   final _TableGeo geo;
   final (String, String, String, String) labels;
   final int? win;
@@ -677,7 +910,10 @@ class _TablePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final felt = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)).inflate(4);
+    final felt = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(12),
+    ).inflate(4);
     canvas.drawRRect(
       felt,
       Paint()
@@ -691,8 +927,18 @@ class _TablePainter extends CustomPainter {
       ..strokeWidth = 1.2
       ..color = const Color(0xFFFDE68A).withValues(alpha: 0.75);
 
-    void cell(Rect r, Color fill, String text, {bool vertical = false, double font = 0.42, Color textColor = Colors.white}) {
-      final rr = RRect.fromRectAndRadius(r.deflate(1.5), const Radius.circular(4));
+    void cell(
+      Rect r,
+      Color fill,
+      String text, {
+      bool vertical = false,
+      double font = 0.42,
+      Color textColor = Colors.white,
+    }) {
+      final rr = RRect.fromRectAndRadius(
+        r.deflate(1.5),
+        const Radius.circular(4),
+      );
       canvas.drawRRect(rr, Paint()..color = fill);
       canvas.drawRRect(rr, line);
       final tp = TextPainter(
@@ -716,14 +962,25 @@ class _TablePainter extends CustomPainter {
 
     cell(geo.zero, _green, '0', font: 0.5);
     for (var n = 1; n <= 36; n++) {
-      cell(geo.number(n), RouletteRules.isRed(n) ? _redPocket : _blackPocket, '$n', font: 0.48);
+      cell(
+        geo.number(n),
+        RouletteRules.isRed(n) ? _redPocket : _blackPocket,
+        '$n',
+        font: 0.48,
+      );
     }
     for (var c = 0; c < 3; c++) {
       cell(geo.column(c), Colors.transparent, '2:1', font: 0.4);
     }
     const dozens = ['1–12', '13–24', '25–36'];
     for (var d = 0; d < 3; d++) {
-      cell(geo.dozen(d), Colors.transparent, dozens[d], vertical: true, font: 0.42);
+      cell(
+        geo.dozen(d),
+        Colors.transparent,
+        dozens[d],
+        vertical: true,
+        font: 0.42,
+      );
     }
     final evens = ['1–18', labels.$4, '', '', labels.$3, '19–36'];
     for (var i = 0; i < 6; i++) {
@@ -776,24 +1033,34 @@ class _ResultsStrip extends StatelessWidget {
     height: 26,
     child: results.isEmpty
         ? Center(child: Text(context.l10n.lastResults, style: AuraText.caption))
-        : ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: results.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 5),
-            itemBuilder: (_, i) => AnimatedScale(
-              scale: 1,
-              duration: const Duration(milliseconds: 200),
-              child: Container(
-                width: 26,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: pocketColor(results[i]),
-                  border: i == 0 ? Border.all(color: AuraColors.amber, width: 2) : null,
-                ),
-                child: Text(
-                  '${results[i]}',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+        : EdgeBleed(
+            gutter: 12,
+            builder: (pad) => ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: pad,
+              itemCount: results.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 5),
+              itemBuilder: (_, i) => AnimatedScale(
+                scale: 1,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  width: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: pocketColor(results[i]),
+                    border: i == 0
+                        ? Border.all(color: AuraColors.amber, width: 2)
+                        : null,
+                  ),
+                  child: Text(
+                    '${results[i]}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -802,7 +1069,11 @@ class _ResultsStrip extends StatelessWidget {
 }
 
 class _ChipBar extends StatelessWidget {
-  const _ChipBar({required this.selected, required this.balance, required this.onPick});
+  const _ChipBar({
+    required this.selected,
+    required this.balance,
+    required this.onPick,
+  });
   final int selected;
   final int balance;
   final ValueChanged<int> onPick;
@@ -824,7 +1095,11 @@ class _ChipBar extends StatelessWidget {
 }
 
 class _ActionChip extends StatelessWidget {
-  const _ActionChip({required this.icon, required this.label, required this.onTap});
+  const _ActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
@@ -843,7 +1118,12 @@ class _ActionChip extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: Colors.white),
             const SizedBox(height: 2),
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 9.5)),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 9.5),
+            ),
           ],
         ),
       ),
@@ -874,7 +1154,11 @@ class _BalancePill extends StatelessWidget {
           curve: Curves.easeOutCubic,
           builder: (_, v, _) => Text(
             _fmt(v.round()),
-            style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],

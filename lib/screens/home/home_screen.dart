@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         // ── Sticky HUD ──
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          padding: const EdgeInsets.fromLTRB(kPageGutter, 8, kPageGutter, 0),
           child: _ProfileHeaderCard(
             onProfile: () => _selectTab(3),
             onBell: () => Navigator.pushNamed(context, Routes.inbox),
@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // ── Scrolling content ──
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            padding: const EdgeInsets.fromLTRB(kPageGutter, 14, kPageGutter, 20),
             children: [
               // Mockup game chips: pick the active game (registry-driven).
               // Games without a built game area show as "Soon".
@@ -578,7 +578,7 @@ class _AdBanner extends StatelessWidget {
   }
 }
 
-/// Mockup game-chip row: every registered game. The active one is highlighted;
+/// Game-chip row (scrolls sideways to the screen edges): every registered game. The active one is highlighted;
 /// tapping a playable game switches to it, others show "Soon" and a toast.
 class _GameChips extends ConsumerWidget {
   const _GameChips();
@@ -597,33 +597,34 @@ class _GameChips extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = ref.watch(activeGameProvider);
-    return LayoutBuilder(
-      builder: (context, c) {
-        // Mockup: 3 columns of game chips.
-        const gap = 8.0;
-        final w = (c.maxWidth - gap * 2) / 3;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final g in _chips)
-              SizedBox(
-                width: w,
-                child: _GameChip(
-                  game: g,
-                  selected: g.id == active,
-                  onTap: () {
-                    if (GameRegistry.isAvailable(g.id)) {
-                      ref.read(activeGameProvider.notifier).select(g.id);
-                    } else {
-                      showAuraToast(context, context.l10n.gameComingSoon(g.displayName), kind: AuraToastKind.info);
-                    }
-                  },
-                ),
-              ),
-          ],
-        );
-      },
+    final chips = _chips;
+    // One sideways-scrolling row running to the screen edges (12 games no
+    // longer wrap into four rows); the active game is scrolled into view.
+    return SizedBox(
+      height: 38,
+      child: EdgeBleed(
+        builder: (pad) => ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: pad,
+          itemCount: chips.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            final g = chips[i];
+            return _GameChip(
+              game: g,
+              selected: g.id == active,
+              onTap: () {
+                if (GameRegistry.isAvailable(g.id)) {
+                  ref.read(activeGameProvider.notifier).select(g.id);
+                  Scrollable.ensureVisible(context, alignment: 0.5, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+                } else {
+                  showAuraToast(context, context.l10n.gameComingSoon(g.displayName), kind: AuraToastKind.info);
+                }
+              },
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -642,7 +643,7 @@ class _GameChip extends StatelessWidget {
         opacity: GameRegistry.isAvailable(game.id) ? 1 : 0.55,
         child: Container(
           height: 38,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             gradient: selected ? AuraGradients.brand : null,
             color: selected ? null : Colors.white.withValues(alpha: 0.06),
@@ -650,17 +651,15 @@ class _GameChip extends StatelessWidget {
             border: Border.all(color: Colors.white.withValues(alpha: selected ? 0.4 : 0.16)),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(game.icon, style: const TextStyle(fontSize: 13)),
               const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  game.chipName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 11.5, color: Colors.white),
-                ),
+              Text(
+                game.chipName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 11.5, color: Colors.white),
               ),
               if (!GameRegistry.isAvailable(game.id)) ...[
                 const SizedBox(width: 6),

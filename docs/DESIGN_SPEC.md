@@ -39,6 +39,11 @@ the top, plus one soft glow blob (`AuraBackground`).
 `xs 10 · sm 14 · md 16 · lg 20 · xl 28` (4 px grid). Screen headers use a
 42 px glass back button (r14); cards r16–24; pills r99.
 
+### Spacing
+- **Page margin** `kPageGutter` = 16 px left and right on every screen (game screens 12 px, so boards are larger).
+- **Sideways-scrolling rows** (Home game chips, game result strips) run to the screen edges with `EdgeBleed`; their first item still lines up with the margin.
+- **Bottom bar** floats on top of the phone's own bottom area (`viewPadding.bottom`: iPhone home indicator, Android 3-button or gesture bar); 10 px when the system takes no room.
+
 ### Surfaces — `AuraGlass.decoration`
 Frosted glass: white 9 % → 3 % gradient, 1 px white hairline, soft drop
 shadow. **Rule:** a shadowed card gets an opaque fill (the glass blended onto

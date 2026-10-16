@@ -12,7 +12,11 @@ import 'crash_engine.dart';
 /// results, two bet panels with auto cash-out, and the live bets of the
 /// other players. Rounds run continuously; leave with the back button.
 class CrashScreen extends StatefulWidget {
-  const CrashScreen({super.key, @visibleForTesting this.game, this.live = true});
+  const CrashScreen({
+    super.key,
+    @visibleForTesting this.game,
+    this.live = true,
+  });
 
   /// A prepared game (tests); null = a new one.
   final CrashGame? game;
@@ -24,7 +28,8 @@ class CrashScreen extends StatefulWidget {
   State<CrashScreen> createState() => _CrashScreenState();
 }
 
-class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStateMixin {
+class _CrashScreenState extends State<CrashScreen>
+    with SingleTickerProviderStateMixin {
   late final CrashGame _game = widget.game ?? CrashGame();
   late final Ticker _ticker = createTicker(_frame);
   final _fx = _Fx();
@@ -60,9 +65,15 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
   }
 
   void _frame(Duration elapsed) {
-    final dt = _lastFrame == null ? 0.016 : (elapsed - _lastFrame!).inMicroseconds / 1e6;
+    final dt = _lastFrame == null
+        ? 0.016
+        : (elapsed - _lastFrame!).inMicroseconds / 1e6;
     _lastFrame = elapsed;
-    _fx.step(dt.clamp(0.0, 0.05), flying: _game.phase == CrashPhase.flying, rng: _rng);
+    _fx.step(
+      dt.clamp(0.0, 0.05),
+      flying: _game.phase == CrashPhase.flying,
+      rng: _rng,
+    );
     _game.tick(DateTime.now()); // notifies → _onChange → rebuild
   }
 
@@ -97,7 +108,9 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
     if (g.phase == CrashPhase.flying) {
       for (var i = 0; i < g.bots.length; i++) {
         final bot = g.bots[i];
-        if (g.multiplier >= bot.target && _seenBots.add(i)) _fx.botCashOut('${bot.name} ${_x(bot.target)}', _rng);
+        if (g.multiplier >= bot.target && _seenBots.add(i)) {
+          _fx.botCashOut('${bot.name} ${_x(bot.target)}', _rng);
+        }
       }
       const milestones = [2, 3, 5, 10, 20, 50, 100];
       for (final m in milestones) {
@@ -107,7 +120,9 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
         }
       }
     }
-    if (g.phase == CrashPhase.crashed && _seenPhase == CrashPhase.flying) _fx.explode(_rng);
+    if (g.phase == CrashPhase.crashed && _seenPhase == CrashPhase.flying) {
+      _fx.explode(_rng);
+    }
     _seenPhase = g.phase;
   }
 
@@ -117,7 +132,9 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
     final g = _game;
     final broke = g.balance < 10 && g.bets.every((b) => !b.active && !b.queued);
     final now = DateTime.now();
-    final glow = _balanceUpAt != null && now.difference(_balanceUpAt!) < const Duration(milliseconds: 1400);
+    final glow =
+        _balanceUpAt != null &&
+        now.difference(_balanceUpAt!) < const Duration(milliseconds: 1400);
     return AuraScaffold(
       scroll: true,
       body: Column(
@@ -127,7 +144,10 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
             title: '✈️ Crash',
             subtitle: l.practiceChips,
             pot: '0',
-            leading: GlassIconButton(icon: Icons.arrow_back_rounded, onTap: () => Navigator.of(context).maybePop()),
+            leading: GlassIconButton(
+              icon: Icons.arrow_back_rounded,
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
             trailing: _BalancePill(balance: g.balance, glow: glow),
           ),
           const SizedBox(height: 10),
@@ -142,13 +162,20 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
                   fit: StackFit.expand,
                   children: [
                     CustomPaint(painter: _FlightPainter(g, l, _fx)),
-                    IgnorePointer(child: CustomPaint(painter: _FxPainter(_fx, now))),
+                    IgnorePointer(
+                      child: CustomPaint(painter: _FxPainter(_fx, now)),
+                    ),
                     if (_fx.celebration != null)
                       Positioned(
                         top: 6,
                         left: 0,
                         right: 0,
-                        child: Center(child: _CashOutBanner(key: ValueKey(_fx.celebration!.id), c: _fx.celebration!)),
+                        child: Center(
+                          child: _CashOutBanner(
+                            key: ValueKey(_fx.celebration!.id),
+                            c: _fx.celebration!,
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -156,8 +183,14 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
             ),
           ),
           const SizedBox(height: 12),
-          if (broke) ...[_TopUp(onTap: _game.refill), const SizedBox(height: 10)],
-          for (var i = 0; i < 2; i++) ...[_BetPanel(game: g, index: i), const SizedBox(height: 10)],
+          if (broke) ...[
+            _TopUp(onTap: _game.refill),
+            const SizedBox(height: 10),
+          ],
+          for (var i = 0; i < 2; i++) ...[
+            _BetPanel(game: g, index: i),
+            const SizedBox(height: 10),
+          ],
           _LiveBets(game: g),
           const SizedBox(height: 8),
           Center(child: Text(l.crashNote, style: AuraText.caption)),
@@ -173,7 +206,15 @@ class _CrashScreenState extends State<CrashScreen> with SingleTickerProviderStat
 enum _PKind { smoke, coin, spark, confetti }
 
 class _Particle {
-  _Particle(this.kind, this.pos, this.vel, this.life, this.size, this.color, {this.spin = 0});
+  _Particle(
+    this.kind,
+    this.pos,
+    this.vel,
+    this.life,
+    this.size,
+    this.color, {
+    this.spin = 0,
+  });
   final _PKind kind;
   Offset pos;
   Offset vel;
@@ -231,7 +272,9 @@ class _Fx {
         particles.add(
           _Particle(
             _PKind.smoke,
-            tip + back + Offset(rng.nextDouble() * 4 - 2, rng.nextDouble() * 4 - 2),
+            tip +
+                back +
+                Offset(rng.nextDouble() * 4 - 2, rng.nextDouble() * 4 - 2),
             Offset(-30 - rng.nextDouble() * 30, 6 + rng.nextDouble() * 10),
             0.9 + rng.nextDouble() * 0.5,
             3 + rng.nextDouble() * 3,
@@ -245,7 +288,10 @@ class _Fx {
       p.pos += p.vel * dt;
       switch (p.kind) {
         case _PKind.coin || _PKind.confetti:
-          p.vel = Offset(p.vel.dx * (1 - 1.2 * dt), p.vel.dy + 520 * dt); // gravity + drag
+          p.vel = Offset(
+            p.vel.dx * (1 - 1.2 * dt),
+            p.vel.dy + 520 * dt,
+          ); // gravity + drag
           p.spin += dt * 9;
         case _PKind.spark:
           p.vel = p.vel * (1 - 2.4 * dt);
@@ -260,11 +306,19 @@ class _Fx {
     }
     labels.removeWhere((l) => l.age >= _FloatLabel.life);
     final c = celebration;
-    if (c != null && DateTime.now().difference(c.started) > const Duration(milliseconds: 2200)) celebration = null;
+    if (c != null &&
+        DateTime.now().difference(c.started) >
+            const Duration(milliseconds: 2200)) {
+      celebration = null;
+    }
   }
 
   /// Your cash-out: a gold coin fountain + confetti from the plane and the banner.
-  void celebrate({required int win, required double at, required math.Random rng}) {
+  void celebrate({
+    required int win,
+    required double at,
+    required math.Random rng,
+  }) {
     celebration = _Celebration(++_ids, win, at);
     for (var i = 0; i < 26; i++) {
       final a = -math.pi / 2 + (rng.nextDouble() - 0.5) * math.pi * 1.1;
@@ -281,7 +335,13 @@ class _Fx {
         ),
       );
     }
-    const confetti = [Color(0xFF34D399), Color(0xFFF472B6), Color(0xFF60A5FA), Color(0xFFFDE68A), Color(0xFFA78BFA)];
+    const confetti = [
+      Color(0xFF34D399),
+      Color(0xFFF472B6),
+      Color(0xFF60A5FA),
+      Color(0xFFFDE68A),
+      Color(0xFFA78BFA),
+    ];
     for (var i = 0; i < 34; i++) {
       final a = -math.pi / 2 + (rng.nextDouble() - 0.5) * math.pi * 1.6;
       final v = 140 + rng.nextDouble() * 260;
@@ -297,12 +357,24 @@ class _Fx {
         ),
       );
     }
-    labels.add(_FloatLabel('+${_fmt(win)}', tip + const Offset(0, -18), AuraColors.green));
+    labels.add(
+      _FloatLabel(
+        '+${_fmt(win)}',
+        tip + const Offset(0, -18),
+        AuraColors.green,
+      ),
+    );
   }
 
   /// Another player cashes out: a small tag floats up from the plane.
   void botCashOut(String text, math.Random rng) {
-    labels.add(_FloatLabel(text, tip + Offset(-30 - rng.nextDouble() * 40, 10 + rng.nextDouble() * 20), Colors.white70));
+    labels.add(
+      _FloatLabel(
+        text,
+        tip + Offset(-30 - rng.nextDouble() * 40, 10 + rng.nextDouble() * 20),
+        Colors.white70,
+      ),
+    );
   }
 
   /// Flew away: red flash, a burst of sparks, a short shake.
@@ -355,7 +427,11 @@ class _FxPainter extends CustomPainter {
     if (f != null) {
       final t = now.difference(f).inMilliseconds / 500;
       if (t < 1) {
-        canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFF43F5E).withValues(alpha: 0.28 * (1 - t)));
+        canvas.drawRect(
+          Offset.zero & size,
+          Paint()
+            ..color = const Color(0xFFF43F5E).withValues(alpha: 0.28 * (1 - t)),
+        );
       }
     }
     for (final p in fx.particles) {
@@ -372,11 +448,25 @@ class _FxPainter extends CustomPainter {
         case _PKind.coin:
           // A spinning coin: an ellipse whose width follows the spin.
           final w = p.size * (0.35 + 0.65 * math.cos(p.spin).abs());
-          final r = Rect.fromCenter(center: p.pos, width: w * 2, height: p.size * 2);
-          canvas.drawOval(r, Paint()..color = const Color(0xFFB45309).withValues(alpha: fade));
-          canvas.drawOval(r.deflate(1.2), Paint()..color = p.color.withValues(alpha: fade));
+          final r = Rect.fromCenter(
+            center: p.pos,
+            width: w * 2,
+            height: p.size * 2,
+          );
           canvas.drawOval(
-            Rect.fromCenter(center: p.pos - Offset(w * 0.25, p.size * 0.3), width: w * 0.6, height: p.size * 0.5),
+            r,
+            Paint()..color = const Color(0xFFB45309).withValues(alpha: fade),
+          );
+          canvas.drawOval(
+            r.deflate(1.2),
+            Paint()..color = p.color.withValues(alpha: fade),
+          );
+          canvas.drawOval(
+            Rect.fromCenter(
+              center: p.pos - Offset(w * 0.25, p.size * 0.3),
+              width: w * 0.6,
+              height: p.size * 0.5,
+            ),
             Paint()..color = Colors.white.withValues(alpha: 0.6 * fade),
           );
         case _PKind.confetti:
@@ -384,7 +474,11 @@ class _FxPainter extends CustomPainter {
           canvas.translate(p.pos.dx, p.pos.dy);
           canvas.rotate(p.spin);
           canvas.drawRect(
-            Rect.fromCenter(center: Offset.zero, width: p.size * 1.8, height: p.size * math.cos(p.spin * 1.7).abs() + 1),
+            Rect.fromCenter(
+              center: Offset.zero,
+              width: p.size * 1.8,
+              height: p.size * math.cos(p.spin * 1.7).abs() + 1,
+            ),
             Paint()..color = p.color.withValues(alpha: fade),
           );
           canvas.restore();
@@ -447,16 +541,28 @@ class _CashOutBanner extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(99),
-          gradient: const LinearGradient(colors: [Color(0xFF059669), Color(0xFF34D399)]),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF059669), Color(0xFF34D399)],
+          ),
           border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
-          boxShadow: [BoxShadow(color: AuraColors.green.withValues(alpha: 0.6), blurRadius: 24)],
+          boxShadow: [
+            BoxShadow(
+              color: AuraColors.green.withValues(alpha: 0.6),
+              blurRadius: 24,
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               '${l.cashedOutBanner} ${_x(c.at)}',
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+              ),
             ),
             const SizedBox(width: 10),
             Text(
@@ -466,7 +572,13 @@ class _CashOutBanner extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
-                shadows: const [Shadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))],
+                shadows: const [
+                  Shadow(
+                    color: Colors.black26,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
               ),
             ),
           ],
@@ -489,9 +601,20 @@ class _BalancePill extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(99),
-      color: glow ? AuraColors.green.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.08),
-      border: Border.all(color: (glow ? AuraColors.green : AuraColors.amber).withValues(alpha: glow ? 0.9 : 0.5)),
-      boxShadow: [BoxShadow(color: AuraColors.green.withValues(alpha: glow ? 0.5 : 0), blurRadius: 16)],
+      color: glow
+          ? AuraColors.green.withValues(alpha: 0.18)
+          : Colors.white.withValues(alpha: 0.08),
+      border: Border.all(
+        color: (glow ? AuraColors.green : AuraColors.amber).withValues(
+          alpha: glow ? 0.9 : 0.5,
+        ),
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: AuraColors.green.withValues(alpha: glow ? 0.5 : 0),
+          blurRadius: 16,
+        ),
+      ],
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -504,7 +627,11 @@ class _BalancePill extends StatelessWidget {
           curve: Curves.easeOutCubic,
           builder: (_, v, _) => Text(
             _fmt(v.round()),
-            style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
@@ -512,7 +639,8 @@ class _BalancePill extends StatelessWidget {
   );
 }
 
-String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+String _fmt(int n) =>
+    n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 String _x(double m) => '${m.toStringAsFixed(2)}x';
 
 /// Recent crash points: blue < 2×, violet < 10×, pink ≥ 10×.
@@ -529,26 +657,33 @@ class _History extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
     height: 28,
-    child: ListView.separated(
-      scrollDirection: Axis.horizontal,
-      itemCount: history.length,
-      separatorBuilder: (_, _) => const SizedBox(width: 6),
-      itemBuilder: (_, i) {
-        final c = _crashColor(history[i]);
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(99),
-            color: c.withValues(alpha: 0.16),
-            border: Border.all(color: c.withValues(alpha: 0.5)),
-          ),
-          child: Text(
-            _x(history[i]),
-            style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w800),
-          ),
-        );
-      },
+    child: EdgeBleed(
+      builder: (pad) => ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: pad,
+        itemCount: history.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (_, i) {
+          final c = _crashColor(history[i]);
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(99),
+              color: c.withValues(alpha: 0.16),
+              border: Border.all(color: c.withValues(alpha: 0.5)),
+            ),
+            child: Text(
+              _x(history[i]),
+              style: TextStyle(
+                color: c,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          );
+        },
+      ),
     ),
   );
 }
@@ -584,8 +719,14 @@ class _FlightPainter extends CustomPainter {
       canvas.drawPath(
         Path()
           ..moveTo(origin.dx, origin.dy)
-          ..lineTo(origin.dx + r * math.cos(a - 0.03), origin.dy + r * math.sin(a - 0.03))
-          ..lineTo(origin.dx + r * math.cos(a + 0.03), origin.dy + r * math.sin(a + 0.03))
+          ..lineTo(
+            origin.dx + r * math.cos(a - 0.03),
+            origin.dy + r * math.sin(a - 0.03),
+          )
+          ..lineTo(
+            origin.dx + r * math.cos(a + 0.03),
+            origin.dy + r * math.sin(a + 0.03),
+          )
           ..close(),
         rays,
       );
@@ -609,7 +750,11 @@ class _FlightPainter extends CustomPainter {
       ..color = Colors.white.withValues(alpha: 0.05)
       ..strokeWidth = 1;
     for (var i = 1; i < 5; i++) {
-      canvas.drawLine(Offset(0, size.height * i / 5), Offset(size.width, size.height * i / 5), grid);
+      canvas.drawLine(
+        Offset(0, size.height * i / 5),
+        Offset(size.width, size.height * i / 5),
+        grid,
+      );
     }
 
     final pad = EdgeInsets.fromLTRB(14, 24, 24, 18);
@@ -620,21 +765,40 @@ class _FlightPainter extends CustomPainter {
       fx.tip = base + const Offset(18, -10);
       fx.angle = -0.15;
       _plane(canvas, base + const Offset(18, -10), -0.15, 1);
-      _centerText(canvas, size, l.nextRoundIn(g.bettingLeft.toStringAsFixed(1)), 15, Colors.white70, dy: -14);
+      _centerText(
+        canvas,
+        size,
+        l.nextRoundIn(g.bettingLeft.toStringAsFixed(1)),
+        15,
+        Colors.white70,
+        dy: -14,
+      );
       // Countdown bar.
       final barW = size.width * 0.5;
-      final bar = Rect.fromCenter(center: Offset(size.width / 2, size.height / 2 + 14), width: barW, height: 5);
-      canvas.drawRRect(RRect.fromRectAndRadius(bar, const Radius.circular(3)), Paint()..color = Colors.white12);
+      final bar = Rect.fromCenter(
+        center: Offset(size.width / 2, size.height / 2 + 14),
+        width: barW,
+        height: 5,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(bar, const Radius.circular(3)),
+        Paint()..color = Colors.white12,
+      );
       final frac = (g.bettingLeft / CrashRules.bettingSeconds).clamp(0.0, 1.0);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(bar.left, bar.top, barW * frac, 5), const Radius.circular(3)),
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(bar.left, bar.top, barW * frac, 5),
+          const Radius.circular(3),
+        ),
         Paint()..color = const Color(0xFFE11D48),
       );
       return;
     }
 
     // Flight curve (time on x, log multiplier on y).
-    final t = g.phase == CrashPhase.flying ? g.elapsed : CrashRules.secondsFor(g.crashPoint);
+    final t = g.phase == CrashPhase.flying
+        ? g.elapsed
+        : CrashRules.secondsFor(g.crashPoint);
     final window = math.max(8.0, t * 1.15);
     // Linear height (as in Aviator): the curve bends upward as it speeds up.
     final top = math.max(2.0, g.multiplier * 1.2) - 1;
@@ -659,7 +823,10 @@ class _FlightPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [const Color(0xFFE11D48).withValues(alpha: 0.45), const Color(0xFFE11D48).withValues(alpha: 0.02)],
+          colors: [
+            const Color(0xFFE11D48).withValues(alpha: 0.45),
+            const Color(0xFFE11D48).withValues(alpha: 0.02),
+          ],
         ).createShader(rect),
     );
     canvas.drawPath(
@@ -693,13 +860,39 @@ class _FlightPainter extends CustomPainter {
             ..color = const Color(0xFFFBBF24).withValues(alpha: 0.6 * bump),
         );
       }
-      _centerText(canvas, size, _x(m), 44 * (1 + 0.22 * bump), m >= 2 ? const Color(0xFFFBBF24) : Colors.white, dy: -size.height * 0.12);
+      _centerText(
+        canvas,
+        size,
+        _x(m),
+        44 * (1 + 0.22 * bump),
+        m >= 2 ? const Color(0xFFFBBF24) : Colors.white,
+        dy: -size.height * 0.12,
+      );
     } else {
       // Flew away: the plane zooms off up-right and fades.
       final u = (g.elapsed / 0.9).clamp(0.0, 1.0);
-      _plane(canvas, tip + Offset(size.width * 0.7 * u, -size.height * 0.8 * u), -0.6, 1 - u);
-      _centerText(canvas, size, l.flewAway, 20, const Color(0xFFF43F5E), dy: -size.height * 0.2);
-      _centerText(canvas, size, _x(g.crashPoint), 44, const Color(0xFFF43F5E), dy: -size.height * 0.04);
+      _plane(
+        canvas,
+        tip + Offset(size.width * 0.7 * u, -size.height * 0.8 * u),
+        -0.6,
+        1 - u,
+      );
+      _centerText(
+        canvas,
+        size,
+        l.flewAway,
+        20,
+        const Color(0xFFF43F5E),
+        dy: -size.height * 0.2,
+      );
+      _centerText(
+        canvas,
+        size,
+        _x(g.crashPoint),
+        44,
+        const Color(0xFFF43F5E),
+        dy: -size.height * 0.04,
+      );
     }
   }
 
@@ -709,10 +902,18 @@ class _FlightPainter extends CustomPainter {
     canvas.save();
     canvas.translate(at.dx, at.dy);
     canvas.rotate(angle);
-    final red = Paint()..color = const Color(0xFFE11D48).withValues(alpha: opacity);
-    final dark = Paint()..color = const Color(0xFF9F1239).withValues(alpha: opacity);
+    final red = Paint()
+      ..color = const Color(0xFFE11D48).withValues(alpha: opacity);
+    final dark = Paint()
+      ..color = const Color(0xFF9F1239).withValues(alpha: opacity);
     // Fuselage.
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-26, -5, 34, 10), const Radius.circular(5)), red);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-26, -5, 34, 10),
+        const Radius.circular(5),
+      ),
+      red,
+    );
     // Wings + tail.
     canvas.drawPath(
       Path()
@@ -742,7 +943,11 @@ class _FlightPainter extends CustomPainter {
       red,
     );
     // Cockpit + spinning propeller blur.
-    canvas.drawCircle(const Offset(0, -2), 3, Paint()..color = Colors.white.withValues(alpha: 0.8 * opacity));
+    canvas.drawCircle(
+      const Offset(0, -2),
+      3,
+      Paint()..color = Colors.white.withValues(alpha: 0.8 * opacity),
+    );
     canvas.drawOval(
       const Rect.fromLTWH(8, -10, 3, 20),
       Paint()..color = Colors.white.withValues(alpha: 0.35 * opacity),
@@ -750,7 +955,14 @@ class _FlightPainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _centerText(Canvas canvas, Size size, String text, double fontSize, Color color, {double dy = 0}) {
+  void _centerText(
+    Canvas canvas,
+    Size size,
+    String text,
+    double fontSize,
+    Color color, {
+    double dy = 0,
+  }) {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
@@ -759,12 +971,20 @@ class _FlightPainter extends CustomPainter {
           color: color,
           fontSize: fontSize,
           fontWeight: FontWeight.w800,
-          shadows: [Shadow(color: color.withValues(alpha: 0.6), blurRadius: 18)],
+          shadows: [
+            Shadow(color: color.withValues(alpha: 0.6), blurRadius: 18),
+          ],
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(size.width / 2 - tp.width / 2, size.height / 2 - tp.height / 2 + dy));
+    tp.paint(
+      canvas,
+      Offset(
+        size.width / 2 - tp.width / 2,
+        size.height / 2 - tp.height / 2 + dy,
+      ),
+    );
   }
 
   @override
@@ -785,13 +1005,21 @@ class _BetPanel extends StatelessWidget {
     final locked = b.active || b.queued;
     final flying = game.phase == CrashPhase.flying;
 
-    final (String label, List<Color> colors, VoidCallback? onTap) = switch (true) {
+    final (
+      String label,
+      List<Color> colors,
+      VoidCallback? onTap,
+    ) = switch (true) {
       _ when flying && b.active && b.cashedAt == null => (
         l.cashOutAmount((b.amount * game.multiplier).floor()),
         const [Color(0xFFFB923C), Color(0xFFF59E0B)],
         () => game.cashOut(index),
       ),
-      _ when b.active && b.cashedAt != null => (l.wonAmount(b.win), const [Color(0xFF34D399), Color(0xFF059669)], null),
+      _ when b.active && b.cashedAt != null => (
+        l.wonAmount(b.win),
+        const [Color(0xFF34D399), Color(0xFF059669)],
+        null,
+      ),
       _ when game.phase == CrashPhase.betting && b.active => (
         l.cancel,
         const [Color(0xFFF43F5E), Color(0xFFBE123C)],
@@ -802,8 +1030,16 @@ class _BetPanel extends StatelessWidget {
         const [Color(0xFF22C55E), Color(0xFF15803D)],
         () => game.toggleBet(index),
       ),
-      _ when b.queued => (l.cancelNextRound, const [Color(0xFFF43F5E), Color(0xFFBE123C)], () => game.toggleBet(index)),
-      _ => (l.nextRoundBet, const [Color(0xFF22C55E), Color(0xFF15803D)], () => game.toggleBet(index)),
+      _ when b.queued => (
+        l.cancelNextRound,
+        const [Color(0xFFF43F5E), Color(0xFFBE123C)],
+        () => game.toggleBet(index),
+      ),
+      _ => (
+        l.nextRoundBet,
+        const [Color(0xFF22C55E), Color(0xFF15803D)],
+        () => game.toggleBet(index),
+      ),
     };
 
     return Container(
@@ -817,7 +1053,12 @@ class _BetPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    _Step(icon: Icons.remove, onTap: locked ? null : () => game.setAmount(index, b.amount - 10)),
+                    _Step(
+                      icon: Icons.remove,
+                      onTap: locked
+                          ? null
+                          : () => game.setAmount(index, b.amount - 10),
+                    ),
                     Expanded(
                       child: Text(
                         _fmt(b.amount),
@@ -830,7 +1071,12 @@ class _BetPanel extends StatelessWidget {
                         ),
                       ),
                     ),
-                    _Step(icon: Icons.add, onTap: locked ? null : () => game.setAmount(index, b.amount + 10)),
+                    _Step(
+                      icon: Icons.add,
+                      onTap: locked
+                          ? null
+                          : () => game.setAmount(index, b.amount + 10),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -846,9 +1092,17 @@ class _BetPanel extends StatelessWidget {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(8),
-                              color: Colors.white.withValues(alpha: b.amount == q ? 0.18 : 0.07),
+                              color: Colors.white.withValues(
+                                alpha: b.amount == q ? 0.18 : 0.07,
+                              ),
                             ),
-                            child: Text('$q', style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
+                            child: Text(
+                              '$q',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11.5,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -865,24 +1119,43 @@ class _BetPanel extends StatelessWidget {
                         child: Switch(
                           value: b.autoCashOut != null,
                           activeTrackColor: AuraColors.brandPurple,
-                          onChanged: (on) => game.setAuto(index, on ? 2.0 : null),
+                          onChanged: (on) =>
+                              game.setAuto(index, on ? 2.0 : null),
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(l.autoCashOut, style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
+                      child: Text(
+                        l.autoCashOut,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11.5,
+                        ),
+                      ),
                     ),
                     if (b.autoCashOut != null) ...[
-                      _Step(icon: Icons.remove, small: true, onTap: () => game.setAuto(index, b.autoCashOut! - 0.1)),
+                      _Step(
+                        icon: Icons.remove,
+                        small: true,
+                        onTap: () => game.setAuto(index, b.autoCashOut! - 0.1),
+                      ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
                         child: Text(
                           _x(b.autoCashOut!),
-                          style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                      _Step(icon: Icons.add, small: true, onTap: () => game.setAuto(index, b.autoCashOut! + 0.1)),
+                      _Step(
+                        icon: Icons.add,
+                        small: true,
+                        onTap: () => game.setAuto(index, b.autoCashOut! + 0.1),
+                      ),
                     ],
                   ],
                 ),
@@ -903,9 +1176,17 @@ class _BetPanel extends StatelessWidget {
                   child: Ink(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: colors,
+                      ),
                       boxShadow: [
-                        BoxShadow(color: colors.first.withValues(alpha: 0.35), blurRadius: 14, spreadRadius: -4),
+                        BoxShadow(
+                          color: colors.first.withValues(alpha: 0.35),
+                          blurRadius: 14,
+                          spreadRadius: -4,
+                        ),
                       ],
                     ),
                     child: Center(
@@ -976,7 +1257,12 @@ class _LiveBets extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(l.liveBets, style: AuraText.cardTitle.copyWith(fontSize: 14))),
+              Expanded(
+                child: Text(
+                  l.liveBets,
+                  style: AuraText.cardTitle.copyWith(fontSize: 14),
+                ),
+              ),
               Text(l.playersCount(game.bots.length), style: AuraText.caption),
             ],
           ),
@@ -985,7 +1271,13 @@ class _LiveBets extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(b.name, style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+                  child: Text(
+                    b.name,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12.5,
+                    ),
+                  ),
                 ),
                 SizedBox(
                   width: 60,
@@ -998,10 +1290,14 @@ class _LiveBets extends StatelessWidget {
                 SizedBox(
                   width: 110,
                   child: Text(
-                    reached >= b.target ? '${_x(b.target)}  +${_fmt((b.amount * b.target).floor())}' : '—',
+                    reached >= b.target
+                        ? '${_x(b.target)}  +${_fmt((b.amount * b.target).floor())}'
+                        : '—',
                     textAlign: TextAlign.right,
                     style: TextStyle(
-                      color: reached >= b.target ? AuraColors.green : Colors.white38,
+                      color: reached >= b.target
+                          ? AuraColors.green
+                          : Colors.white38,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                     ),

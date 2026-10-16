@@ -1,7 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 
 import '../theme.dart';
 import 'aura_widgets.dart';
+
+/// The page margin left and right of screen content (16 px — the common
+/// Android / iOS standard). Sideways-scrolling rows can run to the screen
+/// edges with [EdgeBleed].
+const double kPageGutter = 16;
+
+/// Lets a sideways-scrolling row run past the page margin to the screen
+/// edges, while its first item still lines up with the margin: [builder]
+/// gets the padding to put inside the scroll view.
+class EdgeBleed extends StatelessWidget {
+  const EdgeBleed({super.key, this.gutter = kPageGutter, required this.builder});
+  final double gutter;
+  final Widget Function(EdgeInsets padding) builder;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final w = box.maxWidth + 2 * gutter;
+      return OverflowBox(
+        minWidth: w,
+        maxWidth: w,
+        fit: OverflowBoxFit.deferToChild,
+        child: builder(EdgeInsets.symmetric(horizontal: gutter)),
+      );
+    },
+  );
+}
 
 /// Scaffold + dark background + glows + SafeArea. Use as the root of a screen.
 /// Pass [scroll] true to make the body scrollable.
@@ -11,7 +39,7 @@ class AuraScaffold extends StatelessWidget {
     required this.body,
     this.appBar,
     this.bottomNav,
-    this.padding = const EdgeInsets.symmetric(horizontal: 20),
+    this.padding = const EdgeInsets.symmetric(horizontal: kPageGutter),
     this.scroll = false,
     this.glowColor = AuraColors.brandPurple,
     this.glowAlignment = const Alignment(0, -1.15),
@@ -71,7 +99,7 @@ class AuraAppBar extends StatelessWidget {
     // aligned beside it (22px display, bold), optional action on the right.
     // Aligned to the 20px content gutter.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      padding: const EdgeInsets.fromLTRB(kPageGutter, 8, kPageGutter, 8),
       child: SizedBox(
         height: 48,
         child: Row(
@@ -853,8 +881,12 @@ class AuraBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sit right on top of the phone's own bottom area (iPhone home
+    // indicator ~34, Android 3-button bar ~48, gesture bar ~16–24); 10 px
+    // when the system takes no room.
+    final inset = MediaQuery.viewPaddingOf(context).bottom;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+      padding: EdgeInsets.fromLTRB(kPageGutter, 6, kPageGutter, inset > 0 ? inset : 10),
       child: Container(
         height: 64,
         padding: const EdgeInsets.symmetric(horizontal: 6),

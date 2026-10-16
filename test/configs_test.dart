@@ -107,9 +107,13 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: Scaffold(body: HomeScreen()))));
     await tester.pump(const Duration(milliseconds: 300));
     while (tester.takeException() != null) {}
+    // The chips scroll sideways: bring each one into view.
+    final row = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.right).first;
     for (final g in GameRegistry.homeChips) {
+      await tester.scrollUntilVisible(find.text(g.chipName), 80, scrollable: row);
       expect(find.text(g.chipName), findsWidgets);
     }
+    await tester.scrollUntilVisible(find.text('Othello'), -80, scrollable: row);
     // Every Home game is playable now: no "Soon" chips, and tapping one
     // switches the active game.
     expect(find.text('Soon'), findsNothing);

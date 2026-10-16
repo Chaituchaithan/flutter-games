@@ -148,7 +148,7 @@ class _WheelScreenState extends State<WheelScreen>
   Widget build(BuildContext context) {
     return Padding(
       // Same insets as the Store tab, so the header pills line up.
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+      padding: const EdgeInsets.fromLTRB(kPageGutter, 8, kPageGutter, 0),
       child: Column(
         children: [
           const WalletTitleBar(title: 'Lucky Spin'),
