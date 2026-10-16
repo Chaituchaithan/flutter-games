@@ -1602,4 +1602,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get inviteFriendsTitle => 'Invite friends';
+
+  @override
+  String get yourTurnTapDice => 'YOUR TURN · tap the dice';
+
+  @override
+  String playerTurnName(String name) {
+    return '$name\'s turn';
+  }
+
+  @override
+  String youRolledN(int n) {
+    return 'You rolled $n';
+  }
+
+  @override
+  String playerRolledN(String name, int n) {
+    return '$name rolled $n';
+  }
+
+  @override
+  String get diceTap => 'TAP';
+
+  @override
+  String get youAreRolling => 'Rolling…';
+
+  @override
+  String youRolledPick(int n) {
+    return 'You rolled $n · tap a pawn';
+  }
 }

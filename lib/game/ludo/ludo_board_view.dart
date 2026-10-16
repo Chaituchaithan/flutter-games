@@ -31,6 +31,7 @@ class LudoBoardView extends StatefulWidget {
     this.canPick = false,
     this.onPick,
     this.perspective = false,
+    this.banner,
     this.tilt = 0.5,
   });
 
@@ -40,6 +41,9 @@ class LudoBoardView extends StatefulWidget {
   final bool canPick;
   final ValueChanged<int>? onPick;
   final bool perspective;
+
+  /// Shown centred on the board frame's top edge (whose turn / the roll).
+  final Widget? banner;
   final double tilt;
 
   static const stepMs = 170;
@@ -147,10 +151,19 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
         return Center(
           child: SizedBox.square(
             dimension: outer,
-            child: GameBoardFrame(
-              child: widget.perspective
-                  ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
-                  : board,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: GameBoardFrame(
+                    child: widget.perspective
+                        ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
+                        : board,
+                  ),
+                ),
+                if (widget.banner != null)
+                  Positioned(top: -15, left: 8, right: 8, child: Center(child: widget.banner)),
+              ],
             ),
           ),
         );
@@ -210,7 +223,11 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
         Offset pt;
         var lift = 0.0;
         var scale = 1.0;
-        if (m != null && m.color == c && m.token == i) {
+        // Feet on the lower part of a track square (not its centre), so a
+        // pawn doesn't reach into the square above.
+        var feet = 0.0;
+        final moving = m != null && m.color == c && m.token == i;
+        if (moving) {
           (pt, lift) = _moverPoint(m, ms);
         } else if (m != null && m.captured.contains((c, i)) && ms > moveMs) {
           // Fly back to base after the mover lands.
@@ -221,7 +238,8 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
           lift = math.sin(u * math.pi) * 2.2;
         } else {
           pt = _restingPoint(c, i, progress);
-          if (progress != LudoRules.base && progress != LudoRules.home) {
+          if (widget.perspective && progress != LudoRules.base && progress != LudoRules.home) {
+            // 3D: the original placement (the tilt gives the depth).
             final group = byCell[LudoRules.cellOf(c, progress)!]!;
             if (group.length > 1) {
               final k = group.indexOf((c, i));
@@ -229,11 +247,35 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
               pt += offs[k % 4];
               scale = 0.78;
             }
+          } else if (progress != LudoRules.base && progress != LudoRules.home) {
+            final group = byCell[LudoRules.cellOf(c, progress)!]!;
+            final n = group.length;
+            feet = n > 2 ? 0.2 : 0.3;
+            scale = switch (n) {
+              <= 1 => 0.86,
+              2 => 0.72,
+              3 => 0.66,
+              _ => 0.62,
+            };
+            if (n > 1) {
+              // 2: side by side · 3: two behind, one in front · 4+: two rows.
+              final k = group.indexOf((c, i));
+              final offs = switch (n) {
+                2 => const [Offset(-0.24, 0), Offset(0.24, 0)],
+                3 => const [Offset(-0.25, -0.12), Offset(0.25, -0.12), Offset(0, 0.14)],
+                _ => const [Offset(-0.25, -0.15), Offset(0.25, -0.15), Offset(-0.25, 0.13), Offset(0.25, 0.13)],
+              };
+              pt += offs[k % offs.length];
+            }
           } else if (progress == LudoRules.home) {
             scale = 0.6;
           }
         }
-        final screen = _screen(pt, cell);
+        if (moving && !widget.perspective) {
+          feet = 0.3;
+          scale = 0.86;
+        }
+        final screen = _screen(pt, cell) + Offset(0, feet * cell);
         final size = cell * 1.05 * scale;
         final pickMe = c == game.current && pickable.contains(i);
         Widget pawn = PawnView(color: ludoColor(c), size: size, highlight: pickMe ? pulse : 0);
@@ -253,7 +295,7 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
         }
         final pad = pickMe ? cell * 0.2 : 0.0;
         items.add((
-          screen.dy - lift * cell + (pickMe ? 1000 : 0), // movable tokens on top for taps
+          screen.dy - lift * cell + (pickMe ? 1000 : 0) + (moving ? 2000 : 0), // movable on top for taps; the mover above all
           Positioned(
             left: screen.dx - size * 0.36 - pad,
             top: screen.dy - size * 0.86 - lift * cell - pad,

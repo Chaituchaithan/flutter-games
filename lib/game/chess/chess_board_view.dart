@@ -409,55 +409,17 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Square base: bright ice lights vs deep-obsidian darks — the high
-            // contrast reads clearly even at small sizes.
+            // Square: clean, evenly coloured (no per-square shine, bevel or
+            // grid glow) — light lavender vs deep violet, with only a faint
+            // tone shift so it doesn't look printed flat.
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                   colors: light
-                      ? const [Color(0xFFF2EDFF), Color(0xFFCFC2F0), Color(0xFFB4A3E0)]
-                      : const [Color(0xFF241D46), Color(0xFF130E29), Color(0xFF070414)],
-                  stops: const [0.0, 0.55, 1.0],
-                ),
-              ),
-              child: const SizedBox.expand(),
-            ),
-            // Polished-glass reflection: a bright diagonal streak across the tile.
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.transparent,
-                    Colors.white.withValues(alpha: light ? 0.32 : 0.13),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.30, 0.46, 0.62],
-                ),
-              ),
-              child: const SizedBox.expand(),
-            ),
-            // Raised-tile bevel: bright top-left edge, dark bottom-right edge,
-            // and a lit neon grid hairline (cyan on lights, violet on darks).
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withValues(alpha: light ? 0.48 : 0.22),
-                    Colors.transparent,
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: light ? 0.16 : 0.42),
-                  ],
-                  stops: const [0.0, 0.16, 0.84, 1.0],
-                ),
-                border: Border.all(
-                  color: (light ? const Color(0xFF22D3EE) : const Color(0xFF8B7BE8)).withValues(alpha: 0.28),
-                  width: 0.6,
+                      ? const [Color(0xFFE4DCFA), Color(0xFFD6CBF2)]
+                      : const [Color(0xFF2B2452), Color(0xFF221B45)],
                 ),
               ),
               child: const SizedBox.expand(),

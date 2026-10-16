@@ -1218,5 +1218,43 @@
     }
   },
   "referralCouldntLoad": "Couldn't load your invite code.",
-  "inviteFriendsTitle": "Invite friends"
+  "inviteFriendsTitle": "Invite friends",
+  "yourTurnTapDice": "YOUR TURN · tap the dice",
+  "playerTurnName": "{name}'s turn",
+  "@playerTurnName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "youRolledN": "You rolled {n}",
+  "@youRolledN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "playerRolledN": "{name} rolled {n}",
+  "@playerRolledN": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "diceTap": "TAP",
+  "youAreRolling": "Rolling…",
+  "youRolledPick": "You rolled {n} · tap a pawn",
+  "@youRolledPick": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

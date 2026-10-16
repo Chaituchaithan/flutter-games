@@ -23,6 +23,9 @@ class DiceView extends StatefulWidget {
     this.pipColor = const Color(0xFF1E1B2E),
     this.glow = AuraColors.accentGlow,
     this.onRolled,
+    this.showResult = true,
+    this.resultColor,
+    this.prompt,
   });
 
   /// Face to land on (1–6).
@@ -42,6 +45,16 @@ class DiceView extends StatefulWidget {
   /// Called when a roll animation finishes.
   final VoidCallback? onRolled;
 
+  /// After a roll lands, the number pops out in a badge (in [glow]'s colour)
+  /// and stays until the next roll — easy to read at a glance.
+  final bool showResult;
+
+  /// The roller's colour for the badge (defaults to [glow]).
+  final Color? resultColor;
+
+  /// Short hint shown under the die while [enabled] (e.g. "TAP").
+  final String? prompt;
+
   /// Roll animation length.
   static const rollDuration = Duration(milliseconds: 900);
 
@@ -54,8 +67,16 @@ class _DiceViewState extends State<DiceView> with TickerProviderStateMixin {
   // real roll reports completion.
   late final AnimationController _roll = AnimationController(vsync: this, duration: DiceView.rollDuration, value: 1)
     ..addStatusListener((s) {
-      if (s == AnimationStatus.completed) widget.onRolled?.call();
+      if (s == AnimationStatus.completed) {
+        _hasRolled = true;
+        _pop.forward(from: 0);
+        widget.onRolled?.call();
+      }
     });
+
+  /// The result badge popping in after a landing.
+  late final AnimationController _pop = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+  bool _hasRolled = false;
   late final AnimationController _idle = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
   final _rng = math.Random();
 
@@ -94,6 +115,7 @@ class _DiceViewState extends State<DiceView> with TickerProviderStateMixin {
   void dispose() {
     _roll.dispose();
     _idle.dispose();
+    _pop.dispose();
     super.dispose();
   }
 
@@ -106,7 +128,69 @@ class _DiceViewState extends State<DiceView> with TickerProviderStateMixin {
       child: SizedBox(
         width: s * 1.5,
         height: s * 1.6,
-        child: AnimatedBuilder(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(child: _cube(s)),
+            // The number it landed on.
+            if (widget.showResult && _hasRolled)
+              Positioned(
+                right: -s * 0.12,
+                top: -s * 0.08,
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([_pop, _roll]),
+                  builder: (_, _) {
+                    if (_roll.isAnimating) return const SizedBox.shrink();
+                    final k = Curves.elasticOut.transform(_pop.value);
+                    return Transform.scale(scale: 0.3 + 0.7 * k, child: _badge(s));
+                  },
+                ),
+              ),
+            // "TAP" under the die while it's yours to roll.
+            if (widget.prompt != null && widget.enabled)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: -s * 0.05,
+                child: Center(
+                  child: AnimatedBuilder(
+                    animation: _idle,
+                    builder: (_, child) => Opacity(opacity: 0.65 + 0.35 * (0.5 + 0.5 * math.sin(_idle.value * 2 * math.pi)), child: child),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: s * 0.18, vertical: 1),
+                      decoration: BoxDecoration(color: widget.glow, borderRadius: BorderRadius.circular(8)),
+                      child: Text(
+                        widget.prompt!,
+                        style: TextStyle(color: Colors.white, fontSize: s * 0.24, fontWeight: FontWeight.w900, letterSpacing: 1),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _badge(double s) => Container(
+    width: s * 0.62,
+    height: s * 0.62,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: widget.resultColor ?? widget.glow,
+      border: Border.all(color: Colors.white, width: 2),
+      boxShadow: [BoxShadow(color: (widget.resultColor ?? widget.glow).withValues(alpha: 0.6), blurRadius: 10), const BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 2))],
+    ),
+    child: Text(
+      '${widget.value.clamp(1, 6)}',
+      style: TextStyle(color: Colors.white, fontSize: s * 0.36, fontWeight: FontWeight.w900, height: 1),
+    ),
+  );
+
+  Widget _cube(double s) {
+    return AnimatedBuilder(
           animation: Listenable.merge([_roll, _idle]),
           builder: (_, _) {
             final t = _roll.value;
@@ -133,9 +217,7 @@ class _DiceViewState extends State<DiceView> with TickerProviderStateMixin {
               ),
             );
           },
-        ),
-      ),
-    );
+        );
   }
 
   /// 0..1 height over the roll: one big arc, then two decaying bounces.

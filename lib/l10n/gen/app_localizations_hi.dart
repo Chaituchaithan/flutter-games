@@ -1584,4 +1584,33 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get inviteFriendsTitle => 'दोस्तों को बुलाएं';
+
+  @override
+  String get yourTurnTapDice => 'आपकी बारी · डाइस पर टैप करें';
+
+  @override
+  String playerTurnName(String name) {
+    return '$name की बारी';
+  }
+
+  @override
+  String youRolledN(int n) {
+    return 'आपने $n डाला';
+  }
+
+  @override
+  String playerRolledN(String name, int n) {
+    return '$name ने $n डाला';
+  }
+
+  @override
+  String get diceTap => 'टैप';
+
+  @override
+  String get youAreRolling => 'डाइस घूम रहा है…';
+
+  @override
+  String youRolledPick(int n) {
+    return 'आपने $n डाला · एक मोहरा चुनें';
+  }
 }

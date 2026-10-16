@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../theme.dart';
 import '../common/board_frame.dart';
 import '../common/pawn_view.dart';
 import 'snakes_engine.dart';
@@ -25,7 +26,11 @@ class SnakesBoardView extends StatefulWidget {
     this.perspective = false,
     this.tilt = 0.5,
     this.delay = Duration.zero,
+    this.banner,
   });
+
+  /// Shown centred on the board frame's top edge (whose turn / the roll).
+  final Widget? banner;
 
   final SnakesGame game;
 
@@ -155,10 +160,19 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
           child: SizedBox(
             width: outerW,
             height: side + padH + frame,
-            child: GameBoardFrame(
-              child: widget.perspective
-                  ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
-                  : board,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: GameBoardFrame(
+                    child: widget.perspective
+                        ? Transform(alignment: Alignment.center, transform: _perspectiveMatrix(), child: board)
+                        : board,
+                  ),
+                ),
+                if (widget.banner != null)
+                  Positioned(top: -15, left: 8, right: 8, child: Center(child: widget.banner)),
+              ],
             ),
           ),
         );
@@ -166,26 +180,32 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
     );
   }
 
-  /// Pawns, back-to-front (higher on screen first) so nearer ones overlap.
+  /// Pawns, back-to-front so nearer ones overlap naturally. Each stands on
+  /// the lower part of its square (so it doesn't reach into the row above);
+  /// pawns sharing a square get smaller and line up neatly (see
+  /// [_Geometry.slot]). The moving pawn is drawn on top.
   List<Widget> _pawns(_Geometry g) {
     final game = widget.game;
     final m = _animating;
-    final size = g.cell * 0.82;
+    final pulse = 0.5 + 0.5 * math.sin(_pulse.value * 2 * math.pi);
     final items = <(double, Widget)>[];
     for (var p = 0; p < game.players; p++) {
       Offset pos;
       var lift = 0.0;
-      if (m != null && m.player == p) {
+      final moving = m != null && m.player == p;
+      final sharing = moving || game.positions[p] <= 0 ? [p] : _sharing(p);
+      final flat = !widget.perspective;
+      if (moving) {
         (pos, lift) = _animatedPosition(m, g);
       } else {
-        pos = g.slot(game.positions[p], p, _sharing(p));
+        pos = g.slot(game.positions[p], p, sharing, flat: flat);
       }
+      // 2D: smaller when sharing, feet near the bottom of the square (not its
+      // centre). 3D keeps the original placement (the tilt gives the depth).
+      final size = flat ? g.pawnSize(sharing.length) : g.cell * 0.82;
+      final feet = flat ? pos + Offset(0, g.cell * (sharing.length > 2 ? 0.2 : 0.3)) : pos;
       final isTurn = !game.isOver && game.turn == p && game.pending == null;
-      Widget pawn = PawnView(
-        color: widget.colors[p],
-        size: size,
-        highlight: isTurn ? 0.5 + 0.5 * math.sin(_pulse.value * 2 * math.pi) : 0,
-      );
+      Widget pawn = PawnView(color: widget.colors[p], size: size, highlight: isTurn ? pulse : 0);
       if (widget.perspective) {
         pawn = Transform(
           alignment: Alignment.bottomCenter,
@@ -194,10 +214,10 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
         );
       }
       items.add((
-        pos.dy - lift,
+        feet.dy + (moving ? 1000 : 0),
         Positioned(
-          left: pos.dx - size * 0.36,
-          top: pos.dy - size * 0.88 - lift,
+          left: feet.dx - size * 0.36,
+          top: feet.dy - size * (flat ? 0.93 : 0.88) - lift,
           child: IgnorePointer(child: pawn),
         ),
       ));
@@ -263,7 +283,7 @@ class _Geometry {
   }
 
   /// A player's resting spot: spread out when several share a square.
-  Offset slot(int square, int player, List<int> sharing) {
+  Offset slot(int square, int player, List<int> sharing, {bool flat = true}) {
     if (square <= 0) {
       // In a row on the START pad.
       return Offset(cell * (2.4 + player * 1.05), padTop + padH * 0.66);
@@ -271,10 +291,28 @@ class _Geometry {
     final base = center(square);
     final n = sharing.length;
     if (n <= 1) return base;
-    final i = sharing.indexOf(player).clamp(0, 3);
-    const offs = [Offset(-0.2, -0.14), Offset(0.2, -0.14), Offset(-0.2, 0.16), Offset(0.2, 0.16)];
-    return base + offs[i] * cell;
+    final i = sharing.indexOf(player).clamp(0, n - 1);
+    if (!flat) {
+      // 3D: the original four corners.
+      const offs3d = [Offset(-0.2, -0.14), Offset(0.2, -0.14), Offset(-0.2, 0.16), Offset(0.2, 0.16)];
+      return base + offs3d[i.clamp(0, 3)] * cell;
+    }
+    // 2: side by side · 3: two behind, one in front · 4: two rows of two.
+    final offs = switch (n) {
+      2 => const [Offset(-0.24, 0), Offset(0.24, 0)],
+      3 => const [Offset(-0.25, -0.12), Offset(0.25, -0.12), Offset(0, 0.14)],
+      _ => const [Offset(-0.25, -0.15), Offset(0.25, -0.15), Offset(-0.25, 0.13), Offset(0.25, 0.13)],
+    };
+    return base + offs[i.clamp(0, offs.length - 1)] * cell;
   }
+
+  /// Pawn height: full size alone, smaller when sharing a square.
+  double pawnSize(int n) => cell * switch (n) {
+    <= 1 => 0.8,
+    2 => 0.7,
+    3 => 0.64,
+    _ => 0.6,
+  };
 }
 
 /// The S-curve a snake's body follows from head to tail (shared by the
@@ -368,13 +406,6 @@ class _BoardPainter extends CustomPainter {
       } else if (SnakesRules.snakes.containsKey(sq)) {
         canvas.drawRect(rect.deflate(cell * 0.06), Paint()..color = const Color(0x55000000));
       }
-      _text(
-        canvas,
-        '$sq',
-        Offset(rect.left + cell * 0.08, rect.top + cell * 0.05),
-        cell * 0.22,
-        Colors.white.withValues(alpha: 0.85),
-      );
     }
     // Finish square: a gold crown glow.
     final fin = _center(100);
@@ -419,6 +450,35 @@ class _BoardPainter extends CustomPainter {
       Colors.white.withValues(alpha: 0.7),
       bold: true,
     );
+    // Square numbers last, over the snakes and ladders, so they always read.
+    for (var sq = 1; sq <= 100; sq++) {
+      final (c, r) = SnakesRules.cellOf(sq);
+      _number(canvas, '$sq', Offset(c * cell + cell * 0.08, r * cell + cell * 0.06));
+    }
+  }
+
+  /// A printed square number: bold white with a dark edge and a soft
+  /// shadow, readable on every row colour (and over a snake or ladder).
+  void _number(Canvas canvas, String s, Offset at) {
+    final size = cell * 0.26;
+    TextStyle style(Paint? stroke) => TextStyle(
+      fontFamily: AuraText.displayFamily,
+      fontSize: size,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      letterSpacing: -0.2,
+      foreground: stroke,
+      color: stroke == null ? Colors.white.withValues(alpha: 0.92) : null,
+      shadows: stroke == null ? null : [Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: size * 0.2, offset: Offset(0, size * 0.04))],
+    );
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size * 0.13
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xFF1A1033).withValues(alpha: 0.55);
+    for (final st in [style(edge), style(null)]) {
+      (TextPainter(text: TextSpan(text: s, style: st), textDirection: TextDirection.ltr)..layout()).paint(canvas, at);
+    }
   }
 
   void _ladder(Canvas canvas, Offset a, Offset b, int index) {

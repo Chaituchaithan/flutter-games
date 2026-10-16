@@ -4,6 +4,7 @@ import 'package:snakeladder/services/session.dart';
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:snakeladder/game/common/dice_view.dart';
@@ -56,6 +57,9 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
 
   bool _perspective = false;
   bool _rolling = false; // die in the air
+
+  /// Who rolled last (the die's number badge takes their colour).
+  LudoColor? _roller;
 
   /// Turn clock (chess-style); one budget covers the roll and the token pick.
   late final TurnTimer _clock = TurnTimer(limitMs: widget.clockMs, onExpire: _onTimeUp)..addListener(_onChange);
@@ -122,6 +126,8 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
     if (key == _clockTurn) return;
     _clockTurn = key;
     _autoplay = false;
+    // Your turn: a short buzz so you notice it.
+    if (_game.current == _me && !_isOver) HapticFeedback.mediumImpact();
     _clock.start();
     if (paused) _clock.pause();
   }
@@ -181,6 +187,7 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
   void _roll() {
     if (!_game.awaitingRoll || _isOver) return;
     _rolling = true;
+    _roller = _game.current;
     _game.roll();
   }
 
@@ -288,6 +295,32 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
     );
   }
 
+  /// The banner over the board: what was rolled, or whose turn it is.
+  Widget? _banner() {
+    if (_isOver) return null;
+    final l = context.l10n;
+    final cur = _game.current;
+    final color = ludoColor(cur);
+    final mine = cur == _me;
+    if (_rolling) {
+      return TurnBanner(text: mine ? l.youAreRolling : l.playerRolling(_name(cur)), color: color, icon: Icons.casino_rounded);
+    }
+    if (_canPick) {
+      return TurnBanner(text: l.youRolledPick(_game.lastRoll), color: color, emphasis: true, icon: Icons.touch_app_rounded);
+    }
+    if (_game.awaitingMove || _game.pending != null) {
+      return TurnBanner(
+        text: mine ? l.youRolledN(_game.lastRoll) : l.playerRolledN(_name(cur), _game.lastRoll),
+        color: color,
+        icon: Icons.casino_rounded,
+      );
+    }
+    if (_canRoll) {
+      return TurnBanner(text: l.yourTurnTapDice, color: color, emphasis: true, icon: Icons.touch_app_rounded);
+    }
+    return TurnBanner(text: l.playerTurnName(_name(cur)), color: color);
+  }
+
   String get _status {
     if (_isOver) return context.l10n.gameOver;
     if (_game.pending != null) return context.l10n.playerMoving(_name(_game.current));
@@ -334,6 +367,8 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
           onTap: _roll,
           onRolled: _onRolled,
           glow: ludoColor(_game.current),
+          resultColor: _roller == null ? null : ludoColor(_roller!),
+          prompt: context.l10n.diceTap,
         ),
         board: LudoBoardView(
           game: _game,
@@ -342,6 +377,8 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
           canPick: _canPick,
           onPick: _pick,
           onMoveAnimated: _onMoveAnimated,
+          // Whose turn / what was rolled, on the board's top edge.
+          banner: _banner(),
         ),
         actionBar: BoardActionBar(statusLabel: _status, active: _canRoll || _canPick, onResign: live ? forfeit : null),
       ),

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
@@ -339,6 +341,111 @@ class SetupTile extends StatelessWidget {
           ),
         ),
         child: child,
+      ),
+    );
+  }
+}
+
+/// The banner over a dice-game board saying whose turn it is and what was
+/// rolled: "YOUR TURN · tap the dice" (pulsing, your colour), "Nova's turn",
+/// "You rolled 5". Shared so local and online play look the same.
+class TurnBanner extends StatefulWidget {
+  const TurnBanner({super.key, required this.text, required this.color, this.emphasis = false, this.icon});
+  final String text;
+  final Color color;
+
+  /// Your turn: brighter, pulsing.
+  final bool emphasis;
+  final IconData? icon;
+
+  @override
+  State<TurnBanner> createState() => _TurnBannerState();
+}
+
+class _TurnBannerState extends State<TurnBanner> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(TurnBanner old) {
+    super.didUpdateWidget(old);
+    if (old.emphasis != widget.emphasis) _sync();
+  }
+
+  void _sync() {
+    if (widget.emphasis) {
+      _pulse.repeat();
+    } else {
+      _pulse
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.color;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      transitionBuilder: (child, a) => FadeTransition(
+        opacity: a,
+        child: SlideTransition(position: Tween(begin: const Offset(0, -0.4), end: Offset.zero).animate(a), child: child),
+      ),
+      child: AnimatedBuilder(
+        key: ValueKey(widget.text),
+        animation: _pulse,
+        builder: (_, child) {
+          final p = widget.emphasis ? 0.5 + 0.5 * math.sin(_pulse.value * 2 * math.pi) : 0.0;
+          return Transform.scale(
+            scale: 1 + 0.04 * p,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(99),
+                gradient: LinearGradient(
+                  colors: widget.emphasis
+                      ? [c, Color.lerp(c, Colors.white, 0.25)!]
+                      : [c.withValues(alpha: 0.28), c.withValues(alpha: 0.16)],
+                ),
+                border: Border.all(color: widget.emphasis ? Colors.white.withValues(alpha: 0.7) : c.withValues(alpha: 0.7), width: 1.5),
+                boxShadow: [BoxShadow(color: c.withValues(alpha: widget.emphasis ? 0.45 + 0.35 * p : 0.2), blurRadius: 16)],
+              ),
+              child: child,
+            ),
+          );
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.icon != null) ...[Icon(widget.icon, size: 15, color: Colors.white), const SizedBox(width: 6)],
+            Flexible(
+              child: Text(
+                widget.text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: AuraText.displayFamily,
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: widget.emphasis ? 0.6 : 0,
+                  shadows: const [Shadow(color: Colors.black38, blurRadius: 4)],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

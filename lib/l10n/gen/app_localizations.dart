@@ -2767,6 +2767,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invite friends'**
   String get inviteFriendsTitle;
+
+  /// No description provided for @yourTurnTapDice.
+  ///
+  /// In en, this message translates to:
+  /// **'YOUR TURN · tap the dice'**
+  String get yourTurnTapDice;
+
+  /// No description provided for @playerTurnName.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s turn'**
+  String playerTurnName(String name);
+
+  /// No description provided for @youRolledN.
+  ///
+  /// In en, this message translates to:
+  /// **'You rolled {n}'**
+  String youRolledN(int n);
+
+  /// No description provided for @playerRolledN.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} rolled {n}'**
+  String playerRolledN(String name, int n);
+
+  /// No description provided for @diceTap.
+  ///
+  /// In en, this message translates to:
+  /// **'TAP'**
+  String get diceTap;
+
+  /// No description provided for @youAreRolling.
+  ///
+  /// In en, this message translates to:
+  /// **'Rolling…'**
+  String get youAreRolling;
+
+  /// No description provided for @youRolledPick.
+  ///
+  /// In en, this message translates to:
+  /// **'You rolled {n} · tap a pawn'**
+  String youRolledPick(int n);
 }
 
 class _AppLocalizationsDelegate

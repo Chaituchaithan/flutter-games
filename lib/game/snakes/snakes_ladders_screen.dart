@@ -3,7 +3,10 @@ import 'dart:math' as math;
 import 'package:snakeladder/services/session.dart';
 import '../../l10n/l10n.dart';
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:snakeladder/game/common/dice_view.dart';
@@ -61,6 +64,14 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
 
   bool _perspective = false;
 
+  /// Who rolled last, and whether "You rolled 5" is showing.
+  int? _roller;
+  bool _showRolled = false;
+
+  /// The die is tumbling (don't give the number away yet).
+  bool _diceRolling = false;
+  Timer? _rolledTimer;
+
   /// Turn clock (same idea as chess "time per move"); restarts every roll.
   late final TurnTimer _clock = TurnTimer(limitMs: widget.clockMs, onExpire: _onTimeUp)..addListener(_onChange);
   (int, int)? _clockTurn;
@@ -87,6 +98,7 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
   @override
   void dispose() {
     disposeFlow();
+    _rolledTimer?.cancel();
     _clock.dispose();
     _game.removeListener(_onChange);
     _game.dispose();
@@ -110,6 +122,8 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
     final key = (_game.turn, _game.rollId);
     if (key == _clockTurn) return;
     _clockTurn = key;
+    // Your turn: a short buzz so you notice it.
+    if (_game.turn == 0 && !_isOver) HapticFeedback.mediumImpact();
     _clock.start();
     if (paused) _clock.pause();
   }
@@ -158,7 +172,50 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
 
   void _roll() {
     if (!_game.awaitingRoll || _isOver) return;
+    _roller = _game.turn;
+    _rolledTimer?.cancel();
+    _showRolled = false;
+    _diceRolling = true;
     _game.roll();
+  }
+
+  /// The die landed: show "You rolled 5" while the move plays (and a beat).
+  void _onDiceLanded() {
+    if (!mounted) return;
+    setState(() {
+      _diceRolling = false;
+      _showRolled = true;
+    });
+    _rolledTimer?.cancel();
+    _rolledTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _showRolled = false);
+    });
+  }
+
+  /// The banner over the board: what was rolled, or whose turn it is.
+  Widget? _banner() {
+    if (_isOver) return null;
+    final l = context.l10n;
+    final roller = _roller;
+    if (roller != null && _diceRolling) {
+      return TurnBanner(
+        text: roller == 0 ? l.youAreRolling : l.playerRolling(_seats[roller].name),
+        color: _seats[roller].color,
+        icon: Icons.casino_rounded,
+      );
+    }
+    if (roller != null && (_showRolled || _game.pending != null)) {
+      final v = _game.lastRoll;
+      return TurnBanner(
+        text: roller == 0 ? l.youRolledN(v) : l.playerRolledN(_seats[roller].name, v),
+        color: _seats[roller].color,
+        icon: Icons.casino_rounded,
+      );
+    }
+    if (_canRoll) {
+      return TurnBanner(text: l.yourTurnTapDice, color: _seats[0].color, emphasis: true, icon: Icons.touch_app_rounded);
+    }
+    return TurnBanner(text: l.playerTurnName(_seats[_game.turn].name), color: _seats[_game.turn].color);
   }
 
   /// The board finished animating: commit and continue.
@@ -257,6 +314,9 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
           enabled: _canRoll,
           onTap: _roll,
           glow: _seats[_game.turn].color,
+          resultColor: _roller == null ? null : _seats[_roller!].color,
+          prompt: context.l10n.diceTap,
+          onRolled: _onDiceLanded,
         ),
         board: SnakesBoardView(
           game: _game,
@@ -264,6 +324,8 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
           perspective: _perspective,
           delay: DiceView.rollDuration,
           onMoveAnimated: _onMoveAnimated,
+          // Whose turn / what was rolled, on the board's top edge.
+          banner: _banner(),
         ),
         actionBar: BoardActionBar(statusLabel: _status, active: _canRoll, onResign: live ? forfeit : null),
       ),

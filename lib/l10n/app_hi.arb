@@ -444,5 +444,12 @@
   "noReferralsYet": "अभी कोई दोस्त नहीं जुड़ा — शुरू करने के लिए अपना कोड शेयर करें।",
   "referralsJoined": "{n, plural, =1{1 दोस्त आपके कोड से जुड़ा} other{{n} दोस्त आपके कोड से जुड़े}}",
   "referralCouldntLoad": "आपका इनवाइट कोड लोड नहीं हो सका।",
-  "inviteFriendsTitle": "दोस्तों को बुलाएं"
+  "inviteFriendsTitle": "दोस्तों को बुलाएं",
+  "yourTurnTapDice": "आपकी बारी · डाइस पर टैप करें",
+  "playerTurnName": "{name} की बारी",
+  "youRolledN": "आपने {n} डाला",
+  "playerRolledN": "{name} ने {n} डाला",
+  "diceTap": "टैप",
+  "youAreRolling": "डाइस घूम रहा है…",
+  "youRolledPick": "आपने {n} डाला · एक मोहरा चुनें"
 }

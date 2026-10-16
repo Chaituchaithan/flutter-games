@@ -101,6 +101,11 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | GAME-10 | Racing | Bet Win + Top 3 → Start race | Camera follows the leader; standings re-order; podium + payout | | |
 | GAME-11 | Rummy | Draw → Sort → Discard; then Declare | Groups labelled; invalid declare warns (80 pts); valid declare wins | | |
 | GAME-12 | Pause / forfeit | Pause in any vs-computer game → Forfeit | Confirm dialog; defeat result screen | | |
+| GAME-13 | Snakes: pawns sharing a square (2D) | Play until 2–4 players land on one square | Pawns shrink and line up (side by side / two behind one / two rows of two), all visible inside the square; a lone pawn stands in its own square without covering the one above | | |
+| GAME-14 | Snakes: rolled number | Roll | Banner says "Rolling…" while the die tumbles, then "You rolled 5"; a number badge in the roller's colour stays on the die | | |
+| GAME-15 | Snakes: your turn | Wait for your turn | Pulsing "YOUR TURN · tap the dice" banner on the board edge, "TAP" under the die, a short vibration; computer turns show "Nova's turn" | | |
+| GAME-16 | Ludo: turn, roll, pick | Play a few turns | "YOUR TURN · tap the dice" → "Rolling…" → "You rolled 6 · tap a pawn" (pulsing); the die keeps the roller's number badge; vibration on your turn; computers show "Nova's turn" / "Nova rolled 3" | | |
+| GAME-17 | Ludo: pawns sharing a square | Land on a square with other pawns | Pawns shrink and line up (side by side / two behind one / two rows), all visible; a lone pawn stays inside its own square | | |
 
 ## 8. Release checks (REL)
 
