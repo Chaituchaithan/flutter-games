@@ -280,7 +280,8 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
           oppScore: _game.homeCount(bestRival),
           oppName: _name(bestRival),
           oppInitials: _seats[bestRival]!.initials,
-          reward: won ? '+50 XP' : '+20 XP',
+          // Quick Play vs the computer: nothing to earn.
+          practice: true,
           playAgain: (_) => LudoScreen(players: widget.players, color: widget.color, clockMs: widget.clockMs),
         ),
       ),

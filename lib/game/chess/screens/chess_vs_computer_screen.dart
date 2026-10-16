@@ -223,12 +223,8 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
           oppScore: _game.capturesBy(_botColor),
           oppName: 'Computer',
           oppInitials: 'AI',
-          // Quick Play has no stake: XP only.
-          reward: switch (outcome) {
-            MatchOutcome.victory => '+50 XP',
-            MatchOutcome.draw => '+30 XP',
-            MatchOutcome.defeat => '+20 XP',
-          },
+          // Quick Play vs the computer: nothing to earn.
+          practice: true,
           // Same side / difficulty / time control again.
           playAgain: (_) => ChessVsComputerScreen(
             depth: widget.depth,

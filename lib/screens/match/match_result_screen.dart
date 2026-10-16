@@ -28,6 +28,7 @@ class MatchResultScreen extends StatelessWidget {
     this.oppName = 'Rival',
     this.oppInitials,
     this.reward,
+    this.practice = false,
     this.subtitle,
     this.playAgain,
   });
@@ -42,6 +43,9 @@ class MatchResultScreen extends StatelessWidget {
 
   /// Reward chip text, e.g. "+190 Tokens   ·   +50 XP". Defaults per outcome.
   final String? reward;
+
+  /// Quick Play vs the computer: nothing is earned, so no reward chip.
+  final bool practice;
 
   /// Overrides the outcome's default subtitle (e.g. "You ran out of time.").
   final String? subtitle;
@@ -157,8 +161,11 @@ class MatchResultScreen extends StatelessWidget {
                         oppInitials: opponentInitials,
                       ),
                       const SizedBox(height: 26),
-                      Center(child: _RewardChip(text: reward ?? spec.reward)),
-                      const SizedBox(height: 30),
+                      if (!practice) ...[
+                        Center(child: _RewardChip(text: reward ?? spec.reward)),
+                        const SizedBox(height: 30),
+                      ] else
+                        const SizedBox(height: 8),
                       GradientButton(
                         label: context.l10n.playAgain,
                         onPressed: () {

@@ -106,21 +106,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 12),
-            // Back button inline with the heading (no separate top bar row).
-            Row(
-              children: [
-                GlassIconButton(icon: Icons.chevron_left, iconSize: 24, onTap: () => Navigator.of(context).maybePop()),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(context.l10n.createAccount, style: AuraText.headline.copyWith(fontSize: 30)),
-                  ),
-                ),
-              ],
-            ),
+            const SizedBox(height: 18),
+            // No back button: "Sign in" below (and the system back gesture)
+            // return to Login.
+            Text(context.l10n.createAccount, style: AuraText.headline.copyWith(fontSize: 32)),
             const SizedBox(height: 8),
             Text(
               context.l10n.registerSubtitle,

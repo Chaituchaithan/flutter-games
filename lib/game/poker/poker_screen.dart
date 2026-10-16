@@ -300,7 +300,8 @@ class _PokerScreenState extends State<PokerScreen> with LocalGameFlow, TickerPro
           oppScore: bots.map((p) => p.handsWon).reduce(math.max),
           oppName: widget.players == 2 ? _botNames[0].$1 : l.bestAi,
           oppInitials: widget.players == 2 ? _botNames[0].$2 : 'AI',
-          reward: won ? '+50 XP' : '+20 XP',
+          // Quick Play vs the computer: nothing to earn.
+          practice: true,
           playAgain: (_) => PokerScreen(
             players: widget.players,
             difficulty: widget.difficulty,

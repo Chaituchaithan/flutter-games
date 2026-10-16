@@ -210,7 +210,8 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
           oppScore: best,
           oppName: widget.players == 2 ? _seats[1].name : context.l10n.bestAi,
           oppInitials: widget.players == 2 ? _seats[1].initials : 'AI',
-          reward: won ? '+50 XP' : '+20 XP',
+          // Quick Play vs the computer: nothing to earn.
+          practice: true,
           playAgain: (_) =>
               SnakesLaddersScreen(players: widget.players, colorIndex: widget.colorIndex, clockMs: widget.clockMs),
         ),

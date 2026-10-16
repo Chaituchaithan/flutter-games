@@ -397,7 +397,8 @@ class _RummyScreenState extends State<RummyScreen> with LocalGameFlow {
           oppScore: others.reduce(math.min),
           oppName: widget.players == 2 ? _botNames[0].$1 : l.bestAi,
           oppInitials: widget.players == 2 ? _botNames[0].$2 : 'AI',
-          reward: won ? '+50 XP' : '+20 XP',
+          // Quick Play vs the computer: nothing to earn.
+          practice: true,
           playAgain: (_) => RummyScreen(players: widget.players, difficulty: widget.difficulty, clockMs: widget.clockMs),
         ),
       ),

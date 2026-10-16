@@ -360,11 +360,8 @@ class _ScrabbleScreenState extends State<ScrabbleScreen> with LocalGameFlow {
           oppScore: them,
           oppName: l.computer,
           oppInitials: 'AI',
-          reward: switch (outcome) {
-            MatchOutcome.victory => '+50 XP',
-            MatchOutcome.draw => '+30 XP',
-            MatchOutcome.defeat => '+20 XP',
-          },
+          // Quick Play vs the computer: nothing to earn.
+          practice: true,
           playAgain: (_) => ScrabbleScreen(difficulty: widget.difficulty, clockMs: widget.clockMs),
         ),
       ),

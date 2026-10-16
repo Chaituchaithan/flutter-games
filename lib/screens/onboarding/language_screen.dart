@@ -46,12 +46,14 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
   Widget build(BuildContext context) {
     final fromSettings = widget.fromSettings;
     return AuraScaffold(
-      appBar: AuraAppBar(showBack: true, title: fromSettings ? context.l10n.languageTitle : null),
+      // First launch: nothing behind this screen, so no top bar / back
+      // button. From Settings: "← Language" returns there.
+      appBar: fromSettings ? AuraAppBar(showBack: true, title: context.l10n.languageTitle) : null,
       scroll: true,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 4),
+          SizedBox(height: fromSettings ? 4 : 24),
           if (!fromSettings) ...[
           // Gradient rounded-square globe tile.
           Center(

@@ -335,11 +335,8 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
           oppScore: best,
           oppName: widget.players == 2 ? _name(1) : l.bestAi,
           oppInitials: widget.players == 2 ? diceBotNames[0].$2 : 'AI',
-          reward: switch (outcome) {
-            MatchOutcome.victory => '+50 XP',
-            MatchOutcome.draw => '+30 XP',
-            MatchOutcome.defeat => '+20 XP',
-          },
+          // Quick Play vs the computer: nothing to earn.
+          practice: true,
           playAgain: (_) => BingoScreen(
             players: widget.players,
             pattern: widget.pattern,

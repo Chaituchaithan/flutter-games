@@ -218,11 +218,8 @@ class _CheckersScreenState extends State<CheckersScreen> with LocalGameFlow {
           oppScore: 12 - s.countOf(_you),
           oppName: l.computer,
           oppInitials: 'AI',
-          reward: switch (outcome) {
-            MatchOutcome.victory => '+50 XP',
-            MatchOutcome.draw => '+30 XP',
-            MatchOutcome.defeat => '+20 XP',
-          },
+          // Quick Play vs the computer: nothing to earn.
+          practice: true,
           playAgain: (_) => CheckersScreen(you: widget.you, difficulty: widget.difficulty, clockMs: widget.clockMs),
         ),
       ),

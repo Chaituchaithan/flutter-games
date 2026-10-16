@@ -108,8 +108,6 @@ class _ChessSetupScreenState extends State<ChessSetupScreen> {
           ),
           const SizedBox(height: 30),
           GradientButton(label: 'Start game', onPressed: _start),
-          const SizedBox(height: 10),
-          SecondaryButton(label: 'Cancel', onPressed: () => Navigator.of(context).maybePop()),
           const SizedBox(height: 8),
         ],
       ),
@@ -136,7 +134,7 @@ class _OptionCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           // Selected = the brand (Aurora) gradient; unselected = glass. Border
           // width is CONSTANT so selecting never changes the tile's size (which
-          // was shifting the Start/Cancel buttons below).
+          // was shifting the Start button below).
           gradient: selected
               ? AuraGradients.brand
               : LinearGradient(colors: [Colors.white.withValues(alpha: 0.08), Colors.white.withValues(alpha: 0.03)]),
