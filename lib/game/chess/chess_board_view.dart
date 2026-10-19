@@ -330,30 +330,21 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
     );
   }
 
-  /// Time for each square a piece steps through (same pace as the Snakes &
-  /// Ladders pawn), and for a knight's single jump.
-  static const _stepMs = 190;
-  static const _knightMs = 460;
-
-  /// How long a move takes: one step per square along its line; a knight
-  /// jumps in one go.
+  /// How long a move takes: 0.5 s for one square up to 0.8 s across the
+  /// board, so every piece travels at about the same, easy-to-follow pace.
   static int _moveMs(Move m) {
-    final df = (fileOf(m.to) - fileOf(m.from)).abs(), dr = (rankOf(m.to) - rankOf(m.from)).abs();
-    final knight = df != dr && df != 0 && dr != 0;
-    return knight ? _knightMs : math.max(df, dr) * _stepMs;
+    final df = (fileOf(m.to) - fileOf(m.from)).toDouble(), dr = (rankOf(m.to) - rankOf(m.from)).toDouble();
+    final dist = math.sqrt(df * df + dr * dr);
+    return (430 + 50 * dist).round().clamp(500, 800);
   }
 
-  /// A piece in flight, like the Snakes & Ladders pawn: it hops square by
-  /// square along its line (rook, bishop, queen, king, pawn), each hop a
-  /// little lift and set-down; a knight makes one higher jump over the
-  /// board. Its shadow stays on the squares beneath it.
+  /// A piece in flight: one continuous glide from its square to the new one
+  /// (as on Chess.com / Lichess) — eases in at the start and out at the end,
+  /// never stops or hops on the way. The knight glides straight too.
   Widget _buildFlying(double cell, int from, int to, Piece piece) {
     final (fr, fc) = _visualOf(from);
     final (tr, tc) = _visualOf(to);
-    final dr = tr - fr, dc = tc - fc;
-    final knight = dr.abs() != dc.abs() && dr != 0 && dc != 0;
-    final steps = knight ? 1 : math.max(dr.abs(), dc.abs());
-    final hopH = cell * (knight ? 0.55 : 0.24);
+    final start = Offset(fc * cell, fr * cell), end = Offset(tc * cell, tr * cell);
     return Positioned(
       left: 0,
       top: 0,
@@ -362,48 +353,32 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
       child: IgnorePointer(
         child: AnimatedBuilder(
           animation: _moveCtrl,
-          builder: (context, _) {
-            // Which hop we're on, and how far through it.
-            final x = _moveCtrl.value * steps;
-            final k = x.floor().clamp(0, steps - 1);
-            final u = (x - k).clamp(0.0, 1.0);
-            final e = Curves.easeInOut.transform(u);
-            final a = k / steps, b = (k + 1) / steps;
-            final t = a + (b - a) * e;
-            final pos = Offset((fc + dc * t) * cell, (fr + dr * t) * cell);
-            final h = math.sin(u * math.pi);
-            final lift = hopH * h;
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Shadow on the board, under the piece: smaller and fainter
-                // at the top of each hop.
-                Transform.translate(
-                  offset: pos,
-                  child: Align(
-                    alignment: const Alignment(0.08, 0.72),
-                    child: Container(
-                      width: cell * (0.62 - 0.1 * h),
-                      height: cell * (0.3 - 0.05 * h),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.elliptical(cell * 0.4, cell * 0.16)),
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.black.withValues(alpha: widget.perspective ? 0.55 - 0.25 * h : 0.32 - 0.12 * h),
-                            Colors.black.withValues(alpha: 0),
-                          ],
-                        ),
+          // The piece is built once; each frame only moves it.
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // 3D: its contact shadow travels with it (2D pieces have none).
+              if (widget.perspective)
+                Align(
+                  alignment: const Alignment(0.08, 0.72),
+                  child: Container(
+                    width: cell * 0.62,
+                    height: cell * 0.3,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.all(Radius.elliptical(cell * 0.31, cell * 0.15)),
+                      gradient: RadialGradient(
+                        colors: [Colors.black.withValues(alpha: 0.55), Colors.black.withValues(alpha: 0)],
                       ),
                     ),
                   ),
                 ),
-                Transform.translate(
-                  offset: pos - Offset(0, lift),
-                  child: Center(child: _pieceWidget(piece, cell, scale: 1 + 0.06 * h)),
-                ),
-              ],
-            );
-          },
+              _pieceWidget(piece, cell),
+            ],
+          ),
+          builder: (context, child) => Transform.translate(
+            offset: Offset.lerp(start, end, Curves.easeInOutCubic.transform(_moveCtrl.value))!,
+            child: child,
+          ),
         ),
       ),
     );

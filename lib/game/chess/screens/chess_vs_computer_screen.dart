@@ -96,7 +96,7 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
 
   /// Hand-over buffer: the piece move (up to ~0.95s) + a short beat before
   /// the next mover's clock starts counting (both directions).
-  static const int _handoverMs = 1400;
+  static const int _handoverMs = 1000;
 
   /// Bumped to invalidate an in-flight bot search (pause, game over, dispose).
   int _botGen = 0;
@@ -140,8 +140,8 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     if (botMoves < 3) ms *= 0.55; // opening: book-like moves
     if (_game.status == GameStatus.check) ms *= 1.15;
     if (_game.state.legalMoves().length == 1) ms = 700 + _rng.nextInt(500).toDouble();
-    // Never reply before your piece has finished moving (up to 1.3 s).
-    ms = max(ms, 1500);
+    // Never reply before your piece has finished moving (up to 0.8 s).
+    ms = max(ms, 1100);
     final clock = _clock;
     if (clock != null) ms = min(ms, clock.msFor(_botColor) / 3);
     return ms.round();
