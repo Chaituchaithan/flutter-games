@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:snakeladder/game/common/local_game_flow.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -141,7 +142,10 @@ class _ChessScreenState extends State<ChessScreen> {
     final lastMove = _game.lastMoveText((c) => c == PieceColor.white ? 'You' : 'ZeroCool');
     double timeLeft(PieceColor c) => _clock.msFor(c) / _clock.initialMs;
     // Fixed layout: board fills the middle, the action bar stays at the bottom.
-    return AuraScaffold(
+    return GameBackGuard(
+      active: live && !_resultShown,
+      onBack: _openPause,
+      child: AuraScaffold(
       // Slimmer side margins so the board can be as large as possible.
       padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
@@ -217,6 +221,7 @@ class _ChessScreenState extends State<ChessScreen> {
           const SizedBox(height: 8),
         ],
       ),
+    ),
     );
   }
 }

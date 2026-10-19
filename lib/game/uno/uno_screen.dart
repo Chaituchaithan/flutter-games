@@ -575,7 +575,8 @@ class _UnoScreenState extends State<UnoScreen> with LocalGameFlow, SingleTickerP
     final playable = _myTurn ? g.playable().toSet() : const <UnoCard>{};
     final canUno = _myTurn && allMine.length == 2 && playable.isNotEmpty;
     final pile = [for (final c in g.discard) if (!_inAir.contains(c.id)) c];
-    return AuraScaffold(
+    return guardBack(
+      AuraScaffold(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -709,6 +710,7 @@ class _UnoScreenState extends State<UnoScreen> with LocalGameFlow, SingleTickerP
           const SizedBox(height: 10),
         ],
       ),
+    ),
     );
   }
 }

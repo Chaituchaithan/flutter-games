@@ -342,7 +342,8 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
   Widget build(BuildContext context) {
     final live = !_isOver;
     final rivals = _game.colors.where((c) => c != _me).toList();
-    return AuraScaffold(
+    return guardBack(
+      AuraScaffold(
       // Slimmer side margins so the board can be as large as possible.
       padding: const EdgeInsets.symmetric(horizontal: 12),
       body: DiceBoardLayout(
@@ -385,6 +386,7 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
         ),
         actionBar: BoardActionBar(statusLabel: _status, active: _canRoll || _canPick, onResign: live ? forfeit : null),
       ),
+    ),
     );
   }
 }

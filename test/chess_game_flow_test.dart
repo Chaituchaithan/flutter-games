@@ -118,4 +118,33 @@ void main() {
     expect(find.textContaining('Computer played'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('phone Back during a game opens the pause menu instead of leaving', (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        navigatorKey: nav,
+        onGenerateRoute: Routes.onGenerateRoute,
+        home: const Scaffold(body: Text('Setup')),
+      ),
+    ));
+    nav.currentState!.push(
+      MaterialPageRoute(builder: (_) => const ChessVsComputerScreen(clockMs: null, playerColor: PieceColor.white)),
+    );
+    await _pump(tester, 800);
+    // System back (Android back button).
+    await tester.binding.handlePopRoute();
+    await _pump(tester);
+    expect(find.text('Paused'), findsOneWidget);
+    expect(find.byType(ChessBoardView), findsOneWidget, reason: 'still in the game');
+    // Back again closes the menu and resumes — still in the game.
+    await tester.binding.handlePopRoute();
+    await _pump(tester);
+    expect(find.text('Paused'), findsNothing);
+    expect(find.byType(ChessBoardView), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

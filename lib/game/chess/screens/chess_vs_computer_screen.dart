@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:snakeladder/game/common/local_game_flow.dart';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -95,7 +96,7 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
 
   /// Hand-over buffer: the piece move (up to ~0.95s) + a short beat before
   /// the next mover's clock starts counting (both directions).
-  static const int _handoverMs = 1000;
+  static const int _handoverMs = 1400;
 
   /// Bumped to invalidate an in-flight bot search (pause, game over, dispose).
   int _botGen = 0;
@@ -139,6 +140,8 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     if (botMoves < 3) ms *= 0.55; // opening: book-like moves
     if (_game.status == GameStatus.check) ms *= 1.15;
     if (_game.state.legalMoves().length == 1) ms = 700 + _rng.nextInt(500).toDouble();
+    // Never reply before your piece has finished moving (up to 1.3 s).
+    ms = max(ms, 1500);
     final clock = _clock;
     if (clock != null) ms = min(ms, clock.msFor(_botColor) / 3);
     return ms.round();
@@ -292,7 +295,10 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     final lastMove = _game.lastMoveText((c) => c == _playerColor ? 'You' : 'Computer');
     // Fixed (non-scrolling) layout: the board takes the free middle space and
     // the action bar stays pinned to the bottom, so nothing moves while playing.
-    return AuraScaffold(
+    return GameBackGuard(
+      active: gameLive && !_resultShown,
+      onBack: _openPause,
+      child: AuraScaffold(
       // Slimmer side margins so the board can be as large as possible.
       padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
@@ -377,6 +383,7 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
           const SizedBox(height: 8),
         ],
       ),
+    ),
     );
   }
 }

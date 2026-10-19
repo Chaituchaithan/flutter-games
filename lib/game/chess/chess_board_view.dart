@@ -152,9 +152,8 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
       final takenSq = m.isEnPassant ? squareOf(fileOf(m.to), rankOf(m.from)) : m.to;
       final taken = _before.length == 64 ? _before[takenSq] : null;
       _captured = taken == null ? null : (takenSq, taken);
-      // Longer moves take a little longer, so every slide reads at one pace.
-      final dist = math.max((fileOf(m.to) - fileOf(m.from)).abs(), (rankOf(m.to) - rankOf(m.from)).abs());
-      _moveCtrl.duration = Duration(milliseconds: (420 + 75 * dist).clamp(520, 950));
+      // One hop per square (a knight jumps once), Snakes & Ladders pace.
+      _moveCtrl.duration = Duration(milliseconds: _moveMs(m));
       _moveCtrl.forward(from: 0);
     }
     _before = _snapshot();
@@ -204,12 +203,17 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
   /// Billboards a piece upright in perspective mode (counter-rotating the
   /// board's backward tilt), with an optional in-flight lift scale.
   Widget _pieceWidget(Piece piece, double cell, {double scale = 1}) {
-    Widget p = ChessPiece(
-      piece: piece,
-      size: cell * (widget.perspective ? 0.9 : 0.82),
-      rounded: widget.perspective,
-      neon: _look.neonPieces,
-      set: _set,
+    // Each piece is its own layer: drawn once (its glow and shading are
+    // costly), then only moved / scaled. Without this, starting or landing a
+    // move redrew all 32 pieces in one frame — a visible stutter.
+    Widget p = RepaintBoundary(
+      child: ChessPiece(
+        piece: piece,
+        size: cell * (widget.perspective ? 0.9 : 0.82),
+        rounded: widget.perspective,
+        neon: _look.neonPieces,
+        set: _set,
+      ),
     );
     if (scale != 1) p = Transform.scale(scale: scale, child: p);
     if (widget.perspective) {
@@ -326,11 +330,30 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
     );
   }
 
-  /// A piece in flight: glides origin → destination (ease-in-out), lifting
-  /// slightly with a soft shadow beneath, then settles onto the square.
+  /// Time for each square a piece steps through (same pace as the Snakes &
+  /// Ladders pawn), and for a knight's single jump.
+  static const _stepMs = 190;
+  static const _knightMs = 460;
+
+  /// How long a move takes: one step per square along its line; a knight
+  /// jumps in one go.
+  static int _moveMs(Move m) {
+    final df = (fileOf(m.to) - fileOf(m.from)).abs(), dr = (rankOf(m.to) - rankOf(m.from)).abs();
+    final knight = df != dr && df != 0 && dr != 0;
+    return knight ? _knightMs : math.max(df, dr) * _stepMs;
+  }
+
+  /// A piece in flight, like the Snakes & Ladders pawn: it hops square by
+  /// square along its line (rook, bishop, queen, king, pawn), each hop a
+  /// little lift and set-down; a knight makes one higher jump over the
+  /// board. Its shadow stays on the squares beneath it.
   Widget _buildFlying(double cell, int from, int to, Piece piece) {
     final (fr, fc) = _visualOf(from);
     final (tr, tc) = _visualOf(to);
+    final dr = tr - fr, dc = tc - fc;
+    final knight = dr.abs() != dc.abs() && dr != 0 && dc != 0;
+    final steps = knight ? 1 : math.max(dr.abs(), dc.abs());
+    final hopH = cell * (knight ? 0.55 : 0.24);
     return Positioned(
       left: 0,
       top: 0,
@@ -340,52 +363,45 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
         child: AnimatedBuilder(
           animation: _moveCtrl,
           builder: (context, _) {
-            // Like a hand moving a piece: pick it up (0–18%), carry it
-            // (18–80%), put it down with a soft settle (80–100%).
-            final v = _moveCtrl.value;
-            final carry = Curves.easeInOutCubic.transform(((v - 0.18) / 0.62).clamp(0.0, 1.0));
-            final double height;
-            if (v < 0.18) {
-              height = Curves.easeOutCubic.transform(v / 0.18);
-            } else if (v < 0.8) {
-              height = 1;
-            } else {
-              final u = (v - 0.8) / 0.2;
-              // Down, a hair past the board, back to rest.
-              height = (1 - Curves.easeInCubic.transform(u)) - math.sin(u * math.pi) * 0.06;
-            }
-            final dx = (fc + (tc - fc) * carry) * cell;
-            final dy = (fr + (tr - fr) * carry) * cell;
-            final h = height.clamp(0.0, 1.0);
-            return Transform.translate(
-              offset: Offset(dx, dy),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Shadow on the board: soft and wide while carried, gone
-                  // (2D) / the resting contact shadow (3D) once it lands — no pop.
-                  Align(
+            // Which hop we're on, and how far through it.
+            final x = _moveCtrl.value * steps;
+            final k = x.floor().clamp(0, steps - 1);
+            final u = (x - k).clamp(0.0, 1.0);
+            final e = Curves.easeInOut.transform(u);
+            final a = k / steps, b = (k + 1) / steps;
+            final t = a + (b - a) * e;
+            final pos = Offset((fc + dc * t) * cell, (fr + dr * t) * cell);
+            final h = math.sin(u * math.pi);
+            final lift = hopH * h;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Shadow on the board, under the piece: smaller and fainter
+                // at the top of each hop.
+                Transform.translate(
+                  offset: pos,
+                  child: Align(
                     alignment: const Alignment(0.08, 0.72),
                     child: Container(
-                      width: cell * (0.62 + 0.14 * h),
-                      height: cell * (0.3 - 0.06 * h),
+                      width: cell * (0.62 - 0.1 * h),
+                      height: cell * (0.3 - 0.05 * h),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.elliptical(cell * 0.38, cell * 0.15)),
+                        borderRadius: BorderRadius.all(Radius.elliptical(cell * 0.4, cell * 0.16)),
                         gradient: RadialGradient(
                           colors: [
-                            Colors.black.withValues(alpha: widget.perspective ? 0.55 - 0.25 * h : 0.32 * h),
+                            Colors.black.withValues(alpha: widget.perspective ? 0.55 - 0.25 * h : 0.32 - 0.12 * h),
                             Colors.black.withValues(alpha: 0),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  Transform.translate(
-                    offset: Offset(0, -cell * 0.22 * height),
-                    child: _pieceWidget(piece, cell, scale: 1 + 0.07 * h),
-                  ),
-                ],
-              ),
+                ),
+                Transform.translate(
+                  offset: pos - Offset(0, lift),
+                  child: Center(child: _pieceWidget(piece, cell, scale: 1 + 0.06 * h)),
+                ),
+              ],
             );
           },
         ),

@@ -419,7 +419,8 @@ class _RummyScreenState extends State<RummyScreen> with LocalGameFlow {
     if (_me.hand.length == RummyRules.handSize) _recount();
     final canDraw = _myTurn && g.phase == RummyTurnPhase.draw;
     final canThrow = _myTurn && g.phase == RummyTurnPhase.discard && _selected.length == 1;
-    return AuraScaffold(
+    return guardBack(
+      AuraScaffold(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -594,6 +595,7 @@ class _RummyScreenState extends State<RummyScreen> with LocalGameFlow {
           const SizedBox(height: 10),
         ],
       ),
+    ),
     );
   }
 

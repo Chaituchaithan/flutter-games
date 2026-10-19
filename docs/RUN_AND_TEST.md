@@ -378,30 +378,13 @@ output — expected and harmless (tests filter them).
 
 ## 13. Build & install
 
-| Build | Command | Output |
-|---|---|---|
-| Release APK (universal) | `flutter build apk --release` | `build/app/outputs/flutter-apk/app-release.apk` |
-| Smaller per-ABI APKs | `flutter build apk --release --split-per-abi` | `app-arm64-v8a-release.apk`, … |
-| Debug APK | `flutter build apk --debug` | quick install for testing |
-| Play Store bundle | `flutter build appbundle --release` | `build/app/outputs/bundle/release/app-release.aab` |
-| Web | `flutter build web` | `build/web/` |
-| iOS (needs Xcode) | `flutter build ios --release` | — |
+Building apps (one per game or all games), output files, installing on a
+phone, and the store-release checklist are in
+**[BUILD_GUIDE.md](BUILD_GUIDE.md)**. Quick example:
 
-Build a single-game app with `-t`, e.g. `flutter build apk --release -t lib/main_ludo.dart`.
+```sh
+flutter build apk --release --split-per-abi -t lib/main_chess.dart
+adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+```
 
-> **Separate store listings (later):** to install the apps side by side they
-> also need their own application id, name and icon — add Android
-> `productFlavors` / iOS schemes per app (e.g. `--flavor ludo -t
-> lib/main_ludo.dart`). Not set up yet; to be done once the app list is final.
-
-Any `--dart-define` from §6 works on builds too, e.g.
-`flutter build apk --release --dart-define=USE_PROXY=false`.
-
-Install on a plugged-in device: `adb install -r build/app/outputs/flutter-apk/app-release.apk`
-(`adb devices` to list them).
-
-> **Release signing:** before publishing, add `android/key.properties` + a
-> keystore and reference it in `android/app/build.gradle`. Debug-signed builds
-> install for testing but can't go to the Play Store. Also switch the
-> environment to an HTTPS host (`APP_ENV=prod` in `lib/configs/environment.dart`)
-> and remove the Android cleartext exception.
+Any `--dart-define` from §6 works on builds too.

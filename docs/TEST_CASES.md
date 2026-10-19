@@ -155,7 +155,7 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | CHESS-18 | ✅ | Hidden board saved earlier | A board other than Aura was saved before it was hidden → reopen and play | The game uses Aura; the saved hidden board is ignored | | |
 | CHESS-19 | ✅ | Realistic 3D | Toggle 3D on each board style | Lower camera, board thickness and shadow, rounded pieces with contact shadows, soft overhead light | | |
 | CHESS-20 | ✅ | Piece set (when `kChessPremiumLooks` is on) | Quick Play setup → Pieces: Classic / Gold & Silver / Ivory & Ebony / Crystal / Rose Gold / Jade & Onyx → Start | The game (and the promotion picker) uses that set; premium sets show a crown; the choice is remembered and used online | | |
-| CHESS-21 | ✅ | Smooth piece move | Make moves, including long ones and captures | The piece lifts, glides and settles; its shadow fades into the resting look on landing (no pop or jump) | | |
+| CHESS-21 | ✅ | Piece movement | Make moves: pawn, rook / bishop / queen (long), knight, a capture, castling | Like the Snakes & Ladders pawn: the piece hops square by square along its line (0.19 s per square), its shadow on the board below; a knight makes one higher jump over the board; a captured piece fades as it arrives; the computer replies only after it lands. Judge smoothness in a release build (`flutter run --release`), not debug | | |
 | CHESS-09 | ❌ | Illegal move | Tap a square the piece can't reach | Nothing moves; selection changes or clears | | |
 | CHESS-10 | ❌ | Move while in check | Try a move that leaves the king in check | Not allowed | | |
 | CHESS-11 | ❌ | Time runs out | Let your clock reach 0 | You lose on time; correct subtitle | | |
@@ -337,6 +337,7 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | ALL-03 | ✅ | Quick Play result | Finish any vs-computer game | No XP / reward chip | | |
 | ALL-04 | ❌ | Forfeit and cancel | Pause → Forfeit → Keep playing | Game resumes where it was | | |
 | ALL-05 | ❌ | Background mid-game | Home button during a game, come back | Game still there (paused or continuing); no crash | | |
+| ALL-06 | ❌ | Phone Back button mid-game | Quick Play any game (or an online chess match) → press the phone's Back button | Doesn't leave: the pause menu opens (Resume / Forfeit). Back again = Resume. Leaving is only through Forfeit, or after the game ends | | |
 
 ## 9. Release checks (REL)
 
@@ -351,7 +352,7 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 
 ## Automated tests
 
-`flutter test` (all) · `flutter analyze` must be clean. Currently 234 tests.
+`flutter test` (all) · `flutter analyze` must be clean. Currently 236 tests.
 
 | Area | Files |
 |---|---|

@@ -31,10 +31,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-
   # Aura display (Space Grotesk) + body (Manrope) fonts. The files are bundled in
   # assets/google_fonts/ (used first, offline, no first-launch font jump);
   # google_fonts only fetches a weight that isn't bundled. Kept behind AuraText.
@@ -76,10 +72,13 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Not bundled (assets go into every game's app):
+  # - assets/splash/ is only read by flutter_native_splash to generate the
+  #   native launch screen;
+  # - assets/scrabble/words.txt is compiled into Scrabble's code instead
+  #   (tools/gen_scrabble_words.dart), so only the Scrabble app carries it.
   assets:
     - assets/google_fonts/
-    - assets/splash/
-    - assets/scrabble/words.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:snakeladder/services/session.dart';
 import '../../l10n/l10n.dart';
@@ -15,6 +14,7 @@ import '../common/local_game_flow.dart';
 import '../common/turn_timer.dart';
 import 'scrabble_board_view.dart';
 import 'scrabble_engine.dart';
+import 'scrabble_words.g.dart';
 
 /// Scrabble turns need more time than a chess move.
 const scrabbleTimeOptions = <({String label, int? ms})>[
@@ -39,16 +39,16 @@ class ScrabbleSetupScreen extends StatelessWidget {
   );
 }
 
-/// The word list, loaded once per app run.
+/// The word list, built once per app run. It's compiled into Scrabble's code
+/// (scrabble_words.g.dart) rather than bundled as an asset, so apps without
+/// Scrabble don't carry it.
 Future<Lexicon>? _lexicon;
-Future<Lexicon> loadLexicon() => _lexicon ??= rootBundle
-    .loadString('assets/scrabble/words.txt')
-    .then(
-      (text) => Lexicon([
-        for (final w in text.split('\n'))
-          if (w.length >= 2) w,
-      ]),
-    );
+Future<Lexicon> loadLexicon() => _lexicon ??= Future.microtask(
+  () => Lexicon([
+    for (final w in scrabbleWordList.split('\n'))
+      if (w.length >= 2) w,
+  ]),
+);
 
 /// Scrabble vs the computer: the board, your rack, Shuffle / Recall · Swap ·
 /// Pass · Play (with a live score preview), a per-turn clock (time up =
@@ -423,7 +423,8 @@ class _ScrabbleScreenState extends State<ScrabbleScreen> with LocalGameFlow {
     final live = !_isOver;
     final lastPlay = _game.lastTurn?.play?.tiles.keys.toSet() ?? const <int>{};
     final (play, err, badWord) = _preview;
-    return AuraScaffold(
+    return guardBack(
+      AuraScaffold(
       // Slimmer side margins so the board can be as large as possible.
       padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
@@ -518,6 +519,7 @@ class _ScrabbleScreenState extends State<ScrabbleScreen> with LocalGameFlow {
           const SizedBox(height: 8),
         ],
       ),
+    ),
     );
   }
 }

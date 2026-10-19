@@ -265,7 +265,8 @@ class _CheckersScreenState extends State<CheckersScreen> with LocalGameFlow {
     final l = context.l10n;
     final live = !_isOver;
     final moves = _myTurn && !_thinking && !paused ? _game.state.legalMoves() : const <CheckerMove>[];
-    return AuraScaffold(
+    return guardBack(
+      AuraScaffold(
       // Slimmer side margins so the board can be as large as possible.
       padding: const EdgeInsets.symmetric(horizontal: 12),
       body: DiceBoardLayout(
@@ -295,6 +296,7 @@ class _CheckersScreenState extends State<CheckersScreen> with LocalGameFlow {
           onResign: live ? forfeit : null,
         ),
       ),
+    ),
     );
   }
 }

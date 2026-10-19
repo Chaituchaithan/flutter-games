@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:snakeladder/game/scrabble/scrabble_words.g.dart';
 
 import 'package:snakeladder/game/scrabble/scrabble_engine.dart';
 
@@ -62,4 +63,13 @@ void main() {
       expect(g.scores[0] + g.scores[1], greaterThan(100));
     }
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  test('the compiled word list matches assets/scrabble/words.txt (re-run tools/gen_scrabble_words.dart)', () {
+    final file = File('assets/scrabble/words.txt')
+        .readAsLinesSync()
+        .map((w) => w.trim().toUpperCase())
+        .where((w) => w.length >= 2)
+        .toList();
+    expect(scrabbleWordList.split('\n'), file);
+  });
 }

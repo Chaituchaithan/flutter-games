@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:snakeladder/game/common/local_game_flow.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -432,7 +433,10 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
       );
     }
 
-    return AuraScaffold(
+    return GameBackGuard(
+      active: inGame && !_forfeited,
+      onBack: _openPause,
+      child: AuraScaffold(
       // In-game uses the mockup board header (inside the body); other phases
       // keep the standard app bar.
       appBar: inGame ? null : const AuraAppBar(title: 'Online Chess'),
@@ -447,6 +451,7 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
         ChessPhase.error => _error(s),
         _ => _searching(phase),
       },
+    ),
     );
   }
 
@@ -897,7 +902,10 @@ class _OfflineBoardState extends State<_OfflineBoard> {
         ? 'Check!'
         : (white ? 'White to move' : 'Black to move');
     // Fixed layout: board fills the middle, the action bar stays at the bottom.
-    return AuraScaffold(
+    return GameBackGuard(
+      active: live,
+      onBack: _openPause,
+      child: AuraScaffold(
       // Slimmer side margins so the board can be as large as possible.
       padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
@@ -980,6 +988,7 @@ class _OfflineBoardState extends State<_OfflineBoard> {
           const SizedBox(height: 8),
         ],
       ),
+    ),
     );
   }
 }

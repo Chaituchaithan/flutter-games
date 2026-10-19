@@ -75,6 +75,16 @@ mixin LocalGameFlow<T extends StatefulWidget> on State<T> {
     });
   }
 
+  /// Wrap the screen's body: the phone's Back button (or iOS back swipe)
+  /// opens the pause menu — Resume or Forfeit — instead of leaving the game.
+  Widget guardBack(Widget child) => GameBackGuard(
+    active: !_resultShown && !resigned,
+    onBack: () {
+      if (!paused) openPause();
+    },
+    child: child,
+  );
+
   /// Call from the screen's dispose.
   void disposeFlow() {
     botTimer?.cancel();
@@ -119,5 +129,24 @@ class LocalGameHeader extends StatelessWidget {
             iconSize: 18,
             onTap: onTogglePerspective!,
           ),
+  );
+}
+
+/// While [active], the phone's Back button doesn't leave the screen: it
+/// calls [onBack] (games open their pause menu, where Forfeit is the way out).
+class GameBackGuard extends StatelessWidget {
+  const GameBackGuard({super.key, required this.active, required this.onBack, required this.child});
+
+  final bool active;
+  final VoidCallback onBack;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !active,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) onBack();
+    },
+    child: child,
   );
 }

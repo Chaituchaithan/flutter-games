@@ -132,7 +132,9 @@ class _GameBoardFrameState extends State<GameBoardFrame> with SingleTickerProvid
           ],
         ],
       ),
-      child: child,
+      // The glow breathes every frame on your turn: keep the board in its own
+      // layer so it isn't redrawn with it.
+      child: RepaintBoundary(child: child),
     );
   }
 }

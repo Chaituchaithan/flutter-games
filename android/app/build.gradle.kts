@@ -29,6 +29,15 @@ android {
         versionName = flutter.versionName
     }
 
+    // Store the engine and app code compressed in the APK: the APK file is
+    // about half the size (they're unpacked once at install, so the
+    // installed size is a little bigger). Play Store bundles get the same.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

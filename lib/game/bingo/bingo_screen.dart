@@ -360,7 +360,8 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
     final me = _game.seats[0];
     final ready = me.needed(_game.pattern) == 0 && !_isOver;
     final w = _game.winner;
-    return AuraScaffold(
+    return guardBack(
+      AuraScaffold(
       // Slimmer side margins so the board can be as large as possible.
       padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Stack(
@@ -472,6 +473,7 @@ class _BingoScreenState extends State<BingoScreen> with LocalGameFlow, TickerPro
             ),
         ],
       ),
+    ),
     );
   }
 }

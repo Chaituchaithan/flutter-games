@@ -289,7 +289,8 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
   @override
   Widget build(BuildContext context) {
     final live = !_isOver;
-    return AuraScaffold(
+    return guardBack(
+      AuraScaffold(
       // Slimmer side margins so the board can be as large as possible.
       padding: const EdgeInsets.symmetric(horizontal: 12),
       body: DiceBoardLayout(
@@ -332,6 +333,7 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
         ),
         actionBar: BoardActionBar(statusLabel: _status, active: _canRoll, onResign: live ? forfeit : null),
       ),
+    ),
     );
   }
 }

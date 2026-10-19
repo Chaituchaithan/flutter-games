@@ -330,7 +330,8 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
       return g.queenOwner == p ? '$s · ♛' : s;
     }
 
-    return AuraScaffold(
+    return guardBack(
+      AuraScaffold(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -451,6 +452,7 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
           const SizedBox(height: 10),
         ],
       ),
+    ),
     );
   }
 }

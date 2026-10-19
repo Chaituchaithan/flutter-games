@@ -325,7 +325,8 @@ class _PokerScreenState extends State<PokerScreen> with LocalGameFlow, TickerPro
     final winCards = g.stage == PokerStage.showdown && g.handOver
         ? {for (final a in g.awards) ...?a.hand?.cards}
         : <PlayingCard>{};
-    return AuraScaffold(
+    return guardBack(
+      AuraScaffold(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -427,6 +428,7 @@ class _PokerScreenState extends State<PokerScreen> with LocalGameFlow, TickerPro
           const SizedBox(height: 8),
         ],
       ),
+    ),
     );
   }
 
