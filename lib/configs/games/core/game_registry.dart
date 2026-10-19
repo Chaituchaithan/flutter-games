@@ -3,6 +3,7 @@
 library;
 
 import '../bingo/bingo_config.dart';
+import '../carrom/carrom_config.dart';
 import '../checkers/checkers_config.dart';
 import '../chess/chess_config.dart';
 import '../crash/crash_config.dart';
@@ -14,6 +15,7 @@ import '../roulette/roulette_config.dart';
 import '../rummy/rummy_config.dart';
 import '../scrabble/scrabble_config.dart';
 import '../snakes_ladders/snakes_ladders_config.dart';
+import '../uno/uno_config.dart';
 import 'game_config.dart';
 import 'game_id.dart';
 
@@ -32,6 +34,8 @@ abstract final class GameRegistry {
     crashConfig,
     racingConfig,
     rouletteConfig,
+    unoConfig,
+    carromConfig,
   ];
 
   /// The Home game-chip row (the mockup's board games). Other services stay

@@ -2,6 +2,30 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+/// The three tables: European (single zero), French (single zero with La
+/// Partage — half of an even-money bet comes back when zero wins) and
+/// American (zero and double zero, 38 pockets).
+enum RouletteVariant { european, french, american }
+
+/// The double-zero pocket, stored as 37 (shown as "00").
+const doubleZero = 37;
+
+String pocketLabel(int n) => n == doubleZero ? '00' : '$n';
+
+extension RouletteVariantX on RouletteVariant {
+  /// Pockets in wheel order (clockwise from 0).
+  List<int> get wheel => this == RouletteVariant.american ? RouletteRules.americanWheel : RouletteRules.wheel;
+  bool get doubleZeroTable => this == RouletteVariant.american;
+  bool get laPartage => this == RouletteVariant.french;
+
+  /// House edge on a straight bet (%), shown in setup.
+  String get edge => switch (this) {
+    RouletteVariant.european => '2.7%',
+    RouletteVariant.french => '1.35% on even money',
+    RouletteVariant.american => '5.26%',
+  };
+}
+
 /// European roulette (single zero, 37 pockets).
 abstract final class RouletteRules {
   /// Pockets clockwise around the wheel, starting at 0.
@@ -10,10 +34,16 @@ abstract final class RouletteRules {
     5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
   ];
 
+  /// American wheel (00 = [doubleZero]).
+  static const americanWheel = [
+    0, 28, 9, 26, 30, 11, 7, 20, 32, 17, 5, 22, 34, 15, 3, 24, 36, 13, 1, //
+    doubleZero, 27, 10, 25, 29, 12, 8, 19, 31, 18, 6, 21, 33, 16, 4, 23, 35, 14, 2,
+  ];
+
   static const red = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36};
 
   static bool isRed(int n) => red.contains(n);
-  static bool isBlack(int n) => n != 0 && !red.contains(n);
+  static bool isBlack(int n) => n != 0 && n != doubleZero && !red.contains(n);
 
   /// Table position of [n] (1–36): row 0–11 top to bottom, column 0–2.
   static (int, int) cellOf(int n) => ((n - 1) ~/ 3, (n - 1) % 3);
@@ -70,7 +100,11 @@ enum RoulettePhase { betting, spinning, result }
 
 /// A practice roulette table: chips on spots, spin, settle.
 class RouletteGame extends ChangeNotifier {
-  RouletteGame({math.Random? rng, int? balance}) : _rng = rng ?? math.Random(), balance = balance ?? savedBalance;
+  RouletteGame({math.Random? rng, int? balance, this.variant = RouletteVariant.european})
+    : _rng = rng ?? math.Random(),
+      balance = balance ?? savedBalance;
+
+  final RouletteVariant variant;
 
   /// Practice balance kept for this app run (not real currency).
   static int savedBalance = 5000;
@@ -164,7 +198,8 @@ class RouletteGame extends ChangeNotifier {
   /// the screen animates the wheel to it and then calls [settle].
   int spin() {
     assert(phase == RoulettePhase.betting && bets.isNotEmpty);
-    result = RouletteRules.wheel[_rng.nextInt(37)];
+    final wheel = variant.wheel;
+    result = wheel[_rng.nextInt(wheel.length)];
     phase = RoulettePhase.spinning;
     notifyListeners();
     return result!;
@@ -178,6 +213,12 @@ class RouletteGame extends ChangeNotifier {
     lastReturn = 0;
     for (final s in winningSpots) {
       lastReturn += bets[s]! * (s.payout + 1);
+    }
+    // French La Partage: zero returns half of every even-money bet.
+    if (variant.laPartage && r == 0) {
+      for (final e in bets.entries) {
+        if (e.key.payout == 1) lastReturn += e.value ~/ 2;
+      }
     }
     _setBalance(balance + lastReturn);
     results.insert(0, r);

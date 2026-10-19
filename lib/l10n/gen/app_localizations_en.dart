@@ -1631,4 +1631,242 @@ class AppLocalizationsEn extends AppLocalizations {
   String youRolledPick(int n) {
     return 'You rolled $n · tap a pawn';
   }
+
+  @override
+  String get rouletteEuropean => 'European';
+
+  @override
+  String get rouletteFrench => 'French';
+
+  @override
+  String get rouletteAmerican => 'American';
+
+  @override
+  String get rouletteEuropeanSub => 'Single zero · 37 pockets';
+
+  @override
+  String get rouletteFrenchSub =>
+      'Single zero · half back on even-money bets when zero hits (La Partage)';
+
+  @override
+  String get rouletteAmericanSub => 'Zero and double zero · 38 pockets';
+
+  @override
+  String houseEdge(String edge) {
+    return 'House edge $edge';
+  }
+
+  @override
+  String get rouletteSetupBlurb => 'Pick a table. Practice chips only.';
+
+  @override
+  String get chooseTable => 'Table';
+
+  @override
+  String get unoBlurb =>
+      'Match the colour, number or symbol. Skip, Reverse and +2 hit the next player; Wild lets you name the colour. Down to one card? Tap UNO! — or draw 2.';
+
+  @override
+  String unoSubtitle(String dir, int n) {
+    return '$dir · $n in the pile';
+  }
+
+  @override
+  String get unoClockwise => 'Clockwise';
+
+  @override
+  String get unoAnticlockwise => 'Anticlockwise';
+
+  @override
+  String get unoCall => 'UNO!';
+
+  @override
+  String get unoDraw => 'Draw';
+
+  @override
+  String get unoKeep => 'Keep';
+
+  @override
+  String get unoDrawPile => 'Draw pile';
+
+  @override
+  String get unoPlayHint => 'Your turn — play a matching card';
+
+  @override
+  String get unoNoMatchHint => 'No match — draw a card';
+
+  @override
+  String get unoDrawnHint => 'Play the card you drew, or keep it';
+
+  @override
+  String get unoUnoHint => 'Tap UNO! before you play your next-to-last card';
+
+  @override
+  String get unoChooseColor => 'Choose a colour';
+
+  @override
+  String get unoRed => 'Red';
+
+  @override
+  String get unoYellow => 'Yellow';
+
+  @override
+  String get unoGreen => 'Green';
+
+  @override
+  String get unoBlue => 'Blue';
+
+  @override
+  String get unoSkip => 'Skip';
+
+  @override
+  String get unoReverse => 'Reverse';
+
+  @override
+  String get unoWild => 'Wild';
+
+  @override
+  String get unoWildFour => 'Wild +4';
+
+  @override
+  String unoPlayed(String name, String card) {
+    return '$name played $card';
+  }
+
+  @override
+  String unoPlayedWild(String name, String card, String color) {
+    return '$name played $card → $color';
+  }
+
+  @override
+  String unoDrewOne(String name) {
+    return '$name drew a card';
+  }
+
+  @override
+  String unoForcedDraw(int n, String name) {
+    return '+$n for $name';
+  }
+
+  @override
+  String unoTurnSkipped(String name) {
+    return 'Turn skipped: $name';
+  }
+
+  @override
+  String unoKept(String name) {
+    return '$name kept the card';
+  }
+
+  @override
+  String unoCaughtName(String name) {
+    return 'No UNO! call — +2 for $name';
+  }
+
+  @override
+  String unoSaid(String name) {
+    return '$name: UNO!';
+  }
+
+  @override
+  String get unoOneCard => '1 card · UNO!';
+
+  @override
+  String get unoThinking => 'Thinking…';
+
+  @override
+  String unoWinSub(int points) {
+    return 'You went out first and scored $points points.';
+  }
+
+  @override
+  String unoLoseSub(String name, int n) {
+    return '$name went out first. You were left with $n cards.';
+  }
+
+  @override
+  String get carromBlurb =>
+      'Slide the striker along your baseline, drag back to aim and let go. Pocket all 9 of your coins — and cover the red queen with one of yours — before the computer does.';
+
+  @override
+  String carromSubtitle(int you, String bot, int opp) {
+    return 'You $you · $bot $opp';
+  }
+
+  @override
+  String get carromWhite => 'White';
+
+  @override
+  String get carromBlack => 'Black';
+
+  @override
+  String carromCoinsOf(String color, int n) {
+    return '$color · $n/9';
+  }
+
+  @override
+  String get carromPlaceHint =>
+      'Slide to place the striker, then drag back from it to aim';
+
+  @override
+  String get carromBlockedHint =>
+      'The striker can\'t sit on a coin — slide it clear';
+
+  @override
+  String get carromCoverHint => 'Cover the queen: pocket one of your coins now';
+
+  @override
+  String carromAiming(String name) {
+    return '$name is aiming…';
+  }
+
+  @override
+  String carromPocketedOwn(String name, int n) {
+    return '$name pocketed $n — plays again';
+  }
+
+  @override
+  String carromPocketedOther(int n, String name) {
+    return '$n went in for $name';
+  }
+
+  @override
+  String carromQueenIn(String name) {
+    return '$name pocketed the queen — cover it!';
+  }
+
+  @override
+  String carromCovered(String name) {
+    return '$name covered the queen (+3)';
+  }
+
+  @override
+  String get carromQueenBack => 'The queen goes back to the centre';
+
+  @override
+  String get carromFoul => 'Foul — striker pocketed. A coin goes back';
+
+  @override
+  String get carromLastCoin => 'Last coin before the queen — it goes back';
+
+  @override
+  String carromNothing(String name) {
+    return 'Nothing in — $name\'s turn';
+  }
+
+  @override
+  String get carromYourShot => 'Your shot';
+
+  @override
+  String get carromTimeUp => 'Time\'s up — turn passes';
+
+  @override
+  String carromWinSub(int points) {
+    return 'You cleared your coins first. Board points: $points.';
+  }
+
+  @override
+  String carromLoseSub(String name, int n) {
+    return '$name cleared their coins first. You had $n left.';
+  }
 }

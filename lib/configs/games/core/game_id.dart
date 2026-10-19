@@ -13,4 +13,6 @@ enum GameId {
   crash,
   racing,
   roulette,
+  uno,
+  carrom,
 }

@@ -339,6 +339,8 @@ game's code, shows no game picker, and uses the game's name as its brand.
 | Poker (Texas Hold'em) | `lib/main_poker.dart` | `flutter run -t lib/main_poker.dart` |
 | Racing | `lib/main_racing.dart` | `flutter run -t lib/main_racing.dart` |
 | Rummy (13-card points) | `lib/main_rummy.dart` | `flutter run -t lib/main_rummy.dart` |
+| Uno | `lib/main_uno.dart` | `flutter run -t lib/main_uno.dart` |
+| Carrom | `lib/main_carrom.dart` | `flutter run -t lib/main_carrom.dart` |
 
 Any combination is one more entry file, e.g. a "Ludo + Snakes" app:
 `AppProfile(appName: '…', modules: [ludoModule, snakesModule])`.

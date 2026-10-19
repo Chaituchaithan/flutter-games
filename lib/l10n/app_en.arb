@@ -1256,5 +1256,258 @@
         "type": "int"
       }
     }
+  },
+  "rouletteEuropean": "European",
+  "rouletteFrench": "French",
+  "rouletteAmerican": "American",
+  "rouletteEuropeanSub": "Single zero · 37 pockets",
+  "rouletteFrenchSub": "Single zero · half back on even-money bets when zero hits (La Partage)",
+  "rouletteAmericanSub": "Zero and double zero · 38 pockets",
+  "houseEdge": "House edge {edge}",
+  "@houseEdge": {
+    "placeholders": {
+      "edge": {
+        "type": "String"
+      }
+    }
+  },
+  "rouletteSetupBlurb": "Pick a table. Practice chips only.",
+  "chooseTable": "Table",
+  "unoBlurb": "Match the colour, number or symbol. Skip, Reverse and +2 hit the next player; Wild lets you name the colour. Down to one card? Tap UNO! — or draw 2.",
+  "unoSubtitle": "{dir} · {n} in the pile",
+  "@unoSubtitle": {
+    "placeholders": {
+      "dir": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "unoClockwise": "Clockwise",
+  "unoAnticlockwise": "Anticlockwise",
+  "unoCall": "UNO!",
+  "unoDraw": "Draw",
+  "unoKeep": "Keep",
+  "unoDrawPile": "Draw pile",
+  "unoPlayHint": "Your turn — play a matching card",
+  "unoNoMatchHint": "No match — draw a card",
+  "unoDrawnHint": "Play the card you drew, or keep it",
+  "unoUnoHint": "Tap UNO! before you play your next-to-last card",
+  "unoChooseColor": "Choose a colour",
+  "unoRed": "Red",
+  "unoYellow": "Yellow",
+  "unoGreen": "Green",
+  "unoBlue": "Blue",
+  "unoSkip": "Skip",
+  "unoReverse": "Reverse",
+  "unoWild": "Wild",
+  "unoWildFour": "Wild +4",
+  "unoPlayed": "{name} played {card}",
+  "@unoPlayed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "card": {
+        "type": "String"
+      }
+    }
+  },
+  "unoPlayedWild": "{name} played {card} → {color}",
+  "@unoPlayedWild": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "card": {
+        "type": "String"
+      },
+      "color": {
+        "type": "String"
+      }
+    }
+  },
+  "unoDrewOne": "{name} drew a card",
+  "@unoDrewOne": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unoForcedDraw": "+{n} for {name}",
+  "@unoForcedDraw": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unoTurnSkipped": "Turn skipped: {name}",
+  "@unoTurnSkipped": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unoKept": "{name} kept the card",
+  "@unoKept": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unoCaughtName": "No UNO! call — +2 for {name}",
+  "@unoCaughtName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unoSaid": "{name}: UNO!",
+  "@unoSaid": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unoOneCard": "1 card · UNO!",
+  "unoThinking": "Thinking…",
+  "unoWinSub": "You went out first and scored {points} points.",
+  "@unoWinSub": {
+    "placeholders": {
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "unoLoseSub": "{name} went out first. You were left with {n} cards.",
+  "@unoLoseSub": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "carromBlurb": "Slide the striker along your baseline, drag back to aim and let go. Pocket all 9 of your coins — and cover the red queen with one of yours — before the computer does.",
+  "carromSubtitle": "You {you} · {bot} {opp}",
+  "@carromSubtitle": {
+    "placeholders": {
+      "you": {
+        "type": "int"
+      },
+      "bot": {
+        "type": "String"
+      },
+      "opp": {
+        "type": "int"
+      }
+    }
+  },
+  "carromWhite": "White",
+  "carromBlack": "Black",
+  "carromCoinsOf": "{color} · {n}/9",
+  "@carromCoinsOf": {
+    "placeholders": {
+      "color": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "carromPlaceHint": "Slide to place the striker, then drag back from it to aim",
+  "carromBlockedHint": "The striker can't sit on a coin — slide it clear",
+  "carromCoverHint": "Cover the queen: pocket one of your coins now",
+  "carromAiming": "{name} is aiming…",
+  "@carromAiming": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "carromPocketedOwn": "{name} pocketed {n} — plays again",
+  "@carromPocketedOwn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "carromPocketedOther": "{n} went in for {name}",
+  "@carromPocketedOther": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "carromQueenIn": "{name} pocketed the queen — cover it!",
+  "@carromQueenIn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "carromCovered": "{name} covered the queen (+3)",
+  "@carromCovered": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "carromQueenBack": "The queen goes back to the centre",
+  "carromFoul": "Foul — striker pocketed. A coin goes back",
+  "carromLastCoin": "Last coin before the queen — it goes back",
+  "carromNothing": "Nothing in — {name}'s turn",
+  "@carromNothing": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "carromYourShot": "Your shot",
+  "carromTimeUp": "Time's up — turn passes",
+  "carromWinSub": "You cleared your coins first. Board points: {points}.",
+  "@carromWinSub": {
+    "placeholders": {
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "carromLoseSub": "{name} cleared their coins first. You had {n} left.",
+  "@carromLoseSub": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

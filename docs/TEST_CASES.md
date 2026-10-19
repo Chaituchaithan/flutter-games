@@ -151,10 +151,10 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | CHESS-06 | ✅ | 3D toggle | Tap the 3D button | Board tilts; taps still land on the right squares | | |
 | CHESS-07 | ✅ | Online match | Online Play → stake → match | Opponent found; board glows purple on your move, blue on theirs; result refreshes balance | | |
 | CHESS-08 | ✅ | Online draw offer | Opponent offers a draw | Accept / Decline buttons (same height as the action bar) | | |
-| CHESS-17 | ✅ | Board style | Quick Play setup → Board: Aura / Wood / Marble / Ebony / Onyx / Crystal → Start | The game uses that board (wood grain, marble / onyx veins, ebony gold inlay, crystal glass); premium boards show a crown in the picker; neon on pieces only for Aura | | |
-| CHESS-18 | ✅ | Board style is remembered | Pick Wood, close the app, reopen, play Quick Play and an online match | Wood is still selected and used online too | | |
+| CHESS-17 | ✅ | Board style | Open Quick Play setup | No Board section: only the standard Aura board is offered (Wood / Marble are hidden behind `kChessExtraBoards`, premium Ebony / Onyx / Crystal behind `kChessPremiumLooks`, both in `chess_board_style.dart`) | | |
+| CHESS-18 | ✅ | Hidden board saved earlier | A board other than Aura was saved before it was hidden → reopen and play | The game uses Aura; the saved hidden board is ignored | | |
 | CHESS-19 | ✅ | Realistic 3D | Toggle 3D on each board style | Lower camera, board thickness and shadow, rounded pieces with contact shadows, soft overhead light | | |
-| CHESS-20 | ✅ | Piece set | Quick Play setup → Pieces: Classic / Gold & Silver / Ivory & Ebony / Crystal / Rose Gold / Jade & Onyx → Start | The game (and the promotion picker) uses that set; premium sets show a crown; the choice is remembered and used online | | |
+| CHESS-20 | ✅ | Piece set (when `kChessPremiumLooks` is on) | Quick Play setup → Pieces: Classic / Gold & Silver / Ivory & Ebony / Crystal / Rose Gold / Jade & Onyx → Start | The game (and the promotion picker) uses that set; premium sets show a crown; the choice is remembered and used online | | |
 | CHESS-21 | ✅ | Smooth piece move | Make moves, including long ones and captures | The piece lifts, glides and settles; its shadow fades into the resting look on landing (no pop or jump) | | |
 | CHESS-09 | ❌ | Illegal move | Tap a square the piece can't reach | Nothing moves; selection changes or clears | | |
 | CHESS-10 | ❌ | Move while in check | Try a move that leaves the king in check | Not allowed | | |
@@ -258,6 +258,10 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | ROUL-04 | ❌ | Chip bigger than the balance | Pick a 1K chip with less | "Not enough chips" | | |
 | ROUL-05 | ❌ | Table limit | Bet above 10,000 in total | "Table limit reached" | | |
 | ROUL-06 | ❌ | Zero | Result 0 with only outside bets | All outside bets lose | | |
+| ROUL-07 | ✅ | Pick a table | Quick Play → European / French / American | Setup shows the three tables with their house edge; the game header names the table | | |
+| ROUL-08 | ✅ | American 00 | American table → bet on 00 → spin until it lands | Wheel has 38 pockets; 0 and 00 split the top of the table; 00 pays 35:1 | | |
+| ROUL-09 | ✅ | French labels | French table | Manque / Pair / Impair / Passe and P12 / M12 / D12 | | |
+| ROUL-10 | ❌ | La Partage | French table, Red only → result 0 | Half the Red bet comes back; on European it's all lost | | |
 
 ### 8.10 Poker (POKER)
 
@@ -292,7 +296,39 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | RUMMY-06 | ❌ | Drop | Drop before / after drawing | 20 / 40 points; Defeat | | |
 | RUMMY-07 | ❌ | Time runs out | Let the timer reach 0 | Draws from the closed deck and throws that card | | |
 
-### 8.13 All games (ALL)
+### 8.13 Uno (UNO)
+
+| ID | Type | Scenario | Steps | Expected | Status | Notes |
+|---|---|---|---|---|---|---|
+| UNO-01 | ✅ | Setup and deal | Quick Play → 2 / 3 / 4 players, level, time → Start | 7 cards each; a number card turned up; opponents on top | | |
+| UNO-02 | ✅ | Play a match | Tap a lifted card (same colour, number or symbol) | It lands on the discard pile; turn passes | | |
+| UNO-03 | ✅ | Wild | Play Wild / Wild +4 | Colour picker; the pile's ring turns that colour; +4 → next player draws 4 and is skipped | | |
+| UNO-04 | ✅ | Skip / Reverse / +2 | Play each | Next player skipped / direction flips (arrow turns the other way) / next draws 2 | | |
+| UNO-05 | ✅ | Draw | No match → Draw | Unplayable → turn passes; playable → glows, play it or Keep | | |
+| UNO-06 | ✅ | Call UNO | Two cards left → UNO! → play one | "You: UNO!" and the shout; you keep one card | | |
+| UNO-07 | ❌ | Forget UNO | Two cards left → play without UNO! | "+2 for You" — back to three cards | | |
+| UNO-08 | ❌ | Illegal card | Tap a dimmed card | Nothing happens | | |
+| UNO-09 | ❌ | Time runs out | Let the timer reach 0 | "Time's up"; you draw and keep; turn passes | | |
+| UNO-10 | ✅ | Win / lose | Empty your hand / a computer empties theirs | Victory with points (others' cards) / Defeat with your cards left | | |
+
+### 8.14 Carrom (CARROM)
+
+| ID | Type | Scenario | Steps | Expected | Status | Notes |
+|---|---|---|---|---|---|---|
+| CARROM-01 | ✅ | Place the striker | Drag the slider, or drag along your baseline on the board | Striker follows; red ring and hint if it sits on a coin (can't shoot) | | |
+| CARROM-02 | ✅ | Aim and shoot | Drag back from the striker → release | Dotted guide, ghost striker, coin path, power ring; release shoots with that power | | |
+| CARROM-03 | ✅ | Pocket your coin | Pocket a white | Coin drops in; count goes up; you shoot again | | |
+| CARROM-04 | ✅ | Pocket theirs | Pocket a black | Counts for the computer; turn passes | | |
+| CARROM-05 | ✅ | Queen and cover | After one white, pocket the queen → pocket a white next shot | "Covered the queen (+3)"; ♛ on your card | | |
+| CARROM-06 | ❌ | Queen not covered | Pocket the queen, miss the next shot | Queen goes back to the centre | | |
+| CARROM-07 | ❌ | Queen too early | Pocket the queen before any white | Queen goes back to the centre | | |
+| CARROM-08 | ❌ | Striker foul | Pocket the striker | "Foul"; that shot's whites + one more come back; turn passes | | |
+| CARROM-09 | ❌ | Last coin early | Pocket your 9th white while the queen is still on the board | It comes back to the centre | | |
+| CARROM-10 | ❌ | Tiny drag | Drag back only a little and release | No shot | | |
+| CARROM-11 | ❌ | Time runs out | Let the timer reach 0 | "Time's up — turn passes" | | |
+| CARROM-12 | ✅ | Win | Clear all 9 whites with the queen covered | Victory with board points | | |
+
+### 8.15 All games (ALL)
 
 | ID | Type | Scenario | Steps | Expected | Status | Notes |
 |---|---|---|---|---|---|---|
@@ -315,7 +351,7 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 
 ## Automated tests
 
-`flutter test` (all) · `flutter analyze` must be clean. Currently 208 tests.
+`flutter test` (all) · `flutter analyze` must be clean. Currently 234 tests.
 
 | Area | Files |
 |---|---|
@@ -323,7 +359,7 @@ Access token lives 15 min; refresh token 7 days (rotated on every refresh).
 | Socket | `socket_client_test` (reconnect with a fresh token), `app_socket_test`, `matchmaking_live_test` |
 | Services | `daily_bonus_test`, `vip_plans_test`, `configs_test` |
 | Screens | `screens_smoke_test`, `interaction_test`, `flow_test`, `text_field_focus_test`, `widget_test` |
-| Games (rules) | `chess_engine_test`, `chess_bot_test`, `chess_clock_test`, `chess_session_test`, `chess_game_flow_test`, `dice_games_engine_test`, `othello_engine_test`, `checkers_engine_test`, `scrabble_engine_test`, `crash_engine_test`, `bingo_engine_test`, `roulette_engine_test`, `poker_engine_test`, `racing_engine_test`, `rummy_engine_test` |
+| Games (rules) | `chess_engine_test`, `chess_bot_test`, `chess_clock_test`, `chess_session_test`, `chess_game_flow_test`, `dice_games_engine_test`, `othello_engine_test`, `checkers_engine_test`, `scrabble_engine_test`, `crash_engine_test`, `bingo_engine_test`, `roulette_engine_test`, `poker_engine_test`, `racing_engine_test`, `rummy_engine_test`, `uno_engine_test`, `carrom_engine_test` |
 | Structure | `game_isolation_test` (no game imports another), `l10n_test` (Hindi has every English key), `languages_test` |
 
 ---

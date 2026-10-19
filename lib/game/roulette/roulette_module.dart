@@ -5,13 +5,17 @@ import 'package:snakeladder/game/roulette/roulette_screen.dart';
 /// Roulette route names (owned by this module).
 abstract final class RouletteRoutes {
   static const play = '/game/roulette';
+  static const setup = '/game/roulette-setup';
 }
 
-/// European roulette: practice table with practice chips (online play once
+/// Roulette (European, French, American): practice tables with practice chips (online play once
 /// its socket protocol is integrated — then set [GameModule.onlineRoute]).
 final rouletteModule = GameModule(
   config: rouletteConfig,
-  practiceRoute: RouletteRoutes.play,
+  practiceRoute: RouletteRoutes.setup,
   demoBoardRoute: RouletteRoutes.play,
-  routes: {RouletteRoutes.play: (_) => const RouletteScreen()},
+  routes: {
+    RouletteRoutes.play: (_) => const RouletteScreen(),
+    RouletteRoutes.setup: (_) => const RouletteSetupScreen(),
+  },
 );

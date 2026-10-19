@@ -1,6 +1,7 @@
 import 'app/app_profile.dart';
 import 'app/bootstrap.dart';
 import 'game/bingo/bingo_module.dart';
+import 'game/carrom/carrom_module.dart';
 import 'game/checkers/checkers_module.dart';
 import 'game/chess/chess_module.dart';
 import 'game/crash/crash_module.dart';
@@ -13,6 +14,7 @@ import 'game/roulette/roulette_module.dart';
 import 'game/rummy/rummy_module.dart';
 import 'game/scrabble/scrabble_module.dart';
 import 'game/snakes/snakes_module.dart';
+import 'game/uno/uno_module.dart';
 
 /// Development build: every game, with a game picker on Home and the
 /// not-yet-built games shown as "Soon". Single-game apps: `main_chess.dart`,
@@ -32,6 +34,8 @@ final allGamesApp = AppProfile(
     pokerModule,
     racingModule,
     rummyModule,
+    unoModule,
+    carromModule,
   ],
   extraRoutes: prototypeRoutes,
   showComingSoon: true,

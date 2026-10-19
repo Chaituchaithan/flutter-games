@@ -59,16 +59,23 @@ class _ChessSetupScreenState extends State<ChessSetupScreen> {
           const SizedBox(height: 4),
           Text('Play vs Computer', style: AuraText.headline.copyWith(fontSize: 24)),
           const SizedBox(height: 6),
-          Text('Pick your board, pieces, side, difficulty and time control.', style: AuraText.cardSub),
+          Text(
+            offeredBoardStyles.length > 1
+                ? 'Pick your board, side, difficulty and time control.'
+                : 'Pick your side, difficulty and time control.',
+            style: AuraText.cardSub,
+          ),
+          // Board style: remembered, and used for online games too. Hidden
+          // while only Aura is offered (the others come back with the flags).
+          if (offeredBoardStyles.length > 1) ...[
           const SizedBox(height: 20),
-          // Board style: remembered, and used for online games too.
           const SectionBar('Board'),
           const SizedBox(height: 10),
           Consumer(
             builder: (context, ref, _) {
               final current = ref.watch(chessBoardStyleProvider);
               // Two rows of three: the classics, then the premium boards.
-              final styles = ChessBoardStyle.values;
+              final styles = offeredBoardStyles;
               return Column(
                 children: [
                   for (var row = 0; row < (styles.length / 3).ceil(); row++) ...[
@@ -94,14 +101,17 @@ class _ChessSetupScreenState extends State<ChessSetupScreen> {
               );
             },
           ),
+          ],
+          // Piece set: remembered, used online too. Hidden while only
+          // Classic is offered (premium sets come back with the flag).
+          if (offeredPieceSets.length > 1) ...[
           const SizedBox(height: 22),
-          // Piece set: remembered, used online too.
           const SectionBar('Pieces'),
           const SizedBox(height: 10),
           Consumer(
             builder: (context, ref, _) {
               final current = ref.watch(chessPieceSetProvider);
-              final sets = ChessPieceSet.values;
+              final sets = offeredPieceSets;
               return Column(
                 children: [
                   for (var row = 0; row < (sets.length / 3).ceil(); row++) ...[
@@ -127,6 +137,7 @@ class _ChessSetupScreenState extends State<ChessSetupScreen> {
               );
             },
           ),
+          ],
           const SizedBox(height: 22),
           const SectionBar('Play as'),
           const SizedBox(height: 10),

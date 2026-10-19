@@ -1613,4 +1613,241 @@ class AppLocalizationsHi extends AppLocalizations {
   String youRolledPick(int n) {
     return 'आपने $n डाला · एक मोहरा चुनें';
   }
+
+  @override
+  String get rouletteEuropean => 'यूरोपियन';
+
+  @override
+  String get rouletteFrench => 'फ्रेंच';
+
+  @override
+  String get rouletteAmerican => 'अमेरिकन';
+
+  @override
+  String get rouletteEuropeanSub => 'एक ज़ीरो · 37 पॉकेट';
+
+  @override
+  String get rouletteFrenchSub =>
+      'एक ज़ीरो · ज़ीरो आने पर बराबर दांव का आधा वापस (ला पार्टाज)';
+
+  @override
+  String get rouletteAmericanSub => 'ज़ीरो और डबल ज़ीरो · 38 पॉकेट';
+
+  @override
+  String houseEdge(String edge) {
+    return 'हाउस एज $edge';
+  }
+
+  @override
+  String get rouletteSetupBlurb => 'एक टेबल चुनें। सिर्फ़ अभ्यास चिप्स।';
+
+  @override
+  String get chooseTable => 'टेबल';
+
+  @override
+  String get unoBlurb =>
+      'रंग, नंबर या चिह्न मिलाएँ। Skip, Reverse और +2 अगले खिलाड़ी पर असर डालते हैं; Wild से आप रंग चुनते हैं। एक कार्ड बचा? UNO! दबाएँ — वरना 2 कार्ड लें।';
+
+  @override
+  String unoSubtitle(String dir, int n) {
+    return '$dir · ढेर में $n';
+  }
+
+  @override
+  String get unoClockwise => 'दक्षिणावर्त';
+
+  @override
+  String get unoAnticlockwise => 'वामावर्त';
+
+  @override
+  String get unoCall => 'UNO!';
+
+  @override
+  String get unoDraw => 'कार्ड लें';
+
+  @override
+  String get unoKeep => 'रखें';
+
+  @override
+  String get unoDrawPile => 'ड्रॉ ढेर';
+
+  @override
+  String get unoPlayHint => 'आपकी बारी — मिलता कार्ड खेलें';
+
+  @override
+  String get unoNoMatchHint => 'कोई मेल नहीं — कार्ड लें';
+
+  @override
+  String get unoDrawnHint => 'लिया गया कार्ड खेलें, या रख लें';
+
+  @override
+  String get unoUnoHint => 'आख़िरी से पहला कार्ड खेलने से पहले UNO! दबाएँ';
+
+  @override
+  String get unoChooseColor => 'रंग चुनें';
+
+  @override
+  String get unoRed => 'लाल';
+
+  @override
+  String get unoYellow => 'पीला';
+
+  @override
+  String get unoGreen => 'हरा';
+
+  @override
+  String get unoBlue => 'नीला';
+
+  @override
+  String get unoSkip => 'Skip';
+
+  @override
+  String get unoReverse => 'Reverse';
+
+  @override
+  String get unoWild => 'Wild';
+
+  @override
+  String get unoWildFour => 'Wild +4';
+
+  @override
+  String unoPlayed(String name, String card) {
+    return '$name ने $card खेला';
+  }
+
+  @override
+  String unoPlayedWild(String name, String card, String color) {
+    return '$name ने $card खेला → $color';
+  }
+
+  @override
+  String unoDrewOne(String name) {
+    return '$name ने एक कार्ड लिया';
+  }
+
+  @override
+  String unoForcedDraw(int n, String name) {
+    return '$name को +$n';
+  }
+
+  @override
+  String unoTurnSkipped(String name) {
+    return 'बारी छूटी: $name';
+  }
+
+  @override
+  String unoKept(String name) {
+    return '$name ने कार्ड रख लिया';
+  }
+
+  @override
+  String unoCaughtName(String name) {
+    return 'UNO! नहीं बोला — $name को +2';
+  }
+
+  @override
+  String unoSaid(String name) {
+    return '$name: UNO!';
+  }
+
+  @override
+  String get unoOneCard => '1 कार्ड · UNO!';
+
+  @override
+  String get unoThinking => 'सोच रहा है…';
+
+  @override
+  String unoWinSub(int points) {
+    return 'आपने सबसे पहले सारे कार्ड खेले और $points अंक पाए।';
+  }
+
+  @override
+  String unoLoseSub(String name, int n) {
+    return '$name ने सबसे पहले सारे कार्ड खेले। आपके पास $n कार्ड बचे।';
+  }
+
+  @override
+  String get carromBlurb =>
+      'स्ट्राइकर को बेसलाइन पर खिसकाएँ, पीछे खींचकर निशाना लगाएँ और छोड़ें। कंप्यूटर से पहले अपनी सभी 9 गोटियाँ पॉकेट करें — और लाल क्वीन को अपनी एक गोटी से कवर करें।';
+
+  @override
+  String carromSubtitle(int you, String bot, int opp) {
+    return 'आप $you · $bot $opp';
+  }
+
+  @override
+  String get carromWhite => 'सफ़ेद';
+
+  @override
+  String get carromBlack => 'काली';
+
+  @override
+  String carromCoinsOf(String color, int n) {
+    return '$color · $n/9';
+  }
+
+  @override
+  String get carromPlaceHint =>
+      'स्ट्राइकर रखने के लिए खिसकाएँ, फिर निशाने के लिए पीछे खींचें';
+
+  @override
+  String get carromBlockedHint => 'स्ट्राइकर गोटी पर नहीं रख सकते — हटाकर रखें';
+
+  @override
+  String get carromCoverHint => 'क्वीन कवर करें: अभी अपनी एक गोटी पॉकेट करें';
+
+  @override
+  String carromAiming(String name) {
+    return '$name निशाना लगा रहा है…';
+  }
+
+  @override
+  String carromPocketedOwn(String name, int n) {
+    return '$name ने $n पॉकेट कीं — फिर से बारी';
+  }
+
+  @override
+  String carromPocketedOther(int n, String name) {
+    return '$name के लिए $n गईं';
+  }
+
+  @override
+  String carromQueenIn(String name) {
+    return '$name ने क्वीन पॉकेट की — कवर करें!';
+  }
+
+  @override
+  String carromCovered(String name) {
+    return '$name ने क्वीन कवर की (+3)';
+  }
+
+  @override
+  String get carromQueenBack => 'क्वीन वापस बीच में';
+
+  @override
+  String get carromFoul => 'फ़ाउल — स्ट्राइकर पॉकेट हुआ। एक गोटी वापस';
+
+  @override
+  String get carromLastCoin => 'क्वीन से पहले आख़िरी गोटी — वापस रखी गई';
+
+  @override
+  String carromNothing(String name) {
+    return 'कुछ नहीं गया — $name की बारी';
+  }
+
+  @override
+  String get carromYourShot => 'आपका शॉट';
+
+  @override
+  String get carromTimeUp => 'समय समाप्त — बारी गई';
+
+  @override
+  String carromWinSub(int points) {
+    return 'आपने सबसे पहले अपनी गोटियाँ साफ़ कीं। बोर्ड अंक: $points।';
+  }
+
+  @override
+  String carromLoseSub(String name, int n) {
+    return '$name ने पहले अपनी गोटियाँ साफ़ कीं। आपकी $n बचीं।';
+  }
 }

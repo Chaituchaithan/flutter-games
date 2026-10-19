@@ -4,6 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:snakeladder/game/chess/chess_pieces.dart';
 import 'package:snakeladder/services/app_prefs.dart';
 
+/// Extra boards (Wood, Marble) are built but hidden for now: only the
+/// standard Aura board is offered. Flip this to true to offer them again.
+const bool kChessExtraBoards = false;
+
+/// Premium boards (Ebony, Onyx, Crystal) and premium piece sets are built
+/// but hidden for now: flip this to true to offer them again (e.g. with VIP).
+const bool kChessPremiumLooks = false;
+
+/// Boards offered in the picker (only Aura while the others are hidden).
+List<ChessBoardStyle> get offeredBoardStyles => [
+  for (final s in ChessBoardStyle.values)
+    if (s == ChessBoardStyle.aura || (s.look.premium ? kChessPremiumLooks : kChessExtraBoards)) s,
+];
+
+/// Piece sets offered in the picker (only Classic while premium is hidden).
+List<ChessPieceSet> get offeredPieceSets =>
+    [for (final s in ChessPieceSet.values) if (kChessPremiumLooks || !s.premium) s];
+
 /// How the chess board looks. Chosen on the chess setup screen and used
 /// everywhere chess is played (Quick Play, Online, Practice).
 enum ChessBoardStyle {
@@ -131,7 +149,8 @@ class ChessBoardStyleNotifier extends Notifier<ChessBoardStyle> {
   ChessBoardStyle build() {
     // Load the saved choice (best effort); Aura until it arrives.
     ref.read(appPrefsProvider).get(_key).then((v) {
-      final saved = ChessBoardStyle.values.where((s) => s.name == v).firstOrNull;
+      // A saved premium board is ignored while premium is hidden.
+      final saved = offeredBoardStyles.where((s) => s.name == v).firstOrNull;
       if (saved != null && saved != state) state = saved;
     });
     return ChessBoardStyle.aura;
@@ -152,7 +171,7 @@ class ChessPieceSetNotifier extends Notifier<ChessPieceSet> {
   @override
   ChessPieceSet build() {
     ref.read(appPrefsProvider).get(_key).then((v) {
-      final saved = ChessPieceSet.values.where((s) => s.name == v).firstOrNull;
+      final saved = offeredPieceSets.where((s) => s.name == v).firstOrNull;
       if (saved != null && saved != state) state = saved;
     });
     return ChessPieceSet.classic;

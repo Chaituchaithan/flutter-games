@@ -71,4 +71,42 @@ void main() {
     final g = _game(1);
     expect(g.place(BetSpot.highBet, 5000), isFalse);
   });
+
+  test('American wheel: 38 pockets with 00', () {
+    expect(RouletteRules.americanWheel.length, 38);
+    expect(RouletteRules.americanWheel.toSet(), {for (var n = 0; n <= 36; n++) n, doubleZero});
+    expect(pocketLabel(doubleZero), '00');
+    expect(RouletteRules.isBlack(doubleZero), isFalse);
+  });
+
+  test('American: 00 loses outside bets, pays a straight 35:1', () {
+    final g = RouletteGame(rng: _Fixed(RouletteRules.americanWheel.indexOf(doubleZero)), balance: 1000, variant: RouletteVariant.american)
+      ..place(BetSpot.redBet, 100)
+      ..place(BetSpot.straight(doubleZero), 10);
+    g
+      ..spin()
+      ..settle();
+    expect(g.result, doubleZero);
+    expect(g.lastReturn, 360);
+  });
+
+  test('French La Partage: zero returns half of even-money bets', () {
+    final g = RouletteGame(rng: _Fixed(0), balance: 1000, variant: RouletteVariant.french)
+      ..place(BetSpot.redBet, 100)
+      ..place(BetSpot.oddBet, 50)
+      ..place(BetSpot.dozen(0), 40);
+    g
+      ..spin()
+      ..settle();
+    expect(g.result, 0);
+    expect(g.lastReturn, 75, reason: 'half of 100 + half of 50; the dozen is lost');
+  });
+
+  test('European: zero loses even-money bets in full', () {
+    final g = RouletteGame(rng: _Fixed(0), balance: 1000)..place(BetSpot.redBet, 100);
+    g
+      ..spin()
+      ..settle();
+    expect(g.lastReturn, 0);
+  });
 }

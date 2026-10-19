@@ -2809,6 +2809,384 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You rolled {n} · tap a pawn'**
   String youRolledPick(int n);
+
+  /// No description provided for @rouletteEuropean.
+  ///
+  /// In en, this message translates to:
+  /// **'European'**
+  String get rouletteEuropean;
+
+  /// No description provided for @rouletteFrench.
+  ///
+  /// In en, this message translates to:
+  /// **'French'**
+  String get rouletteFrench;
+
+  /// No description provided for @rouletteAmerican.
+  ///
+  /// In en, this message translates to:
+  /// **'American'**
+  String get rouletteAmerican;
+
+  /// No description provided for @rouletteEuropeanSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Single zero · 37 pockets'**
+  String get rouletteEuropeanSub;
+
+  /// No description provided for @rouletteFrenchSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Single zero · half back on even-money bets when zero hits (La Partage)'**
+  String get rouletteFrenchSub;
+
+  /// No description provided for @rouletteAmericanSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Zero and double zero · 38 pockets'**
+  String get rouletteAmericanSub;
+
+  /// No description provided for @houseEdge.
+  ///
+  /// In en, this message translates to:
+  /// **'House edge {edge}'**
+  String houseEdge(String edge);
+
+  /// No description provided for @rouletteSetupBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a table. Practice chips only.'**
+  String get rouletteSetupBlurb;
+
+  /// No description provided for @chooseTable.
+  ///
+  /// In en, this message translates to:
+  /// **'Table'**
+  String get chooseTable;
+
+  /// No description provided for @unoBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Match the colour, number or symbol. Skip, Reverse and +2 hit the next player; Wild lets you name the colour. Down to one card? Tap UNO! — or draw 2.'**
+  String get unoBlurb;
+
+  /// No description provided for @unoSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{dir} · {n} in the pile'**
+  String unoSubtitle(String dir, int n);
+
+  /// No description provided for @unoClockwise.
+  ///
+  /// In en, this message translates to:
+  /// **'Clockwise'**
+  String get unoClockwise;
+
+  /// No description provided for @unoAnticlockwise.
+  ///
+  /// In en, this message translates to:
+  /// **'Anticlockwise'**
+  String get unoAnticlockwise;
+
+  /// No description provided for @unoCall.
+  ///
+  /// In en, this message translates to:
+  /// **'UNO!'**
+  String get unoCall;
+
+  /// No description provided for @unoDraw.
+  ///
+  /// In en, this message translates to:
+  /// **'Draw'**
+  String get unoDraw;
+
+  /// No description provided for @unoKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep'**
+  String get unoKeep;
+
+  /// No description provided for @unoDrawPile.
+  ///
+  /// In en, this message translates to:
+  /// **'Draw pile'**
+  String get unoDrawPile;
+
+  /// No description provided for @unoPlayHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your turn — play a matching card'**
+  String get unoPlayHint;
+
+  /// No description provided for @unoNoMatchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No match — draw a card'**
+  String get unoNoMatchHint;
+
+  /// No description provided for @unoDrawnHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Play the card you drew, or keep it'**
+  String get unoDrawnHint;
+
+  /// No description provided for @unoUnoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap UNO! before you play your next-to-last card'**
+  String get unoUnoHint;
+
+  /// No description provided for @unoChooseColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a colour'**
+  String get unoChooseColor;
+
+  /// No description provided for @unoRed.
+  ///
+  /// In en, this message translates to:
+  /// **'Red'**
+  String get unoRed;
+
+  /// No description provided for @unoYellow.
+  ///
+  /// In en, this message translates to:
+  /// **'Yellow'**
+  String get unoYellow;
+
+  /// No description provided for @unoGreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Green'**
+  String get unoGreen;
+
+  /// No description provided for @unoBlue.
+  ///
+  /// In en, this message translates to:
+  /// **'Blue'**
+  String get unoBlue;
+
+  /// No description provided for @unoSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get unoSkip;
+
+  /// No description provided for @unoReverse.
+  ///
+  /// In en, this message translates to:
+  /// **'Reverse'**
+  String get unoReverse;
+
+  /// No description provided for @unoWild.
+  ///
+  /// In en, this message translates to:
+  /// **'Wild'**
+  String get unoWild;
+
+  /// No description provided for @unoWildFour.
+  ///
+  /// In en, this message translates to:
+  /// **'Wild +4'**
+  String get unoWildFour;
+
+  /// No description provided for @unoPlayed.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} played {card}'**
+  String unoPlayed(String name, String card);
+
+  /// No description provided for @unoPlayedWild.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} played {card} → {color}'**
+  String unoPlayedWild(String name, String card, String color);
+
+  /// No description provided for @unoDrewOne.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} drew a card'**
+  String unoDrewOne(String name);
+
+  /// No description provided for @unoForcedDraw.
+  ///
+  /// In en, this message translates to:
+  /// **'+{n} for {name}'**
+  String unoForcedDraw(int n, String name);
+
+  /// No description provided for @unoTurnSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn skipped: {name}'**
+  String unoTurnSkipped(String name);
+
+  /// No description provided for @unoKept.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} kept the card'**
+  String unoKept(String name);
+
+  /// No description provided for @unoCaughtName.
+  ///
+  /// In en, this message translates to:
+  /// **'No UNO! call — +2 for {name}'**
+  String unoCaughtName(String name);
+
+  /// No description provided for @unoSaid.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}: UNO!'**
+  String unoSaid(String name);
+
+  /// No description provided for @unoOneCard.
+  ///
+  /// In en, this message translates to:
+  /// **'1 card · UNO!'**
+  String get unoOneCard;
+
+  /// No description provided for @unoThinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking…'**
+  String get unoThinking;
+
+  /// No description provided for @unoWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'You went out first and scored {points} points.'**
+  String unoWinSub(int points);
+
+  /// No description provided for @unoLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} went out first. You were left with {n} cards.'**
+  String unoLoseSub(String name, int n);
+
+  /// No description provided for @carromBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Slide the striker along your baseline, drag back to aim and let go. Pocket all 9 of your coins — and cover the red queen with one of yours — before the computer does.'**
+  String get carromBlurb;
+
+  /// No description provided for @carromSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You {you} · {bot} {opp}'**
+  String carromSubtitle(int you, String bot, int opp);
+
+  /// No description provided for @carromWhite.
+  ///
+  /// In en, this message translates to:
+  /// **'White'**
+  String get carromWhite;
+
+  /// No description provided for @carromBlack.
+  ///
+  /// In en, this message translates to:
+  /// **'Black'**
+  String get carromBlack;
+
+  /// No description provided for @carromCoinsOf.
+  ///
+  /// In en, this message translates to:
+  /// **'{color} · {n}/9'**
+  String carromCoinsOf(String color, int n);
+
+  /// No description provided for @carromPlaceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Slide to place the striker, then drag back from it to aim'**
+  String get carromPlaceHint;
+
+  /// No description provided for @carromBlockedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The striker can\'t sit on a coin — slide it clear'**
+  String get carromBlockedHint;
+
+  /// No description provided for @carromCoverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover the queen: pocket one of your coins now'**
+  String get carromCoverHint;
+
+  /// No description provided for @carromAiming.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is aiming…'**
+  String carromAiming(String name);
+
+  /// No description provided for @carromPocketedOwn.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} pocketed {n} — plays again'**
+  String carromPocketedOwn(String name, int n);
+
+  /// No description provided for @carromPocketedOther.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} went in for {name}'**
+  String carromPocketedOther(int n, String name);
+
+  /// No description provided for @carromQueenIn.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} pocketed the queen — cover it!'**
+  String carromQueenIn(String name);
+
+  /// No description provided for @carromCovered.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} covered the queen (+3)'**
+  String carromCovered(String name);
+
+  /// No description provided for @carromQueenBack.
+  ///
+  /// In en, this message translates to:
+  /// **'The queen goes back to the centre'**
+  String get carromQueenBack;
+
+  /// No description provided for @carromFoul.
+  ///
+  /// In en, this message translates to:
+  /// **'Foul — striker pocketed. A coin goes back'**
+  String get carromFoul;
+
+  /// No description provided for @carromLastCoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Last coin before the queen — it goes back'**
+  String get carromLastCoin;
+
+  /// No description provided for @carromNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing in — {name}\'s turn'**
+  String carromNothing(String name);
+
+  /// No description provided for @carromYourShot.
+  ///
+  /// In en, this message translates to:
+  /// **'Your shot'**
+  String get carromYourShot;
+
+  /// No description provided for @carromTimeUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Time\'s up — turn passes'**
+  String get carromTimeUp;
+
+  /// No description provided for @carromWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'You cleared your coins first. Board points: {points}.'**
+  String carromWinSub(int points);
+
+  /// No description provided for @carromLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} cleared their coins first. You had {n} left.'**
+  String carromLoseSub(String name, int n);
 }
 
 class _AppLocalizationsDelegate
