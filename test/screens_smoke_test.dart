@@ -39,6 +39,7 @@ import 'package:snakeladder/game/ludo/ludo_screen.dart';
 import 'package:snakeladder/game/checkers/checkers_screen.dart';
 import 'package:snakeladder/game/uno/uno_screen.dart';
 import 'package:snakeladder/game/carrom/carrom_screen.dart';
+import 'package:snakeladder/game/snooker/snooker_screen.dart';
 import 'package:snakeladder/game/scrabble/scrabble_screen.dart';
 import 'package:snakeladder/game/prototypes/trivia_screen.dart';
 import 'package:snakeladder/screens/profile/level_up_screen.dart';
@@ -95,6 +96,8 @@ void main() {
     'UnoSetup': const UnoSetupScreen(),
     'Carrom': const CarromScreen(seed: 1),
     'CarromSetup': const CarromSetupScreen(),
+    'Snooker': const SnookerScreen(seed: 1),
+    'SnookerSetup': const SnookerSetupScreen(),
     'Trivia2P': const TriviaScreen(players: 2),
     'Trivia4P': const TriviaScreen(players: 4),
     'LevelUp': const LevelUpScreen(),

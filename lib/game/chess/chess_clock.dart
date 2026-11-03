@@ -101,6 +101,7 @@ class ChessClock extends ChangeNotifier {
     _flagged = false;
     _lastTurn = game.state.turn;
     _lastTick = DateTime.now();
+    _turnChangedAt = null;
     notifyListeners();
   }
 

@@ -25,7 +25,7 @@ class ChessScreen extends StatefulWidget {
 class _ChessScreenState extends State<ChessScreen> {
   // Hot-seat: both colours are tappable on one device (localColor = null).
   // White = "You" (bottom), Black = ZeroCool (top). 30s per move.
-  final ChessController _game = ChessController();
+  final ChessController _game = ChessController(drawRules: true);
   late final ChessClock _clock = ChessClock(_game, perMove: true, onFlag: _onFlag);
 
   PieceColor? _flagged; // side that ran out of time
@@ -102,7 +102,7 @@ class _ChessScreenState extends State<ChessScreen> {
             ? (_flagged == PieceColor.white ? 'You ran out of time.' : 'ZeroCool ran out of time.')
             : _game.status == GameStatus.stalemate
                 ? 'Stalemate — an even match.'
-                : null;
+                : _game.drawReason;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

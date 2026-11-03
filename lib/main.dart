@@ -14,6 +14,7 @@ import 'game/roulette/roulette_module.dart';
 import 'game/rummy/rummy_module.dart';
 import 'game/scrabble/scrabble_module.dart';
 import 'game/snakes/snakes_module.dart';
+import 'game/snooker/snooker_module.dart';
 import 'game/uno/uno_module.dart';
 
 /// Development build: every game, with a game picker on Home and the
@@ -36,6 +37,7 @@ final allGamesApp = AppProfile(
     rummyModule,
     unoModule,
     carromModule,
+    snookerModule,
   ],
   extraRoutes: prototypeRoutes,
   showComingSoon: true,

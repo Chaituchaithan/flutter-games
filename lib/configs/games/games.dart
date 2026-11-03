@@ -14,6 +14,7 @@ export 'core/game_id.dart';
 export 'core/game_registry.dart';
 export 'bingo/bingo_config.dart';
 export 'carrom/carrom_config.dart';
+export 'snooker/snooker_config.dart';
 export 'checkers/checkers_config.dart';
 export 'chess/chess_config.dart';
 export 'crash/crash_config.dart';

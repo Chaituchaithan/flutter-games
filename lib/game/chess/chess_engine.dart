@@ -288,6 +288,32 @@ class ChessState {
     return inCheck ? GameStatus.checkmate : GameStatus.stalemate;
   }
 
+  /// Fifty moves each with no pawn move or capture.
+  bool get fiftyMoveDraw => halfmoveClock >= 100;
+
+  /// Neither side can ever mate: bare kings, a lone knight or bishop, or
+  /// bishops on squares of the same colour.
+  bool get insufficientMaterial {
+    final minors = <int>[];
+    for (var i = 0; i < 64; i++) {
+      final p = board[i];
+      if (p == null || p.type == PieceType.king) continue;
+      if (p.type != PieceType.knight && p.type != PieceType.bishop) return false;
+      minors.add(i);
+    }
+    if (minors.length <= 1) return true;
+    if (minors.length > 2) return false;
+    final a = board[minors[0]]!, b = board[minors[1]]!;
+    return a.type == PieceType.bishop &&
+        b.type == PieceType.bishop &&
+        a.color != b.color &&
+        (fileOf(minors[0]) + rankOf(minors[0])).isEven == (fileOf(minors[1]) + rankOf(minors[1])).isEven;
+  }
+
+  /// What makes two positions "the same" for repetition: pieces, side to
+  /// move, castling rights and en passant.
+  String get positionKey => toFen().split(' ').take(4).join(' ');
+
   /// Apply a legal [move], returning the next state. Promotion defaults to
   /// queen if the move reaches the last rank without a promotion set.
   ChessState applyMove(Move move) {

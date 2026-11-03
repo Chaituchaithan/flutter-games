@@ -33,7 +33,7 @@ void main() {
     test('each game service has its own port (31281–31292), all on /ws', () {
       expect(const GameEndpoints(ludoConfig).socketUrl, '${ProxyConfig.wsBase}/svc/31285/ws');
       expect(devServer.socketUrl(chessConfig.port, chessConfig.socketPath), 'ws://169.58.184.121:31283/ws');
-      // Games with a service (port 0 = no service yet: Uno, Carrom).
+      // Games with a service (port 0 = no service yet: Uno, Carrom, Snooker).
       final ports = {for (final g in GameRegistry.all) if (g.port > 0) g.id: g.port};
       expect(ports, {
         GameId.bingo: 31281, GameId.checkers: 31282, GameId.chess: 31283, GameId.crash: 31284,
@@ -72,6 +72,7 @@ void main() {
         GameId.rummy,
         GameId.uno,
         GameId.carrom,
+        GameId.snooker,
       ]);
       expect(chessConfig.playersLabel, '2P');
       expect(ludoConfig.playersLabel, '2–4P');

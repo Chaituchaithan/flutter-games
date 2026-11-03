@@ -71,4 +71,15 @@ void main() {
     expect(clock.msFor(PieceColor.black), lessThan(3000));
     clock.dispose();
   });
+
+  test('reset drops the hand-over hold: a fresh clock runs straight away', () async {
+    final game = ChessController();
+    final clock = ChessClock(game, initialMs: 5000, perMove: true, handoverMs: 3000);
+    game.applyExternalCoords(squareFromName('e2')!, squareFromName('e4')!);
+    await _wait(250);
+    clock.reset();
+    await _wait(900);
+    expect(clock.msFor(PieceColor.black), lessThan(4800));
+    clock.dispose();
+  });
 }

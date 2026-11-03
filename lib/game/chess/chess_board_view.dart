@@ -112,6 +112,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
       });
     _ambient = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
     _seenMove = c.lastMove;
+    _seenUndo = c.undoSerial;
     _before = _snapshot();
     c.addListener(_onChange);
     _syncAmbient();
@@ -125,9 +126,20 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
     super.dispose();
   }
 
+  int _seenUndo = 0;
+
   void _onChange() {
     final m = c.lastMove;
-    if (m == null) {
+    if (c.undoSerial != _seenUndo) {
+      // Moves taken back: jump straight to the restored position.
+      _seenUndo = c.undoSerial;
+      _seenMove = m;
+      _moveCtrl.stop();
+      _animMove = null;
+      _animPiece = null;
+      _animRook = null;
+      _captured = null;
+    } else if (m == null) {
       // Board was reset.
       _seenMove = null;
       _animMove = null;
@@ -335,7 +347,7 @@ class _ChessBoardViewState extends State<ChessBoardView> with TickerProviderStat
   static int _moveMs(Move m) {
     final df = (fileOf(m.to) - fileOf(m.from)).toDouble(), dr = (rankOf(m.to) - rankOf(m.from)).toDouble();
     final dist = math.sqrt(df * df + dr * dr);
-    return (430 + 50 * dist).round().clamp(500, 800);
+    return (300 + 40 * dist).round().clamp(340, 560);
   }
 
   /// A piece in flight: one continuous glide from its square to the new one
