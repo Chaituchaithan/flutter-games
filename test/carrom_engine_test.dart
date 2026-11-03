@@ -119,7 +119,8 @@ void main() {
     for (var seed = 0; seed < 3; seed++) {
       final g = CarromGame(rng: math.Random(seed));
       var shots = 0;
-      while (!g.isOver && shots++ < 400) {
+      // Roomy: the last coin before the queen can go back again and again.
+      while (!g.isOver && shots++ < 1000) {
         final s = g.botShot(3);
         g.placeStriker(s.pos);
         if (!g.strikerClear) g.placeStriker(0.5);
@@ -131,4 +132,29 @@ void main() {
       expect(g.pocketed[g.winner!], CarromRules.coinsEach);
     }
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  test('a disc sliding into a wall picks up spin the way rims rub', () {
+    double spinOff(double x, double y, double vx, double vy) {
+      final g = CarromGame(rng: math.Random(1));
+      g.discs.removeWhere((d) => d.kind != CarromKind.striker);
+      g.striker
+        ..x = x
+        ..y = y;
+      g.shoot(vx, vy, 0.5);
+      g.step(1 / 60);
+      return g.striker.spin;
+    }
+
+    const r = CarromRules.strikerR;
+    expect(spinOff(r + 0.001, 0.5, -1, 1), greaterThan(0), reason: 'left wall, moving +y');
+    expect(spinOff(1 - r - 0.001, 0.5, 1, 1), lessThan(0), reason: 'right wall, moving +y');
+    expect(spinOff(0.5, r + 0.001, 1, -1), lessThan(0), reason: 'top wall, moving +x');
+    expect(spinOff(0.5, 1 - r - 0.001, 1, 1), greaterThan(0), reason: 'bottom wall, moving +x');
+  });
+
+  test('computer does not treat its own striker as blocking the baseline', () {
+    final g = CarromGame(rng: math.Random(1));
+    g.discs.removeWhere((d) => d.kind != CarromKind.striker);
+    expect(g.botShot(1).pos, 0.5, reason: 'nothing to aim at: the centre fallback');
+  });
 }

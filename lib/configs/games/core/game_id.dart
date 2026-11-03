@@ -15,4 +15,5 @@ enum GameId {
   roulette,
   uno,
   carrom,
+  snooker,
 }

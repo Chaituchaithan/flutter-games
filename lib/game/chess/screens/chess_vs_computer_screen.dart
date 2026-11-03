@@ -22,7 +22,7 @@ import 'package:snakeladder/screens/match/match_result_screen.dart';
 class ChessVsComputerScreen extends StatefulWidget {
   const ChessVsComputerScreen({super.key, this.depth = 2, this.clockMs = 30 * 1000, this.playerColor});
 
-  /// Bot search depth (difficulty). 1≈Easy, 2≈Medium, 3≈Hard.
+  /// Difficulty, see [ChessBot.depth]: 1 = Easy, 2 = Medium, 3 = Hard.
   final int depth;
 
   /// Time allowed per move in milliseconds (resets every turn); null =
@@ -52,12 +52,16 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
   bool _resigned = false; // player forfeited
   bool _perspective = false; // 2D (flat) vs 3D (tilted) board
 
+  /// Take-backs allowed over the whole game.
+  static const _maxUndos = 3;
+  int _undosLeft = _maxUndos;
+
   @override
   void initState() {
     super.initState();
     _playerColor = widget.playerColor ?? (_rng.nextBool() ? PieceColor.white : PieceColor.black);
     // Lock control to the player's colour so the bot's pieces aren't tappable.
-    _game = ChessController(localColor: _playerColor)..onLocalMove = (_) => _maybeBotMove();
+    _game = ChessController(localColor: _playerColor, undoEnabled: true, drawRules: true)..onLocalMove = (_) => _maybeBotMove();
     _game.addListener(_onChange);
     _clock = widget.clockMs == null
         ? null
@@ -94,7 +98,7 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
 
   bool get _isOver => _game.isOver || _flagged != null || _resigned;
 
-  /// Hand-over buffer: the piece move (up to ~0.95s) + a short beat before
+  /// Hand-over buffer: the piece move (up to ~0.6s) + a short beat before
   /// the next mover's clock starts counting (both directions).
   static const int _handoverMs = 1000;
 
@@ -115,7 +119,10 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     final gen = ++_botGen;
     final started = DateTime.now();
     final thinkMs = _thinkMs();
-    compute(_searchBotMove, (_game.state, widget.depth)).then((m) {
+    // Think for real, up to the time the reply would take anyway (less on the
+    // web, where the search shares the UI thread).
+    final searchMs = max(100, min(kIsWeb ? 800 : 3000, thinkMs - 200));
+    compute(_searchBotMove, (_game.state, widget.depth, searchMs, _game.positions)).then((m) {
       if (!mounted || gen != _botGen) return;
       final waitMs = thinkMs - DateTime.now().difference(started).inMilliseconds;
       // A cancellable Timer (not Future.delayed) so pause/dispose stop it cleanly.
@@ -140,7 +147,7 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     if (botMoves < 3) ms *= 0.55; // opening: book-like moves
     if (_game.status == GameStatus.check) ms *= 1.15;
     if (_game.state.legalMoves().length == 1) ms = 700 + _rng.nextInt(500).toDouble();
-    // Never reply before your piece has finished moving (up to 0.8 s).
+    // Never reply before your piece has finished moving (up to 0.6 s).
     ms = max(ms, 1100);
     final clock = _clock;
     if (clock != null) ms = min(ms, clock.msFor(_botColor) / 3);
@@ -156,6 +163,31 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     }
     if (m != null) _game.applyExternalCoords(m.from, m.to, promotion: m.promotion);
     if (mounted) setState(() {});
+  }
+
+  // ── Undo ──
+
+  /// The player has a move on the board to take back (and the game is live).
+  bool get _canUndo {
+    if (_isOver || _paused || _undosLeft <= 0) return false;
+    final h = _game.history.length;
+    // Plies the player has made: White moves on even plies, Black on odd.
+    final mine = _playerColor == PieceColor.white ? (h + 1) ~/ 2 : h ~/ 2;
+    return mine > 0;
+  }
+
+  /// Take back your last move (and the computer's reply, if it has made
+  /// one) — at most [_maxUndos] times a game. Stops the computer if it's
+  /// still thinking, and gives you a fresh turn clock.
+  void _undo() {
+    if (!_canUndo) return;
+    _botGen++;
+    _botTimer?.cancel();
+    _thinking = false;
+    final plies = _game.state.turn == _playerColor ? 2 : 1;
+    if (_game.undo(plies) == 0) return;
+    _clock?.reset();
+    setState(() => _undosLeft--);
   }
 
   // ── Pause / forfeit (mockup overlays) ──
@@ -244,6 +276,7 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     if (_resigned) return 'You forfeited the match.';
     if (_flagged != null) return _flagged == _playerColor ? 'You ran out of time.' : 'The computer ran out of time.';
     if (_game.status == GameStatus.stalemate) return 'Stalemate — an even match.';
+    if (_game.status == GameStatus.draw) return _game.drawReason;
     if (_game.status == GameStatus.checkmate) return _playerWon ? 'Checkmate — flawless run, champion!' : 'Checkmate — run it back.';
     return null;
   }
@@ -379,7 +412,13 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
           const SizedBox(height: 14),
           // Pinned action bar: status (lights up on your move) · forfeit.
           // No chat button — the opponent is the computer.
-          BoardActionBar(statusLabel: _statusText, active: myTurn && gameLive, onResign: gameLive ? _forfeit : null),
+          BoardActionBar(
+            statusLabel: _statusText,
+            active: myTurn && gameLive,
+            undoLeft: _undosLeft,
+            onUndo: _canUndo ? _undo : null,
+            onResign: gameLive ? _forfeit : null,
+          ),
           const SizedBox(height: 8),
         ],
       ),
@@ -390,4 +429,5 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
 
 /// Bot search entry point for [compute] (must be top-level): runs on a
 /// background isolate on mobile/desktop. (On web, compute runs inline.)
-Move? _searchBotMove((ChessState, int) args) => ChessBot(depth: args.$2).chooseMove(args.$1);
+Move? _searchBotMove((ChessState, int, int, List<String>) args) =>
+    ChessBot(depth: args.$2, timeMs: args.$3, history: args.$4).chooseMove(args.$1);

@@ -7,10 +7,23 @@ import 'chess_engine.dart';
 /// move history. UI-agnostic so it can be fed either by local taps (hot-seat)
 /// or by the socket layer later.
 class ChessController extends ChangeNotifier {
-  ChessController({ChessState? initial, PieceColor? localColor})
+  ChessController({ChessState? initial, PieceColor? localColor, this.undoEnabled = false, this.drawRules = false})
       : _state = initial ?? ChessState.initial() {
     _localColor = localColor;
+    _positions.add(_state.positionKey);
   }
+
+  /// Keep positions for [undo]. Only for games with no server to disagree:
+  /// an online game can't take a move back.
+  final bool undoEnabled;
+
+  /// End the game here on repetition, fifty moves or insufficient material.
+  /// Only for games with no server: online, the server decides draws.
+  final bool drawRules;
+
+  /// Every position so far, for repetition (and the bot, to avoid it).
+  final List<String> _positions = [];
+  List<String> get positions => List.unmodifiable(_positions);
 
   ChessState _state;
   ChessState get state => _state;
@@ -37,6 +50,17 @@ class ChessController extends ChangeNotifier {
   final List<String> _sanHistory = [];
   List<String> get history => List.unmodifiable(_sanHistory);
 
+  /// Positions and moves before each move made, for [undo].
+  final List<(ChessState, Move?)> _undoStack = [];
+
+  /// Bumped on every [undo] so the board view knows to jump (not animate)
+  /// to the restored position.
+  int _undoSerial = 0;
+  int get undoSerial => _undoSerial;
+
+  /// Moves that can still be taken back.
+  int get undoable => _undoStack.length;
+
   /// Side that made the most recent move, or null before the first move.
   PieceColor? get lastMover => _sanHistory.isEmpty ? null : _state.turn.opposite;
 
@@ -57,7 +81,22 @@ class ChessController extends ChangeNotifier {
   /// session hooks this to send `game.action` to the server.
   void Function(Move move)? onLocalMove;
 
-  GameStatus get status => _state.status();
+  GameStatus get status {
+    final s = _state.status();
+    if (s == GameStatus.checkmate || s == GameStatus.stalemate) return s;
+    return drawReason != null ? GameStatus.draw : s;
+  }
+
+  /// Why the game is drawn under [drawRules] (null = it isn't).
+  String? get drawReason {
+    if (!drawRules) return null;
+    if (_state.insufficientMaterial) return 'Draw — not enough pieces left to mate.';
+    if (_state.fiftyMoveDraw) return 'Draw — fifty moves without a capture or pawn move.';
+    final now = _positions.last;
+    if (_positions.where((p) => p == now).length >= 3) return 'Draw — the same position three times.';
+    return null;
+  }
+
   bool get isOver => status == GameStatus.checkmate || status == GameStatus.stalemate || status == GameStatus.draw;
 
   /// The king square to flag when in check (null otherwise).
@@ -117,8 +156,10 @@ class ChessController extends ChangeNotifier {
   }
 
   void _commit(Move move, {bool external = false}) {
+    if (undoEnabled) _undoStack.add((_state, _lastMove));
     _sanHistory.add(_describe(move));
     _state = _state.applyMove(move);
+    _positions.add(_state.positionKey);
     _lastMove = move;
     _selected = null;
     _targets = const [];
@@ -145,8 +186,32 @@ class ChessController extends ChangeNotifier {
     return '${letter[p?.type] ?? ''}$pawnFile${capture ? 'x' : ''}${squareName(m.to)}$promo';
   }
 
+  /// Take back the last [plies] moves (fewer if the game has fewer).
+  /// Returns how many were taken back.
+  int undo([int plies = 1]) {
+    var n = 0;
+    while (n < plies && _undoStack.isNotEmpty) {
+      final (state, last) = _undoStack.removeLast();
+      _state = state;
+      _lastMove = last;
+      _sanHistory.removeLast();
+      _positions.removeLast();
+      n++;
+    }
+    if (n == 0) return 0;
+    _selected = null;
+    _targets = const [];
+    _undoSerial++;
+    notifyListeners();
+    return n;
+  }
+
   void reset() {
+    _undoStack.clear();
     _state = ChessState.initial();
+    _positions
+      ..clear()
+      ..add(_state.positionKey);
     _selected = null;
     _targets = const [];
     _lastMove = null;

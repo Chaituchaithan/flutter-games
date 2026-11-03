@@ -15,6 +15,7 @@ import '../roulette/roulette_config.dart';
 import '../rummy/rummy_config.dart';
 import '../scrabble/scrabble_config.dart';
 import '../snakes_ladders/snakes_ladders_config.dart';
+import '../snooker/snooker_config.dart';
 import '../uno/uno_config.dart';
 import 'game_config.dart';
 import 'game_id.dart';
@@ -36,6 +37,7 @@ abstract final class GameRegistry {
     rouletteConfig,
     unoConfig,
     carromConfig,
+    snookerConfig,
   ];
 
   /// The Home game-chip row (the mockup's board games). Other services stay

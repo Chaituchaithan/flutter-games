@@ -15,6 +15,10 @@ class CarromDisc {
   double x, y;
   double vx = 0, vy = 0;
 
+  /// Which way the disc is turned (radians) and how fast it spins: glancing
+  /// hits and the frame set coins turning as they slide.
+  double angle = 0, spin = 0;
+
   double get r => kind == CarromKind.striker ? CarromRules.strikerR : CarromRules.coinR;
   double get mass => kind == CarromKind.striker ? CarromRules.strikerMass : 1;
   double get speed => math.sqrt(vx * vx + vy * vy);
@@ -22,7 +26,9 @@ class CarromDisc {
 
   CarromDisc copy() => CarromDisc(id, kind, x, y)
     ..vx = vx
-    ..vy = vy;
+    ..vy = vy
+    ..angle = angle
+    ..spin = spin;
 }
 
 /// A coin dropping into a pocket (drawn shrinking for a moment).
@@ -52,6 +58,9 @@ abstract final class CarromRules {
   /// Sliding friction (constant + speed-proportional) and bounces.
   static const friction = 0.85, drag = 1.15;
   static const wallBounce = 0.72, discBounce = 0.93;
+
+  /// How much a glancing hit turns a disc, and how fast its spin dies away.
+  static const rimGrip = 0.12, spinDrag = 2.2;
 
   static const pockets = [
     (pocketR, pocketR),
@@ -142,6 +151,10 @@ class CarromGame extends ChangeNotifier {
   /// Called when a disc drops (kind) — for haptics.
   void Function(CarromKind kind)? onPocket;
 
+  /// Called once a frame with the hardest knock in it (closing speed, board
+  /// units / second) — for haptics.
+  void Function(double speed)? onImpact;
+
   // Shot bookkeeping.
   final List<CarromKind> _inShot = [];
   bool _strikerIn = false;
@@ -171,6 +184,10 @@ class CarromGame extends ChangeNotifier {
     for (var i = 0; i < spots.length; i++) {
       final kind = i.isEven ? CarromKind.white : CarromKind.black;
       discs.add(CarromDisc(_nextId++, kind, 0.5 + spots[i].$1, 0.5 + spots[i].$2));
+    }
+    // Set down by hand: every coin's grain turned its own way.
+    for (final d in discs) {
+      d.angle = d.id * 2.39996;
     }
   }
 
@@ -232,11 +249,13 @@ class CarromGame extends ChangeNotifier {
     }
     const sub = 1 / 480;
     var left = dt.clamp(0.0, 1 / 20);
+    var knock = 0.0;
     while (left > 0 && moving) {
       final h = math.min(sub, left);
       left -= h;
-      if (!_physics(discs, h, _pocket)) _endShot();
+      if (!_physics(discs, h, _pocket, (v) => knock = math.max(knock, v))) _endShot();
     }
+    if (knock > 0) onImpact?.call(knock);
     notifyListeners();
   }
 
@@ -252,18 +271,26 @@ class CarromGame extends ChangeNotifier {
   }
 
   /// One physics substep for [list]. Returns false once everything stopped.
-  static bool _physics(List<CarromDisc> list, double h, void Function(CarromDisc, int) pocket) {
+  static bool _physics(
+    List<CarromDisc> list,
+    double h,
+    void Function(CarromDisc, int) pocket, [
+    void Function(double speed)? impact,
+  ]) {
     var any = false;
     // Move + friction.
     for (final d in list) {
       if (!d.moving) continue;
       d.x += d.vx * h;
       d.y += d.vy * h;
+      d.angle += d.spin * h;
+      d.spin *= math.max(0.0, 1 - CarromRules.spinDrag * h);
       final s = d.speed;
       final ns = s - (CarromRules.friction + CarromRules.drag * s) * h;
       if (ns <= 0.004) {
         d.vx = 0;
         d.vy = 0;
+        d.spin = 0;
       } else {
         d.vx *= ns / s;
         d.vy *= ns / s;
@@ -290,11 +317,16 @@ class CarromGame extends ChangeNotifier {
         b.y += ny * overlap * tb;
         final rel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
         if (rel <= 0) continue;
+        impact?.call(rel);
         final j0 = (1 + CarromRules.discBounce) * rel / (1 / a.mass + 1 / b.mass);
         a.vx -= j0 / a.mass * nx;
         a.vy -= j0 / a.mass * ny;
         b.vx += j0 / b.mass * nx;
         b.vy += j0 / b.mass * ny;
+        // Rims rubbing on a glancing hit set both discs turning.
+        final slip = (a.vx - b.vx) * -ny + (a.vy - b.vy) * nx + a.spin * a.r + b.spin * b.r;
+        a.spin -= CarromRules.rimGrip * slip / a.r / a.mass;
+        b.spin -= CarromRules.rimGrip * slip / b.r / b.mass;
         any = true;
       }
     }
@@ -311,19 +343,36 @@ class CarromGame extends ChangeNotifier {
     }
     for (final d in list) {
       final r = d.r;
+      const grip = CarromRules.rimGrip;
       if (d.x < r) {
         d.x = r;
-        if (d.vx < 0) d.vx = -d.vx * CarromRules.wallBounce;
+        if (d.vx < 0) {
+          impact?.call(-d.vx);
+          d.vx = -d.vx * CarromRules.wallBounce;
+          d.spin -= grip * (-d.vy + d.spin * r) / r;
+        }
       } else if (d.x > 1 - r) {
         d.x = 1 - r;
-        if (d.vx > 0) d.vx = -d.vx * CarromRules.wallBounce;
+        if (d.vx > 0) {
+          impact?.call(d.vx);
+          d.vx = -d.vx * CarromRules.wallBounce;
+          d.spin -= grip * (d.vy + d.spin * r) / r;
+        }
       }
       if (d.y < r) {
         d.y = r;
-        if (d.vy < 0) d.vy = -d.vy * CarromRules.wallBounce;
+        if (d.vy < 0) {
+          impact?.call(-d.vy);
+          d.vy = -d.vy * CarromRules.wallBounce;
+          d.spin -= grip * (d.vx + d.spin * r) / r;
+        }
       } else if (d.y > 1 - r) {
         d.y = 1 - r;
-        if (d.vy > 0) d.vy = -d.vy * CarromRules.wallBounce;
+        if (d.vy > 0) {
+          impact?.call(d.vy);
+          d.vy = -d.vy * CarromRules.wallBounce;
+          d.spin -= grip * (-d.vx + d.spin * r) / r;
+        }
       }
     }
     return any;
@@ -338,7 +387,8 @@ class CarromGame extends ChangeNotifier {
         final a = k / steps * 2 * math.pi;
         final x = 0.5 + math.cos(a) * ring * r * 1.2, y = 0.5 + math.sin(a) * ring * r * 1.2;
         if (_clearAt(x, y, r)) {
-          discs.insert(0, CarromDisc(_nextId++, kind, x, y));
+          final id = _nextId++;
+          discs.insert(0, CarromDisc(id, kind, x, y)..angle = id * 2.39996);
           return;
         }
       }
@@ -351,6 +401,7 @@ class CarromGame extends ChangeNotifier {
     for (final d in discs) {
       d.vx = 0;
       d.vy = 0;
+      d.spin = 0;
     }
     final me = turn, other = 1 - turn;
     final mine = colorOf(me), theirs = colorOf(other);
@@ -500,7 +551,7 @@ class CarromGame extends ChangeNotifier {
     for (var i = 0; i <= 12; i++) {
       final pos = i / 12;
       final sx = _baseX(pos);
-      if (!_clearAt(sx, y, CarromRules.strikerR)) continue;
+      if (!_clearAt(sx, y, CarromRules.strikerR, except: striker)) continue;
       for (final c in targets) {
         for (final (px, py) in CarromRules.pockets) {
           // Ghost-ball aim: where the striker must touch to send c to the pocket.
@@ -557,7 +608,7 @@ class CarromGame extends ChangeNotifier {
       var pos = 0.5;
       for (var k = 0; k <= 12; k++) {
         final p = 0.5 + (k.isOdd ? 1 : -1) * ((k + 1) ~/ 2) / 24;
-        if (_clearAt(_baseX(p), y, CarromRules.strikerR)) {
+        if (_clearAt(_baseX(p), y, CarromRules.strikerR, except: striker)) {
           pos = p;
           break;
         }

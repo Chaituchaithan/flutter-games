@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:snakeladder/game/chess/chess_controller.dart';
 import 'package:snakeladder/game/chess/chess_engine.dart';
 
 void main() {
@@ -71,6 +73,62 @@ void main() {
           {PieceType.queen, PieceType.rook, PieceType.bishop, PieceType.knight});
       final next = s.applyMove(Move(from: a7, to: a8, promotion: PieceType.queen));
       expect(next.pieceAt(a8), const Piece(PieceColor.white, PieceType.queen));
+    });
+  });
+
+  group('draw rules', () {
+    test('insufficient material', () {
+      bool draw(String fen) => ChessState.fromFen(fen).insufficientMaterial;
+      expect(draw('8/8/8/4k3/8/8/8/4K3 w - - 0 1'), isTrue, reason: 'bare kings');
+      expect(draw('8/8/8/4k3/8/8/8/2N1K3 w - - 0 1'), isTrue, reason: 'lone knight');
+      expect(draw('8/8/8/4k3/8/8/8/2B1K3 w - - 0 1'), isTrue, reason: 'lone bishop');
+      expect(draw('5b2/8/8/4k3/8/8/8/2B1K3 w - - 0 1'), isFalse, reason: 'f8 and c1: opposite colours');
+      expect(draw('2b5/8/8/4k3/8/8/8/2B1K3 w - - 0 1'), isTrue, reason: 'c8 and c1: same colour');
+      expect(draw('8/8/8/4k3/8/8/4P3/4K3 w - - 0 1'), isFalse, reason: 'a pawn can promote');
+      expect(draw('8/8/8/4k3/8/8/8/1NN1K3 w - - 0 1'), isFalse);
+    });
+
+    test('fifty moves come from the halfmove clock', () {
+      expect(ChessState.fromFen('8/8/8/4k3/8/8/4R3/4K3 w - - 99 80').fiftyMoveDraw, isFalse);
+      expect(ChessState.fromFen('8/8/8/4k3/8/8/4R3/4K3 w - - 100 80').fiftyMoveDraw, isTrue);
+    });
+
+    group('controller', () {
+      void shuffle(ChessController c) {
+        int sq(String n) => squareFromName(n)!;
+        c.applyExternalCoords(sq('g1'), sq('f3'));
+        c.applyExternalCoords(sq('g8'), sq('f6'));
+        c.applyExternalCoords(sq('f3'), sq('g1'));
+        c.applyExternalCoords(sq('f6'), sq('g8'));
+      }
+
+      test('three repeats draw, undo takes it back', () {
+        final c = ChessController(drawRules: true, undoEnabled: true);
+        shuffle(c);
+        expect(c.status, GameStatus.ongoing, reason: 'twice is not enough');
+        shuffle(c);
+        expect(c.status, GameStatus.draw);
+        expect(c.isOver, isTrue);
+        expect(c.drawReason, contains('three times'));
+        c.undo();
+        expect(c.status, GameStatus.ongoing);
+      });
+
+      test('online games leave draws to the server', () {
+        final c = ChessController();
+        shuffle(c);
+        shuffle(c);
+        expect(c.status, GameStatus.ongoing);
+        final bare = ChessController(initial: ChessState.fromFen('8/8/8/4k3/8/8/8/4K3 w - - 0 1'));
+        expect(bare.drawReason, isNull);
+      });
+
+      test('bare kings end at once; checkmate beats the fifty-move rule', () {
+        final bare = ChessController(drawRules: true, initial: ChessState.fromFen('8/8/8/4k3/8/8/8/4K3 w - - 0 1'));
+        expect(bare.status, GameStatus.draw);
+        final mate = ChessController(drawRules: true, initial: ChessState.fromFen('7k/6Q1/5K2/8/8/8/8/8 b - - 100 80'));
+        expect(mate.status, GameStatus.checkmate);
+      });
     });
   });
 }

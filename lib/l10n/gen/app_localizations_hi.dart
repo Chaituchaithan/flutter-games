@@ -1850,4 +1850,109 @@ class AppLocalizationsHi extends AppLocalizations {
   String carromLoseSub(String name, int n) {
     return '$name ने पहले अपनी गोटियाँ साफ़ कीं। आपकी $n बचीं।';
   }
+
+  @override
+  String get snookerBlurb =>
+      'टेबल पर खींचकर निशाना लगाएँ, स्पिन चुनें, फिर पावर बार खींचकर छोड़ें। पूरे आकार की टेबल पर बारी-बारी से लाल और रंगीन गेंदें पॉकेट करें और फ़्रेम में कंप्यूटर से ज़्यादा अंक बनाएँ।';
+
+  @override
+  String snookerSubtitle(int you, String bot, int opp, int reds) {
+    return 'आप $you · $bot $opp · लाल $reds';
+  }
+
+  @override
+  String get snookerRed => 'लाल';
+
+  @override
+  String get snookerYellow => 'पीली';
+
+  @override
+  String get snookerGreen => 'हरी';
+
+  @override
+  String get snookerBrown => 'भूरी';
+
+  @override
+  String get snookerBlue => 'नीली';
+
+  @override
+  String get snookerPink => 'गुलाबी';
+
+  @override
+  String get snookerBlack => 'काली';
+
+  @override
+  String get snookerAnyColour => 'कोई भी रंग';
+
+  @override
+  String snookerBallOn(String ball) {
+    return 'अगली गेंद: $ball';
+  }
+
+  @override
+  String get snookerFreeBall => 'फ़्री बॉल: कोई भी गेंद खेलें';
+
+  @override
+  String snookerBreak(int n) {
+    return 'ब्रेक $n';
+  }
+
+  @override
+  String get snookerPlaceHint =>
+      'क्यू बॉल को D के अंदर खींचें, फिर निशाना लगाएँ';
+
+  @override
+  String get snookerAimHint => 'निशाने के लिए खींचें, पावर खींचकर छोड़ें';
+
+  @override
+  String snookerAiming(String name) {
+    return '$name टेबल पर है…';
+  }
+
+  @override
+  String snookerScored(String name, int n) {
+    return '$name ने $n अंक बनाए';
+  }
+
+  @override
+  String snookerFoul(int n, String name) {
+    return 'फ़ाउल: $n अंक $name को';
+  }
+
+  @override
+  String get snookerInOff => 'क्यू बॉल पॉकेट में';
+
+  @override
+  String snookerNothing(String name) {
+    return 'कुछ नहीं गया: $name की बारी';
+  }
+
+  @override
+  String get snookerBlackGame =>
+      'स्कोर बराबर: काली गेंद वापस, अगला स्कोर जीतेगा';
+
+  @override
+  String get snookerYourShot => 'आपका शॉट';
+
+  @override
+  String get snookerTimeUp => 'समय समाप्त: बारी गई';
+
+  @override
+  String get snookerSpin => 'स्पिन';
+
+  @override
+  String get snookerFineAim => 'बारीक निशाना';
+
+  @override
+  String get snookerPower => 'पावर: खींचकर छोड़ें';
+
+  @override
+  String snookerWinSub(int n) {
+    return 'फ़्रेम आपका। सबसे बड़ा ब्रेक: $n।';
+  }
+
+  @override
+  String snookerLoseSub(String name, int n) {
+    return 'फ़्रेम $name का। उनका सबसे बड़ा ब्रेक: $n।';
+  }
 }

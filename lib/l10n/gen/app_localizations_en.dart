@@ -1869,4 +1869,108 @@ class AppLocalizationsEn extends AppLocalizations {
   String carromLoseSub(String name, int n) {
     return '$name cleared their coins first. You had $n left.';
   }
+
+  @override
+  String get snookerBlurb =>
+      'Drag on the table to line up, choose your spin, then pull the power bar and let go. Pot reds and colours in turn on a full-size table, and outscore the computer over the frame.';
+
+  @override
+  String snookerSubtitle(int you, String bot, int opp, int reds) {
+    return 'You $you · $bot $opp · Reds $reds';
+  }
+
+  @override
+  String get snookerRed => 'Red';
+
+  @override
+  String get snookerYellow => 'Yellow';
+
+  @override
+  String get snookerGreen => 'Green';
+
+  @override
+  String get snookerBrown => 'Brown';
+
+  @override
+  String get snookerBlue => 'Blue';
+
+  @override
+  String get snookerPink => 'Pink';
+
+  @override
+  String get snookerBlack => 'Black';
+
+  @override
+  String get snookerAnyColour => 'Any colour';
+
+  @override
+  String snookerBallOn(String ball) {
+    return 'On: $ball';
+  }
+
+  @override
+  String get snookerFreeBall => 'Free ball: play any ball';
+
+  @override
+  String snookerBreak(int n) {
+    return 'Break $n';
+  }
+
+  @override
+  String get snookerPlaceHint => 'Drag the cue ball inside the D, then aim';
+
+  @override
+  String get snookerAimHint => 'Drag to aim, pull power and let go';
+
+  @override
+  String snookerAiming(String name) {
+    return '$name is at the table…';
+  }
+
+  @override
+  String snookerScored(String name, int n) {
+    return '$name scored $n';
+  }
+
+  @override
+  String snookerFoul(int n, String name) {
+    return 'Foul: $n to $name';
+  }
+
+  @override
+  String get snookerInOff => 'In-off';
+
+  @override
+  String snookerNothing(String name) {
+    return 'Nothing down: $name to play';
+  }
+
+  @override
+  String get snookerBlackGame =>
+      'Scores level: black re-spotted, next score wins';
+
+  @override
+  String get snookerYourShot => 'Your shot';
+
+  @override
+  String get snookerTimeUp => 'Time\'s up: turn passes';
+
+  @override
+  String get snookerSpin => 'Spin';
+
+  @override
+  String get snookerFineAim => 'Fine aim';
+
+  @override
+  String get snookerPower => 'Power: pull and let go';
+
+  @override
+  String snookerWinSub(int n) {
+    return 'Frame to you. Highest break: $n.';
+  }
+
+  @override
+  String snookerLoseSub(String name, int n) {
+    return 'Frame to $name. Their highest break: $n.';
+  }
 }

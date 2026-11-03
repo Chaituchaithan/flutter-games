@@ -3187,6 +3187,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} cleared their coins first. You had {n} left.'**
   String carromLoseSub(String name, int n);
+
+  /// No description provided for @snookerBlurb.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag on the table to line up, choose your spin, then pull the power bar and let go. Pot reds and colours in turn on a full-size table, and outscore the computer over the frame.'**
+  String get snookerBlurb;
+
+  /// No description provided for @snookerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You {you} · {bot} {opp} · Reds {reds}'**
+  String snookerSubtitle(int you, String bot, int opp, int reds);
+
+  /// No description provided for @snookerRed.
+  ///
+  /// In en, this message translates to:
+  /// **'Red'**
+  String get snookerRed;
+
+  /// No description provided for @snookerYellow.
+  ///
+  /// In en, this message translates to:
+  /// **'Yellow'**
+  String get snookerYellow;
+
+  /// No description provided for @snookerGreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Green'**
+  String get snookerGreen;
+
+  /// No description provided for @snookerBrown.
+  ///
+  /// In en, this message translates to:
+  /// **'Brown'**
+  String get snookerBrown;
+
+  /// No description provided for @snookerBlue.
+  ///
+  /// In en, this message translates to:
+  /// **'Blue'**
+  String get snookerBlue;
+
+  /// No description provided for @snookerPink.
+  ///
+  /// In en, this message translates to:
+  /// **'Pink'**
+  String get snookerPink;
+
+  /// No description provided for @snookerBlack.
+  ///
+  /// In en, this message translates to:
+  /// **'Black'**
+  String get snookerBlack;
+
+  /// No description provided for @snookerAnyColour.
+  ///
+  /// In en, this message translates to:
+  /// **'Any colour'**
+  String get snookerAnyColour;
+
+  /// No description provided for @snookerBallOn.
+  ///
+  /// In en, this message translates to:
+  /// **'On: {ball}'**
+  String snookerBallOn(String ball);
+
+  /// No description provided for @snookerFreeBall.
+  ///
+  /// In en, this message translates to:
+  /// **'Free ball: play any ball'**
+  String get snookerFreeBall;
+
+  /// No description provided for @snookerBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Break {n}'**
+  String snookerBreak(int n);
+
+  /// No description provided for @snookerPlaceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag the cue ball inside the D, then aim'**
+  String get snookerPlaceHint;
+
+  /// No description provided for @snookerAimHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to aim, pull power and let go'**
+  String get snookerAimHint;
+
+  /// No description provided for @snookerAiming.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is at the table…'**
+  String snookerAiming(String name);
+
+  /// No description provided for @snookerScored.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} scored {n}'**
+  String snookerScored(String name, int n);
+
+  /// No description provided for @snookerFoul.
+  ///
+  /// In en, this message translates to:
+  /// **'Foul: {n} to {name}'**
+  String snookerFoul(int n, String name);
+
+  /// No description provided for @snookerInOff.
+  ///
+  /// In en, this message translates to:
+  /// **'In-off'**
+  String get snookerInOff;
+
+  /// No description provided for @snookerNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing down: {name} to play'**
+  String snookerNothing(String name);
+
+  /// No description provided for @snookerBlackGame.
+  ///
+  /// In en, this message translates to:
+  /// **'Scores level: black re-spotted, next score wins'**
+  String get snookerBlackGame;
+
+  /// No description provided for @snookerYourShot.
+  ///
+  /// In en, this message translates to:
+  /// **'Your shot'**
+  String get snookerYourShot;
+
+  /// No description provided for @snookerTimeUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Time\'s up: turn passes'**
+  String get snookerTimeUp;
+
+  /// No description provided for @snookerSpin.
+  ///
+  /// In en, this message translates to:
+  /// **'Spin'**
+  String get snookerSpin;
+
+  /// No description provided for @snookerFineAim.
+  ///
+  /// In en, this message translates to:
+  /// **'Fine aim'**
+  String get snookerFineAim;
+
+  /// No description provided for @snookerPower.
+  ///
+  /// In en, this message translates to:
+  /// **'Power: pull and let go'**
+  String get snookerPower;
+
+  /// No description provided for @snookerWinSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Frame to you. Highest break: {n}.'**
+  String snookerWinSub(int n);
+
+  /// No description provided for @snookerLoseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Frame to {name}. Their highest break: {n}.'**
+  String snookerLoseSub(String name, int n);
 }
 
 class _AppLocalizationsDelegate

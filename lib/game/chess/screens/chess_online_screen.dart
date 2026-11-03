@@ -124,7 +124,7 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
   Future<void> _connect() async {
     // Socket bypassed: skip matchmaking and open the offline practice board.
     if (!kSocketEnabled) {
-      _offline = ChessController();
+      _offline = ChessController(drawRules: true);
       return;
     }
     final appSocket = ref.read(appSocketProvider);
@@ -301,7 +301,7 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
   }
 
   void _goOffline() {
-    setState(() => _offline = ChessController());
+    setState(() => _offline = ChessController(drawRules: true));
   }
 
   /// Mockup forfeit: confirm, then resign on the server and go straight to
@@ -862,7 +862,7 @@ class _OfflineBoardState extends State<_OfflineBoard> {
         ? MatchOutcome.draw
         : (winner == PieceColor.white ? MatchOutcome.victory : MatchOutcome.defeat);
     final subtitle = winner == null
-        ? (g.status == GameStatus.stalemate ? 'Stalemate — an even match.' : null)
+        ? (g.status == GameStatus.stalemate ? 'Stalemate — an even match.' : g.drawReason)
         : _forfeitedBy != null
         ? '${name(_forfeitedBy!)} forfeited — ${name(winner)} wins.'
         : _flagged != null
@@ -880,7 +880,7 @@ class _OfflineBoardState extends State<_OfflineBoard> {
           oppName: 'Black',
           oppInitials: 'BK',
           reward: 'Practice match · no stake',
-          playAgain: (_) => _OfflineBoard(game: ChessController(), ownsGame: true),
+          playAgain: (_) => _OfflineBoard(game: ChessController(drawRules: true), ownsGame: true),
         ),
       ),
     );

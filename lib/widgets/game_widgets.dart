@@ -824,9 +824,16 @@ class BoardActionBar extends StatelessWidget {
     this.onDraw,
     this.onResign,
     this.resignIcon = Icons.flag_outlined,
+    this.undoLeft,
+    this.onUndo,
   });
 
   final String statusLabel;
+
+  /// Quick Play: take-backs left (shows the undo button when set); [onUndo]
+  /// null = not possible right now (button dimmed).
+  final int? undoLeft;
+  final VoidCallback? onUndo;
   final bool active;
   final VoidCallback? onChat;
 
@@ -882,6 +889,16 @@ class BoardActionBar extends StatelessWidget {
             ),
           ),
         ),
+        if (undoLeft != null) ...[
+          const SizedBox(width: 10),
+          _SquareIconButton(
+            icon: Icons.undo_rounded,
+            onTap: onUndo,
+            color: Colors.white,
+            fill: Colors.white.withValues(alpha: 0.07),
+            badge: '$undoLeft',
+          ),
+        ],
         if (onDraw != null) ...[
           const SizedBox(width: 10),
           _SquareIconButton(
@@ -913,16 +930,22 @@ class _SquareIconButton extends StatelessWidget {
     required this.color,
     required this.fill,
     this.border,
+    this.badge,
   });
   final IconData icon;
-  final VoidCallback onTap;
+
+  /// Null = disabled (dimmed).
+  final VoidCallback? onTap;
   final Color color;
   final Color fill;
   final Color? border;
 
+  /// A small count in the corner (e.g. undos left).
+  final String? badge;
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final button = SizedBox(
       width: 54,
       height: 54,
       child: Material(
@@ -940,6 +963,37 @@ class _SquareIconButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+    final b = badge;
+    return Opacity(
+      opacity: onTap == null ? 0.4 : 1,
+      child: b == null
+          ? button
+          : Stack(
+              clipBehavior: Clip.none,
+              children: [
+                button,
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 20),
+                    height: 20,
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: AuraGradients.brand,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AuraColors.bgBase, width: 2),
+                    ),
+                    child: Text(
+                      b,
+                      style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
