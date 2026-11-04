@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/screen_orientation.dart';
 import '../../configs/games/snooker/snooker_config.dart';
 import '../../l10n/l10n.dart';
 import '../../screens/match/match_result_screen.dart';
@@ -74,9 +75,14 @@ class _SnookerScreenState extends State<SnookerScreen> with LocalGameFlow, Singl
   _BotPlan? _plan;
   String? _event;
 
+  /// Each player's latest pots, newest last (the top bar shows six).
+  final List<List<SnookerKind>> _potted = [[], []];
+
   @override
   void initState() {
     super.initState();
+    // Snooker plays on its side, like a real table in front of you.
+    LandscapeMode.enter();
     _game.addListener(_onChange);
     _timer.addListener(_onChange);
     _ticker.start();
@@ -90,6 +96,7 @@ class _SnookerScreenState extends State<SnookerScreen> with LocalGameFlow, Singl
     _timer.dispose();
     _game.removeListener(_onChange);
     _game.dispose();
+    LandscapeMode.exit();
     super.dispose();
   }
 
@@ -98,6 +105,10 @@ class _SnookerScreenState extends State<SnookerScreen> with LocalGameFlow, Singl
   }
 
   void _onPocket(SnookerKind k) {
+    if (k != SnookerKind.cue) {
+      final mine = _potted[_game.turn]..add(k);
+      if (mine.length > 6) mine.removeAt(0);
+    }
     if (k == SnookerKind.cue) {
       HapticFeedback.heavyImpact();
     } else {
@@ -335,148 +346,415 @@ class _SnookerScreenState extends State<SnookerScreen> with LocalGameFlow, Singl
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => guardBack(
+    AuraScaffold(
+      padding: EdgeInsets.zero,
+      showGlow: false,
+      body: LayoutBuilder(
+        // Until the phone turns (and on a tall browser window) the screen is
+        // still portrait: lay the game out sideways anyway.
+        builder: (context, box) =>
+            box.maxWidth >= box.maxHeight ? _landscape(context) : RotatedBox(quarterTurns: 1, child: _landscape(context)),
+      ),
+    ),
+  );
+
+  Widget _landscape(BuildContext context) {
     final l = context.l10n;
     final g = _game;
-    String sub(int p) {
-      final score = '${g.scores[p]}';
-      return g.turn == p && g.currentBreak > 0 ? '$score · ${l.snookerBreak(g.currentBreak)}' : score;
-    }
-
-    final message = g.moving || _event == null ? _hint : '${_event!}\n$_hint';
+    final message = g.moving || _event == null ? _hint : (_myTurn ? '${_event!} · $_hint' : _event!);
     final cueUp = !g.isOver && !g.moving && g.balls.contains(g.cue);
-    return guardBack(
-      AuraScaffold(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            LocalGameHeader(
-              title: '${snookerConfig.icon} ${snookerConfig.displayName}',
-              subtitle: l.snookerSubtitle(g.scores[0], _bot.$1, g.scores[1], g.redsLeft),
-              live: !g.isOver && !resigned,
-              onPause: openPause,
-            ),
-            const SizedBox(height: 8),
-            Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _TopBar(
+            onPause: openPause,
+            redsLeft: g.redsLeft,
+            players: [
+              (
+                name: l.you,
+                initials: 'YOU',
+                color: _youColor,
+                score: g.scores[0],
+                potted: _potted[0],
+                active: !g.isOver && g.turn == 0,
+                breakPoints: g.turn == 0 ? g.currentBreak : 0,
+                progress: !g.isOver && g.turn == 0 && !g.moving ? _timer.fraction : null,
+              ),
+              (
+                name: _bot.$1,
+                initials: _bot.$2,
+                color: _botColor,
+                score: g.scores[1],
+                potted: _potted[1],
+                active: !g.isOver && g.turn == 1,
+                breakPoints: g.turn == 1 ? g.currentBreak : 0,
+                progress: null,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: BoardPlayerCard(
-                    name: l.you,
-                    initials: 'YOU',
-                    sub: sub(0),
-                    color: _youColor,
-                    active: !g.isOver && g.turn == 0,
-                    turnText: !g.isOver && g.turn == 0 ? l.snookerYourShot : null,
-                    progress: !g.isOver && g.turn == 0 && !g.moving ? _timer.fraction : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: BoardPlayerCard(
-                    name: _bot.$1,
-                    initials: _bot.$2,
-                    sub: sub(1),
-                    color: _botColor,
-                    active: !g.isOver && g.turn == 1,
-                    turnText: !g.isOver && g.turn == 1 ? l.snookerAiming(_bot.$1) : null,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, box) {
-                  var h = box.maxHeight;
-                  var w = h * SnookerLayout.aspect;
-                  if (w > box.maxWidth) {
-                    w = box.maxWidth;
-                    h = w / SnookerLayout.aspect;
-                  }
-                  final size = Size(w, h);
-                  final layout = SnookerLayout(size);
-                  return Center(
-                    child: GestureDetector(
-                      onPanStart: (d) => _tablePanStart(d, layout),
-                      onPanUpdate: (d) => _tablePanUpdate(d, layout),
-                      child: SizedBox.fromSize(
-                        size: size,
-                        child: Stack(
-                          children: [
-                            RepaintBoundary(
-                              child: CustomPaint(size: size, painter: const SnookerTablePainter()),
-                            ),
-                            RepaintBoundary(
-                              child: CustomPaint(
-                                size: size,
-                                painter: SnookerBallsPainter(
-                                  game: g,
-                                  aim: cueUp ? (math.cos(_angle), math.sin(_angle)) : null,
-                                  power: _power,
-                                  showGuide: _myTurn,
-                                  inHandRing: _myTurn && g.inHand,
-                                  repaint: g,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              height: 34,
-              child: Center(
-                child: Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AuraText.cardSub.copyWith(fontSize: 11.5, color: _myTurn ? AuraColors.amber : Colors.white70),
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Opacity(
-              opacity: _myTurn ? 1 : 0.45,
-              child: Row(
-                children: [
-                  _SpinPad(
-                    tip: _tip,
-                    label: l.snookerSpin,
-                    onChanged: _myTurn ? (t) => setState(() => _tip = t) : null,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
+                // Left: spin, then power.
+                Opacity(
+                  opacity: _myTurn ? 1 : 0.45,
+                  child: SizedBox(
+                    width: 58,
                     child: Column(
                       children: [
-                        _FineAim(
-                          label: l.snookerFineAim,
-                          onNudge: _myTurn ? (dx) => setState(() => _angle += dx * 0.0012) : null,
+                        _SpinPad(
+                          tip: _tip,
+                          label: l.snookerSpin,
+                          onChanged: _myTurn ? (t) => setState(() => _tip = t) : null,
                         ),
                         const SizedBox(height: 8),
-                        _PowerBar(
-                          key: const ValueKey('snooker-power'),
-                          label: l.snookerPower,
-                          power: _power,
-                          onChanged: _myTurn ? (p) => setState(() => _power = p) : null,
-                          onRelease: _strike,
+                        Expanded(
+                          child: _PowerBar(
+                            key: const ValueKey('snooker-power'),
+                            label: l.snookerPower,
+                            power: _power,
+                            onChanged: _myTurn ? (p) => setState(() => _power = p) : null,
+                            onRelease: _strike,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(child: _table(cueUp)),
+                      SizedBox(
+                        height: 18,
+                        child: Center(
+                          child: Text(
+                            message,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AuraText.cardSub.copyWith(fontSize: 11, color: _myTurn ? AuraColors.amber : Colors.white70),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Right: the ball on, then fine aim.
+                SizedBox(
+                  width: 58,
+                  child: Column(
+                    children: [
+                      _BallOn(kind: g.isOver ? null : g.target, freeBall: g.freeBall),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: Opacity(
+                          opacity: _myTurn ? 1 : 0.45,
+                          child: _FineAim(
+                            label: l.snookerFineAim,
+                            onNudge: _myTurn ? (d) => setState(() => _angle += d * 0.0012) : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _table(bool cueUp) => LayoutBuilder(
+    builder: (context, box) {
+      final aspect = SnookerLayout.aspectFor(landscape: true);
+      var h = box.maxHeight;
+      var w = h * aspect;
+      if (w > box.maxWidth) {
+        w = box.maxWidth;
+        h = w / aspect;
+      }
+      final size = Size(w, h);
+      final layout = SnookerLayout(size, landscape: true);
+      final g = _game;
+      return Center(
+        child: GestureDetector(
+          onPanStart: (d) => _tablePanStart(d, layout),
+          onPanUpdate: (d) => _tablePanUpdate(d, layout),
+          child: SizedBox.fromSize(
+            size: size,
+            child: Stack(
+              children: [
+                RepaintBoundary(
+                  child: CustomPaint(size: size, painter: const SnookerTablePainter(landscape: true)),
+                ),
+                RepaintBoundary(
+                  child: CustomPaint(
+                    size: size,
+                    painter: SnookerBallsPainter(
+                      game: g,
+                      aim: cueUp ? (math.cos(_angle), math.sin(_angle)) : null,
+                      power: _power,
+                      showGuide: _myTurn,
+                      inHandRing: _myTurn && g.inHand,
+                      landscape: true,
+                      repaint: g,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+typedef _Player = ({
+  String name,
+  String initials,
+  Color color,
+  int score,
+  List<SnookerKind> potted,
+  bool active,
+  int breakPoints,
+  double? progress,
+});
+
+/// Across the top: pause, each player with their latest pots, the score
+/// between them and the reds still on the table.
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.onPause, required this.players, required this.redsLeft});
+  final VoidCallback onPause;
+  final List<_Player> players;
+  final int redsLeft;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 46,
+    child: Row(
+      children: [
+        _SquareButton(icon: Icons.pause_rounded, onTap: onPause),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2A3F78), Color(0xFF16244D)],
+              ),
+              border: Border.all(color: const Color(0xFF4F6BB5)),
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _PlayerPill(p: players[0], mirrored: false)),
+                _Score(left: players[0].score, right: players[1].score, redsLeft: redsLeft),
+                Expanded(child: _PlayerPill(p: players[1], mirrored: true)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SquareButton extends StatelessWidget {
+  const _SquareButton({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFF2B5FD9),
+    borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF8FB2FF), width: 1.5),
+        ),
+        child: Icon(icon, color: Colors.white, size: 26),
+      ),
+    ),
+  );
+}
+
+class _PlayerPill extends StatelessWidget {
+  const _PlayerPill({required this.p, required this.mirrored});
+  final _Player p;
+  final bool mirrored;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatar = Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(9),
+        color: p.color.withValues(alpha: 0.9),
+        border: Border.all(color: p.active ? AuraColors.amber : Colors.white24, width: p.active ? 2 : 1),
+        boxShadow: p.active ? [BoxShadow(color: AuraColors.amber.withValues(alpha: 0.5), blurRadius: 8)] : null,
+      ),
+      child: Text(
+        p.initials,
+        style: AuraText.cardSub.copyWith(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF14102A)),
+      ),
+    );
+    final name = p.breakPoints > 0 ? '${p.name} · ${p.breakPoints}' : p.name;
+    final info = Expanded(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: mirrored ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AuraText.cardSub.copyWith(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
+          const SizedBox(height: 3),
+          _PottedRow(potted: p.potted, mirrored: mirrored),
+          if (p.progress != null) ...[
+            const SizedBox(height: 2),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: p.progress,
+                minHeight: 2.5,
+                backgroundColor: Colors.white12,
+                color: AuraColors.amber,
               ),
             ),
-            const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+    return Row(
+      children: mirrored
+          ? [info, const SizedBox(width: 8), avatar]
+          : [avatar, const SizedBox(width: 8), info],
+    );
+  }
+}
+
+/// Six sockets, the latest pots filling them.
+class _PottedRow extends StatelessWidget {
+  const _PottedRow({required this.potted, required this.mirrored});
+  final List<SnookerKind> potted;
+  final bool mirrored;
+
+  @override
+  Widget build(BuildContext context) {
+    final cells = [
+      for (var i = 0; i < 6; i++)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1.5),
+          child: i < potted.length
+              ? SnookerBallIcon(kind: potted[i], size: 13)
+              : Container(
+                  width: 13,
+                  height: 13,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF0C1533),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  ),
+                ),
+        ),
+    ];
+    return Row(mainAxisSize: MainAxisSize.min, children: mirrored ? cells.reversed.toList() : cells);
+  }
+}
+
+class _Score extends StatelessWidget {
+  const _Score({required this.left, required this.right, required this.redsLeft});
+  final int left, right, redsLeft;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: const Color(0xFF0C1533),
+            border: Border.all(color: const Color(0xFF4F6BB5)),
+          ),
+          child: Text(
+            '$left : $right',
+            style: AuraText.cardSub.copyWith(
+              fontSize: 15, height: 1.2,
+              fontWeight: FontWeight.w800,
+              fontStyle: FontStyle.italic,
+              color: AuraColors.amber,
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SnookerBallIcon(kind: SnookerKind.red, size: 10),
+            const SizedBox(width: 3),
+            Text('× $redsLeft', style: AuraText.cardSub.copyWith(fontSize: 10, color: Colors.white70)),
           ],
         ),
-      ),
+      ],
+    ),
+  );
+}
+
+/// The ball you must hit next (any colour: all six).
+class _BallOn extends StatelessWidget {
+  const _BallOn({required this.kind, required this.freeBall});
+  final SnookerKind? kind;
+  final bool freeBall;
+
+  static const _colours = [
+    SnookerKind.yellow,
+    SnookerKind.green,
+    SnookerKind.brown,
+    SnookerKind.blue,
+    SnookerKind.pink,
+    SnookerKind.black,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final k = kind;
+    return SizedBox(
+      width: 50,
+      height: 50,
+      child: k != null && !freeBall
+          ? SnookerBallIcon(kind: k, size: 50)
+          : Wrap(
+              alignment: WrapAlignment.center,
+              runAlignment: WrapAlignment.center,
+              spacing: 2,
+              runSpacing: 2,
+              children: [for (final c in _colours) SnookerBallIcon(kind: c, size: 14)],
+            ),
     );
   }
 }
@@ -489,7 +767,7 @@ class _SpinPad extends StatelessWidget {
   final String label;
   final ValueChanged<Offset>? onChanged;
 
-  static const _size = 62.0;
+  static const _size = 54.0;
 
   void _at(Offset p) {
     var t = (p - const Offset(_size / 2, _size / 2)) / (_size / 2);
@@ -510,7 +788,8 @@ class _SpinPad extends StatelessWidget {
   );
 }
 
-/// A ribbed strip: dragging it turns the cue by hair's breadths.
+/// A tall ribbed wheel: dragging it up or down turns the cue by hair's
+/// breadths.
 class _FineAim extends StatefulWidget {
   const _FineAim({required this.label, required this.onNudge});
   final String label;
@@ -524,25 +803,25 @@ class _FineAimState extends State<_FineAim> {
   double _travel = 0;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onHorizontalDragUpdate: (d) {
-      if (widget.onNudge == null) return;
-      setState(() => _travel += d.delta.dx);
-      widget.onNudge!(d.delta.dx);
-    },
-    child: Container(
-      height: 28,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: Colors.white.withValues(alpha: 0.07),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: CustomPaint(
-        painter: _RibsPainter(_travel),
-        child: Center(
-          child: Text(widget.label, style: AuraText.cardSub.copyWith(fontSize: 10.5, color: Colors.white70)),
+  Widget build(BuildContext context) => Semantics(
+    label: widget.label,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: (d) {
+        if (widget.onNudge == null) return;
+        setState(() => _travel += d.delta.dy);
+        widget.onNudge!(d.delta.dy);
+      },
+      child: Center(
+        child: Container(
+          width: 30,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: const LinearGradient(colors: [Color(0xFF0B0F1E), Color(0xFF2A3247), Color(0xFF0B0F1E)]),
+            border: Border.all(color: const Color(0xFF4F6BB5)),
+          ),
+          child: CustomPaint(painter: _RibsPainter(_travel), size: Size.infinite),
         ),
       ),
     ),
@@ -558,18 +837,26 @@ class _RibsPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = Colors.white.withValues(alpha: 0.14)
-      ..strokeWidth = 1;
-    final start = travel % 8;
-    for (var x = start; x < size.width; x += 8) {
-      canvas.drawLine(Offset(x, 5), Offset(x, size.height - 5), p);
+    // Ribs on a turning wheel: closer together towards its ends.
+    final mid = size.height / 2;
+    for (var k = -40; k <= 40; k++) {
+      final a = (k * 8 + travel % 8) / mid; // −1..1 across the wheel
+      if (a.abs() >= 1) continue;
+      final y = mid + math.sin(a * math.pi / 2) * mid;
+      final lit = math.cos(a * math.pi / 2);
+      canvas.drawLine(
+        Offset(5, y),
+        Offset(size.width - 5, y),
+        Paint()
+          ..strokeWidth = 1.2
+          ..color = Colors.white.withValues(alpha: 0.06 + 0.22 * lit),
+      );
     }
   }
 }
 
-/// Pull along the bar for power; let go to strike, slide back to zero to
-/// call it off.
+/// Pull down the bar for power; let go to strike, slide back to the top to
+/// call it off. A cue sticks out at the level you've pulled to.
 class _PowerBar extends StatelessWidget {
   const _PowerBar({super.key, required this.label, required this.power, required this.onChanged, required this.onRelease});
   final String label;
@@ -578,40 +865,101 @@ class _PowerBar extends StatelessWidget {
   final VoidCallback onRelease;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) {
-      void at(Offset p) => onChanged?.call((p.dx / box.maxWidth).clamp(0.0, 1.0));
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (d) => at(d.localPosition),
-        onHorizontalDragUpdate: (d) => at(d.localPosition),
-        onHorizontalDragEnd: (_) => onRelease(),
-        child: Container(
-          height: 26,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.white.withValues(alpha: 0.07),
-            border: Border.all(color: Colors.white24),
-          ),
-          child: Stack(
-            children: [
-              FractionallySizedBox(
-                widthFactor: power,
-                heightFactor: 1,
-                child: const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [Color(0xFF22C55E), Color(0xFFF59E0B), Color(0xFFEF4444)]),
-                  ),
-                ),
-              ),
-              Center(
-                child: Text(label, style: AuraText.cardSub.copyWith(fontSize: 10.5, color: Colors.white)),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
+  Widget build(BuildContext context) => Semantics(
+    label: label,
+    value: '${(power * 100).round()}%',
+    child: LayoutBuilder(
+      builder: (context, box) {
+        void at(Offset p) => onChanged?.call((p.dy / box.maxHeight).clamp(0.0, 1.0));
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragStart: (d) => at(d.localPosition),
+          onVerticalDragUpdate: (d) => at(d.localPosition),
+          onVerticalDragEnd: (_) => onRelease(),
+          child: CustomPaint(size: Size(box.maxWidth, box.maxHeight), painter: _PowerPainter(power)),
+        );
+      },
+    ),
   );
+}
+
+class _PowerPainter extends CustomPainter {
+  const _PowerPainter(this.power);
+  final double power;
+
+  @override
+  bool shouldRepaint(_PowerPainter old) => old.power != power;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const w = 26.0;
+    final track = RRect.fromRectAndRadius(
+      Rect.fromLTWH((size.width - w) / 2, 0, w, size.height),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(
+      track,
+      Paint()..shader = const LinearGradient(colors: [Color(0xFF05070F), Color(0xFF1A2033), Color(0xFF05070F)]).createShader(track.outerRect),
+    );
+    // The pulled-back part, green to red.
+    if (power > 0) {
+      final fill = Rect.fromLTRB(track.left, 0, track.right, size.height * power);
+      canvas.save();
+      canvas.clipRRect(track);
+      canvas.drawRect(
+        fill,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF22C55E), Color(0xFFF59E0B), Color(0xFFEF4444)],
+          ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+      );
+      canvas.restore();
+    }
+    // A ruler down the middle.
+    for (var i = 1; i < 20; i++) {
+      final y = size.height * i / 20;
+      final big = i % 5 == 0;
+      canvas.drawLine(
+        Offset(size.width / 2 - (big ? 7 : 4), y),
+        Offset(size.width / 2 + (big ? 7 : 4), y),
+        Paint()
+          ..strokeWidth = 1
+          ..color = Colors.white.withValues(alpha: big ? 0.45 : 0.25),
+      );
+    }
+    canvas.drawRRect(
+      track,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = const Color(0xFF4F6BB5),
+    );
+    // The cue across the bar at the pull: shaft, ferrule, blue tip.
+    final y = (size.height * power).clamp(6.0, size.height - 6);
+    final shaft = RRect.fromRectAndRadius(Rect.fromLTRB(0, y - 3, size.width - 6, y + 3), const Radius.circular(3));
+    canvas.drawRRect(shaft.shift(const Offset(1, 2)), Paint()..color = Colors.black45);
+    canvas.drawRRect(
+      shaft,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: const [Color(0xFFF2DDAE), Color(0xFFC9A46A)],
+        ).createShader(shaft.outerRect),
+    );
+    canvas.drawRect(Rect.fromLTRB(size.width - 10, y - 3, size.width - 7, y + 3), Paint()..color = const Color(0xFFF2EEE0));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTRB(size.width - 7, y - 3, size.width - 3, y + 3), const Radius.circular(2)),
+      Paint()..color = const Color(0xFF3A6EA5),
+    );
+    // The level marker on the left.
+    final m = Path()
+      ..moveTo(track.left - 1, y)
+      ..lineTo(track.left - 8, y - 5)
+      ..lineTo(track.left - 8, y + 5)
+      ..close();
+    canvas.drawPath(m, Paint()..color = AuraColors.amber);
+  }
 }

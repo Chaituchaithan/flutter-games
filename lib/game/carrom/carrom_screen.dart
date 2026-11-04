@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -66,12 +67,32 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
   bool _wasMoving = false;
 
   /// Aim while dragging: direction (board units) and power 0..1.
-  (double, double)? _aim;
-  double _power = 0;
+  final CarromAim _aimState = CarromAim();
+  (double, double)? get _aim => _aimState.dir;
+  double get _power => _aimState.power;
   bool _dragStriker = false;
 
   _BotPlan? _plan;
+
+  /// Bumped on every bot turn: a plan that comes back from the background
+  /// after a pause or a newer request is dropped.
+  int _botRequest = 0;
   String? _event;
+
+  /// The line under the board, and a number that changes with it: the fade
+  /// keys on the number, so flipping back to an earlier line mid-fade never
+  /// gives two children the same key.
+  String _line = '';
+  int _lineId = 0;
+
+  /// [text] as a keyed child for the line's fade.
+  Key _lineKey(String text) {
+    if (text != _line) {
+      _line = text;
+      _lineId++;
+    }
+    return ValueKey(_lineId);
+  }
 
   /// "+1" / ♛ / FOUL rising from a pocket.
   final List<CarromPop> _pops = [];
@@ -81,7 +102,7 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
   @override
   void initState() {
     super.initState();
-    _game.addListener(_onChange);
+    _game.addListener(_onGameChange);
     _timer.addListener(_onChange);
     _ticker.start();
     WidgetsBinding.instance.addPostFrameCallback((_) => _beginTurn());
@@ -92,14 +113,39 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
     disposeFlow();
     _ticker.dispose();
     _timer.dispose();
-    _game.removeListener(_onChange);
+    _game.removeListener(_onGameChange);
     _game.dispose();
     _clock.dispose();
+    _aimState.dispose();
     super.dispose();
   }
 
   void _onChange() {
     if (mounted) setState(() {});
+  }
+
+  /// What the screen around the board shows from the game. The board repaints
+  /// itself every frame (its painter listens to the game); the rest of the
+  /// screen rebuilds only when one of these changes, not 60 times a second
+  /// while the discs slide.
+  Object? _hud;
+
+  void _onGameChange() {
+    final g = _game;
+    final hud = (
+      g.pocketed[0],
+      g.pocketed[1],
+      g.queenOwner,
+      g.queenPending,
+      g.turn,
+      g.winner,
+      g.moving,
+      g.strikerPos,
+      g.moving || g.strikerClear,
+    );
+    if (hud == _hud) return;
+    _hud = hud;
+    _onChange();
   }
 
   void _onPocket(CarromKind k) {
@@ -147,8 +193,14 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
       return;
     }
     _timer.stop();
-    scheduleBot(Duration(milliseconds: 650 + _rng.nextInt(500)), () {
-      final shot = _game.botShot(widget.difficulty);
+    final request = ++_botRequest;
+    scheduleBot(Duration(milliseconds: 650 + _rng.nextInt(500)), () async {
+      // Plan on a copy in the background (dozens of simulated shots), so the
+      // board keeps animating while the computer thinks.
+      final copy = CarromGame.planningCopy(_game, seed: _rng.nextInt(1 << 30));
+      final shot = await compute(planCarromShot, (copy, widget.difficulty));
+      if (!mounted || paused || resigned || request != _botRequest) return;
+      if (_game.turn != 1 || _game.moving || _plan != null) return;
       setState(() => _plan = _BotPlan(_game.strikerPos, shot));
     }, stillValid: () => _game.turn == 1 && !_game.moving);
   }
@@ -162,11 +214,13 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
     } else if (p.t < 1.2) {
       _game.placeStriker(p.shot.pos);
       // The aim builds up like a player pulling back.
-      _aim = (p.shot.dx, p.shot.dy);
-      _power = p.shot.power * Curves.easeOut.transform(((p.t - 0.5) / 0.6).clamp(0, 1));
+      _aimState.set(
+        (p.shot.dx, p.shot.dy),
+        p.shot.power * Curves.easeOut.transform(((p.t - 0.5) / 0.6).clamp(0, 1)),
+      );
     } else {
       _plan = null;
-      _aim = null;
+      _aimState.clear();
       for (var k = 0; k <= 20 && !_game.strikerClear; k++) {
         _game.placeStriker(0.5 + (k.isOdd ? 1 : -1) * ((k + 1) ~/ 2) * 0.05);
       }
@@ -212,7 +266,7 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
     if (!_myTurn) return;
     showAuraToast(context, context.l10n.carromTimeUp, kind: AuraToastKind.info);
     setState(() {
-      _aim = null;
+      _aimState.clear();
       _event = null;
     });
     _game.passTurn();
@@ -234,8 +288,8 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
     final near = math.sqrt(math.pow(x - st.x, 2) + math.pow(y - st.y, 2)) < 0.075;
     if (near) {
       _dragStriker = false;
-      _aim = (0, 0);
-      _power = 0;
+      // Aiming starts: the line under the board switches to the hint.
+      setState(() => _aimState.set((0, 0), 0));
     } else if ((y - st.y).abs() < 0.07) {
       // On the baseline: slide the striker there.
       _dragStriker = true;
@@ -258,10 +312,7 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
     // Slingshot: pull away from where you want it to go.
     final px = st.x - x, py = st.y - y;
     final len = math.sqrt(px * px + py * py);
-    setState(() {
-      _aim = (px, py);
-      _power = (len / 0.24).clamp(0.0, 1.0);
-    });
+    _aimState.set((px, py), (len / 0.24).clamp(0.0, 1.0));
   }
 
   void _panEnd() {
@@ -270,12 +321,13 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
       return;
     }
     final aim = _aim;
-    setState(() => _aim = null);
-    if (aim == null || !_myTurn || _power < 0.08 || !_game.strikerClear) return;
+    final power = _power;
+    setState(_aimState.clear);
+    if (aim == null || !_myTurn || power < 0.08 || !_game.strikerClear) return;
     _timer.stop();
     HapticFeedback.mediumImpact();
     _event = null;
-    _game.shoot(aim.$1, aim.$2, _power);
+    _game.shoot(aim.$1, aim.$2, power);
   }
 
   // ── LocalGameFlow ──
@@ -339,6 +391,7 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
   Widget build(BuildContext context) {
     final l = context.l10n;
     final g = _game;
+    final line = g.moving || _event == null || (_myTurn && _aim != null) ? _hint : _event!;
     String sub(int p) {
       final s = l.carromCoinsOf(p == 0 ? l.carromWhite : l.carromBlack, g.pocketed[p]);
       return g.queenOwner == p ? '$s · ♛' : s;
@@ -393,12 +446,11 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
                             size: Size.square(side),
                             painter: CarromBoardPainter(
                               game: g,
-                              aim: _aim,
-                              power: _power,
+                              aimState: _aimState,
                               yourTurn: _myTurn,
                               pops: _pops,
                               time: _clock,
-                              repaint: Listenable.merge([g, _clock]),
+                              repaint: Listenable.merge([g, _clock, _aimState]),
                             ),
                           ),
                         ),
@@ -426,8 +478,8 @@ class _CarromScreenState extends State<CarromScreen> with LocalGameFlow, SingleT
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
                   child: Text(
-                    g.moving || _event == null || (_myTurn && _aim != null) ? _hint : _event!,
-                    key: ValueKey('${_event}_$_hint${g.moving}'),
+                    line,
+                    key: _lineKey(line),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     style: AuraText.cardSub.copyWith(
@@ -483,7 +535,14 @@ class _BaselineSlider extends StatelessWidget {
     opacity: enabled ? 1 : 0.45,
     child: LayoutBuilder(
       builder: (context, box) {
-        const thumb = 40.0;
+        // The striker sits in the wooden groove: its disc is the groove's
+        // height (plus a hair, so no wood shows round it) and it slides right
+        // into the rounded ends.
+        const rim = 4.0; // red surround
+        const groove = 36.0;
+        const track = groove + 2 * rim;
+        const disc = groove + 2;
+        const thumb = disc + 6; // CarromStrikerIcon leaves 3 px round its disc
         final w = box.maxWidth - thumb;
         void at(Offset p) => enabled ? onChanged(((p.dx - thumb / 2) / w).clamp(0.0, 1.0)) : null;
         return GestureDetector(
@@ -491,17 +550,34 @@ class _BaselineSlider extends StatelessWidget {
           onTapDown: (d) => at(d.localPosition),
           onHorizontalDragUpdate: (d) => at(d.localPosition),
           child: SizedBox(
-            height: 44,
+            height: 54,
             child: Stack(
               alignment: Alignment.centerLeft,
               children: [
+                // A wooden groove in a red lacquered surround, like the board.
                 Container(
-                  height: 10,
-                  margin: const EdgeInsets.symmetric(horizontal: thumb / 2),
+                  height: track,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(5),
-                    color: Colors.white.withValues(alpha: 0.08),
-                    border: Border.all(color: Colors.white24),
+                    borderRadius: BorderRadius.circular(track / 2),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFFA42A1E), Color(0xFF6E140D), Color(0xFF3E0805)],
+                    ),
+                    boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 3))],
+                  ),
+                  padding: const EdgeInsets.all(rim),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(groove / 2),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFB5733F), Color(0xFFDDA067), Color(0xFFC4824A)],
+                        stops: [0, 0.45, 1],
+                      ),
+                      border: Border.all(color: Colors.black.withValues(alpha: 0.35)),
+                    ),
                   ),
                 ),
                 Positioned(

@@ -7,6 +7,7 @@ import '../l10n/l10n.dart';
 import 'app_profile.dart';
 import 'root_key.dart';
 import 'routes.dart';
+import 'screen_orientation.dart';
 import 'session_guard.dart';
 import '../services/api_client.dart';
 import '../services/session.dart';
@@ -86,12 +87,21 @@ class PortraitFrame extends StatelessWidget {
   static const maxWidth = 520.0;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+    valueListenable: LandscapeMode.screens, // a landscape screen (Snooker) uses the whole window
+    builder: (context, n, _) => _frame(context, framing: n == 0),
+  );
+
+  /// Always the same widgets around [child], whether framed or not: only
+  /// sizes change, so turning the phone (or opening Snooker) never rebuilds
+  /// the navigator and its open screens.
+  Widget _frame(BuildContext context, {required bool framing}) {
     final mq = MediaQuery.of(context);
     final size = mq.size;
     final landscape = size.width > size.height;
-    final width = landscape ? (size.height * 0.5).clamp(320.0, maxWidth) : size.width.clamp(0.0, maxWidth);
-    if (width >= size.width) return child;
+    final phone = landscape ? (size.height * 0.5).clamp(320.0, maxWidth) : size.width.clamp(0.0, maxWidth);
+    final framed = framing && phone < size.width;
+    final width = framed ? phone : size.width;
     return ColoredBox(
       color: const Color(0xFF05040A),
       child: Center(
@@ -102,12 +112,14 @@ class PortraitFrame extends StatelessWidget {
             // Screens size themselves from MediaQuery: give them the frame's
             // size (and no side insets) so layouts compute for phone width.
             child: MediaQuery(
-              data: mq.copyWith(
-                size: Size(width, size.height),
-                padding: mq.padding.copyWith(left: 0, right: 0),
-                viewPadding: mq.viewPadding.copyWith(left: 0, right: 0),
-                viewInsets: mq.viewInsets.copyWith(left: 0, right: 0),
-              ),
+              data: framed
+                  ? mq.copyWith(
+                      size: Size(width, size.height),
+                      padding: mq.padding.copyWith(left: 0, right: 0),
+                      viewPadding: mq.viewPadding.copyWith(left: 0, right: 0),
+                      viewInsets: mq.viewInsets.copyWith(left: 0, right: 0),
+                    )
+                  : mq,
               child: child,
             ),
           ),

@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:snakeladder/game/carrom/carrom_board_view.dart';
+import 'package:snakeladder/game/carrom/carrom_engine.dart';
 import 'package:snakeladder/game/carrom/carrom_screen.dart';
 import 'package:snakeladder/l10n/gen/app_localizations.dart';
 
@@ -49,8 +51,8 @@ void main() {
     final board = find.byType(CustomPaint).evaluate().map((e) => e.renderObject! as RenderBox).reduce((a, b) => a.size.width * a.size.height > b.size.width * b.size.height ? a : b);
     final o = board.localToGlobal(Offset.zero);
     final side = board.size.width;
-    final f = side * 0.082, s = side - 2 * f;
-    final striker = o + Offset(f + 0.5 * s, f + (1 - 0.137) * s);
+    final f = side * CarromBoardPainter.frame, s = side - 2 * f;
+    final striker = o + Offset(f + 0.5 * s, f + (1 - CarromRules.baseInset) * s);
     final g = await tester.startGesture(striker);
     await tester.pump(const Duration(milliseconds: 16));
     await g.moveBy(const Offset(0, 20));

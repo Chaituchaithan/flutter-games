@@ -44,9 +44,12 @@ void main() {
       expect(g.target, SnookerKind.red);
     });
 
-    test('real proportions: 2:1 and a 52.5 mm ball', () {
+    test('real 2:1 table; a 52.5 mm ball drawn ballScale× bigger', () {
       expect(l / w, closeTo(2, 0.01));
-      expect(SnookerRules.r * 2, closeTo(0.0525, 1e-9));
+      expect(SnookerRules.r * 2, closeTo(0.0525 * SnookerRules.ballScale, 1e-9));
+      // The pockets grow with the balls: a ball still fits the middle mouth
+      // with the same room as on a real table.
+      expect(SnookerRules.midMouth * 2 / (SnookerRules.r * 2), closeTo(0.116 / 0.0525, 1e-9));
     });
   });
 

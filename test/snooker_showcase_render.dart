@@ -28,7 +28,7 @@ Future<void> _capture(WidgetTester tester, GlobalKey key, String name) async {
 void main() {
   testWidgets('snooker showcase', (tester) async {
     final key = GlobalKey();
-    tester.view.physicalSize = const Size(430, 900);
+    tester.view.physicalSize = const Size(900, 430);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -46,11 +46,11 @@ void main() {
     await _capture(tester, key, 'opening');
 
     final bar = find.byKey(const ValueKey('snooker-power'));
-    final g = await tester.startGesture(tester.getTopLeft(bar) + const Offset(10, 12));
+    final g = await tester.startGesture(tester.getTopLeft(bar) + const Offset(29, 6));
     await tester.pump(const Duration(milliseconds: 16));
-    await g.moveBy(const Offset(40, 0));
+    await g.moveBy(const Offset(0, 40));
     await tester.pump(const Duration(milliseconds: 16));
-    await g.moveBy(const Offset(170, 0));
+    await g.moveBy(const Offset(0, 120));
     await tester.pump(const Duration(milliseconds: 16));
     await _capture(tester, key, 'aim');
     await g.up();
@@ -58,6 +58,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
     }
     await _capture(tester, key, 'break');
+
+    // A portrait window (before the phone turns, or a tall browser): the
+    // game lays itself out sideways anyway.
+    tester.view.physicalSize = const Size(430, 900);
+    await tester.pump(const Duration(milliseconds: 16));
+    await _capture(tester, key, 'portrait_window');
     await tester.pumpWidget(const SizedBox());
   });
 }

@@ -157,4 +157,21 @@ void main() {
     g.discs.removeWhere((d) => d.kind != CarromKind.striker);
     expect(g.botShot(1).pos, 0.5, reason: 'nothing to aim at: the centre fallback');
   });
+
+  test('the computer plans on a copy: same shot, real board untouched', () {
+    final g = CarromGame(rng: math.Random(4));
+    g.shoot(0, -1, 0.9); // break, so the board isn't the plain rack
+    runShot(g);
+    final before = [for (final d in g.discs) (d.kind, d.x, d.y)];
+    final a = planCarromShot((CarromGame.planningCopy(g, seed: 7), 3));
+    final b = planCarromShot((CarromGame.planningCopy(g, seed: 7), 3));
+    expect((a.pos, a.dx, a.dy, a.power), (b.pos, b.dx, b.dy, b.power));
+    expect([for (final d in g.discs) (d.kind, d.x, d.y)], before);
+    final copy = CarromGame.planningCopy(g);
+    expect(copy.turn, g.turn);
+    expect(copy.pocketed, g.pocketed);
+    expect(copy.discs.length, g.discs.length);
+    expect(identical(copy.striker, g.striker), isFalse);
+    expect(copy.discs.contains(copy.striker), isTrue);
+  });
 }

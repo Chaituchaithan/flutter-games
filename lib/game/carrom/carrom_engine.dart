@@ -42,10 +42,13 @@ class CarromSink {
 
 /// Board sizes and physics, in board units (74 cm play area = 1).
 abstract final class CarromRules {
-  static const coinR = 0.0215; // 3.18 cm coin
-  static const strikerR = 0.028; // 4.13 cm striker
+  // Casual-game proportions: about 1.45× a tournament board's pieces, so
+  // they read well on a phone (tournament: coin 0.0215, striker 0.028,
+  // pocket 0.031).
+  static const coinR = 0.031;
+  static const strikerR = 0.04;
   static const strikerMass = 2.4; // 15 g vs ~5.5 g coins (softened a bit)
-  static const pocketR = 0.031; // 4.45 cm pocket
+  static const pocketR = 0.046;
   static const coinsEach = 9;
 
   /// Baselines: the striker's centre line, and how far along it may go.
@@ -120,6 +123,26 @@ class CarromGame extends ChangeNotifier {
   CarromGame({math.Random? rng}) : _rng = rng ?? math.Random() {
     _rack();
     _placeStriker();
+  }
+
+  /// A copy of the board for the computer to plan on: discs, scores and
+  /// whose turn, no listeners. Safe to send to another isolate.
+  CarromGame.planningCopy(CarromGame g, {int? seed}) : _rng = math.Random(seed) {
+    for (final d in g.discs) {
+      final c = d.copy();
+      discs.add(c);
+      if (identical(d, g.striker)) striker = c;
+    }
+    if (!g.discs.contains(g.striker)) striker = g.striker.copy();
+    pocketed
+      ..[0] = g.pocketed[0]
+      ..[1] = g.pocketed[1];
+    queenOwner = g.queenOwner;
+    queenPending = g.queenPending;
+    turn = g.turn;
+    strikerPos = g.strikerPos;
+    winner = g.winner;
+    _nextId = g._nextId;
   }
 
   final math.Random _rng;
@@ -547,7 +570,7 @@ class CarromGame extends ChangeNotifier {
     final mine = colorOf(me), theirs = colorOf(1 - me);
     final y = CarromRules.baseY(me);
     final targets = discs.where((d) => d.kind == mine || (d.kind == CarromKind.queen && pocketed[me] > 0)).toList();
-    final cands = <(double, double, double, double, double)>[]; // geo score, pos, dx, dy, power
+    final cands = <(double, double, double, double, double, bool)>[]; // geo score, pos, dx, dy, power, queen?
     for (var i = 0; i <= 12; i++) {
       final pos = i / 12;
       final sx = _baseX(pos);
@@ -570,7 +593,7 @@ class CarromGame extends ChangeNotifier {
           if (cut < 0.25) continue;
           final score = cut * 2 - el - al * 0.4;
           final power = (0.28 + (el + al) * 0.32 / math.max(cut, 0.4)).clamp(0.25, 0.95);
-          cands.add((score, pos, ax, ay, power));
+          cands.add((score, pos, ax, ay, power, c.kind == CarromKind.queen));
         }
       }
     }
@@ -585,15 +608,26 @@ class CarromGame extends ChangeNotifier {
       2 => 0.022,
       _ => 0.008,
     };
+    // With the queen still out, your last coin only comes back: go for the
+    // queen first.
+    final queenFirst = queenOwner == null && pocketed[me] >= CarromRules.coinsEach - 1;
+    final ownValue = queenFirst ? 1.0 : 10.0;
+    final queenValue = queenFirst ? 14.0 : 6.0;
     ({double pos, double dx, double dy, double power})? best;
     var bestScore = -1e9;
-    for (final c in cands.take(tries)) {
+    final pool = queenFirst
+        ? [
+            ...cands.where((c) => c.$6).take(tries),
+            ...cands.where((c) => !c.$6).take(tries ~/ 2),
+          ]
+        : cands.take(tries);
+    for (final c in pool) {
       for (final pm in const [1.0, 1.25]) {
         final power = (c.$5 * pm).clamp(0.2, 1.0);
         final r = simulate(c.$2, c.$3, c.$4, power);
         var s = 0.0;
         for (final k in r.inShot) {
-          s += k == mine ? 10 : (k == theirs ? -9 : 6);
+          s += k == mine ? ownValue : (k == theirs ? -9 : queenValue);
         }
         if (r.striker) s -= 18;
         s += c.$1;
@@ -655,3 +689,9 @@ class CarromGame extends ChangeNotifier {
   }
   return (x: s.x + ux * bestT, y: s.y + uy * bestT, hit: hit);
 }
+
+/// The computer's shot for [args] = (a [CarromGame.planningCopy], difficulty).
+/// Top-level so it can run on a background isolate via `compute`: planning
+/// simulates dozens of shots, too much work for one animation frame.
+({double pos, double dx, double dy, double power}) planCarromShot((CarromGame, int) args) =>
+    args.$1.botShot(args.$2);

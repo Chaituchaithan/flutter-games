@@ -87,14 +87,26 @@ class SnookerRail {
 /// The 12 ft table and its physics, in metres and seconds.
 abstract final class SnookerRules {
   static const width = 1.778, length = 3.569;
-  static const r = 0.02625;
+
+  /// Balls (and the pockets and jaws they must fit) are drawn this much
+  /// bigger than a real 52.5 mm ball, so they read well on a phone. The
+  /// table, the D, baulk and the spots stay true to size.
+  static const ballScale = 1.7;
+  static const r = 0.02625 * ballScale;
 
   static const baulkY = length - 0.737;
   static const dRadius = 0.292;
 
   /// Half the middle pocket's mouth, and how far the corner mouth runs along
   /// each cushion from the corner.
-  static const midMouth = 0.058, cornerMouth = 0.0675;
+  static const midMouth = 0.058 * ballScale, cornerMouth = 0.0675 * ballScale;
+
+  /// Where the jaws end, behind the cushion line (pocket geometry, scaled
+  /// with the balls).
+  static const jawAlong = 0.035 * ballScale, jawBack = 0.05 * ballScale;
+
+  /// How far past the cushion line a pocket's aim point sits.
+  static const pocketInset = 0.015 * ballScale;
 
   /// Hardest shot.
   static const maxSpeed = 6.5;
@@ -124,12 +136,12 @@ abstract final class SnookerRules {
 
   /// Where a ball aims to fall: TL, TR, BL, BR, middle left, middle right.
   static const pockets = [
-    (0.015, 0.015),
-    (width - 0.015, 0.015),
-    (0.015, length - 0.015),
-    (width - 0.015, length - 0.015),
-    (-0.015, length / 2),
-    (width + 0.015, length / 2),
+    (pocketInset, pocketInset),
+    (width - pocketInset, pocketInset),
+    (pocketInset, length - pocketInset),
+    (width - pocketInset, length - pocketInset),
+    (-pocketInset, length / 2),
+    (width + pocketInset, length / 2),
   ];
 
   /// Every cushion nose and jaw.
@@ -137,6 +149,7 @@ abstract final class SnookerRules {
 
   static List<SnookerRail> _buildRails() {
     const w = width, l = length, c = cornerMouth, m = midMouth, mid = length / 2;
+    const a = jawAlong, b = jawBack;
     SnookerRail jaw(double x1, double y1, double x2, double y2) => SnookerRail(x1, y1, x2, y2, jaw: true);
     return [
       const SnookerRail(c, 0, w - c, 0),
@@ -146,35 +159,36 @@ abstract final class SnookerRules {
       const SnookerRail(w, c, w, mid - m),
       const SnookerRail(w, mid + m, w, l - c),
       // Corners.
-      jaw(c, 0, 0.035, -0.05),
-      jaw(0, c, -0.05, 0.035),
-      jaw(w - c, 0, w - 0.035, -0.05),
-      jaw(w, c, w + 0.05, 0.035),
-      jaw(c, l, 0.035, l + 0.05),
-      jaw(0, l - c, -0.05, l - 0.035),
-      jaw(w - c, l, w - 0.035, l + 0.05),
-      jaw(w, l - c, w + 0.05, l - 0.035),
+      jaw(c, 0, a, -b),
+      jaw(0, c, -b, a),
+      jaw(w - c, 0, w - a, -b),
+      jaw(w, c, w + b, a),
+      jaw(c, l, a, l + b),
+      jaw(0, l - c, -b, l - a),
+      jaw(w - c, l, w - a, l + b),
+      jaw(w, l - c, w + b, l - a),
       // Middles.
-      jaw(0, mid - m, -0.05, mid - m * 0.9),
-      jaw(0, mid + m, -0.05, mid + m * 0.9),
-      jaw(w, mid - m, w + 0.05, mid - m * 0.9),
-      jaw(w, mid + m, w + 0.05, mid + m * 0.9),
+      jaw(0, mid - m, -b, mid - m * 0.9),
+      jaw(0, mid + m, -b, mid + m * 0.9),
+      jaw(w, mid - m, w + b, mid - m * 0.9),
+      jaw(w, mid + m, w + b, mid + m * 0.9),
     ];
   }
 
   /// The pocket a ball at (x, y) has fallen into, if any.
   static int? fallen(double x, double y) {
-    const fall = 0.025;
+    const fall = 0.025 * ballScale;
     if (x + y < fall) return 0;
     if (width - x + y < fall) return 1;
     if (x + length - y < fall) return 2;
     if (width - x + length - y < fall) return 3;
-    if ((y - length / 2).abs() < 0.12) {
-      if (x < -0.012) return 4;
-      if (x > width + 0.012) return 5;
+    if ((y - length / 2).abs() < 0.12 * ballScale) {
+      if (x < -0.012 * ballScale) return 4;
+      if (x > width + 0.012 * ballScale) return 5;
     }
     // Rattled clean out of a jaw: it can only have gone down the nearest hole.
-    if (x < -0.06 || x > width + 0.06 || y < -0.06 || y > length + 0.06) {
+    const out = 0.06 * ballScale;
+    if (x < -out || x > width + out || y < -out || y > length + out) {
       if ((y - length / 2).abs() < length / 4) return x < width / 2 ? 4 : 5;
       return (x < width / 2 ? 0 : 1) + (y < length / 2 ? 0 : 2);
     }
@@ -470,7 +484,7 @@ class SnookerGame extends ChangeNotifier {
   }
 
   static bool _nearEdge(SnookerBall b) {
-    const m = SnookerRules.r + 0.015;
+    const m = SnookerRules.r + SnookerRules.pocketInset;
     return b.x < m || b.x > SnookerRules.width - m || b.y < m || b.y > SnookerRules.length - m;
   }
 
