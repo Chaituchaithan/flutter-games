@@ -141,6 +141,10 @@ class PokerPlayer {
   int contributed = 0;
   bool acted = false;
 
+  /// Acted before a short all-in this street: may only call or fold until
+  /// a full raise reopens the betting.
+  bool raiseClosed = false;
+
   /// Shown above the seat ("Raise 120", "Check"…).
   String? lastAction;
   int handsWon = 0;
@@ -195,6 +199,9 @@ class PokerGame extends ChangeNotifier {
   int minRaiseTo(PokerPlayer p) => math.min(currentBet + minRaise, p.chips + p.bet);
   int maxRaiseTo(PokerPlayer p) => p.chips + p.bet;
 
+  /// [p] may raise: has chips beyond the call and the betting is open to them.
+  bool canRaise(PokerPlayer p) => !p.raiseClosed && maxRaiseTo(p) > currentBet;
+
   Iterable<int> get _seated sync* {
     for (var i = 0; i < players.length; i++) {
       if (players[i].chips > 0) yield i;
@@ -230,6 +237,7 @@ class PokerGame extends ChangeNotifier {
         ..bet = 0
         ..contributed = 0
         ..acted = false
+        ..raiseClosed = false
         ..lastAction = null;
     }
     dealer = _next(dealer, (p) => p.chips > 0);
@@ -272,17 +280,30 @@ class PokerGame extends ChangeNotifier {
         final a = math.min(toCall(p), p.chips);
         _post(p, a);
         p.lastAction = p.allIn ? 'All-in' : 'Call ${_fmt(a)}';
+      case PokerMove.raise || PokerMove.allIn when !canRaise(p) && maxRaiseTo(p) > currentBet:
+        // Betting isn't open to this player (short all-in): it's a call.
+        final a = toCall(p);
+        _post(p, a);
+        p.lastAction = p.allIn ? 'All-in' : 'Call ${_fmt(a)}';
       case PokerMove.raise || PokerMove.allIn:
         final target = move == PokerMove.allIn ? maxRaiseTo(p) : raiseTo.clamp(minRaiseTo(p), maxRaiseTo(p));
         final raiseBy = target - currentBet;
         _post(p, target - p.bet);
         if (target > currentBet) {
-          // A full raise reopens the betting; a short all-in doesn't change
-          // the minimum raise.
-          if (raiseBy >= minRaise) minRaise = raiseBy;
+          // A full raise reopens the betting for everyone. A short all-in
+          // doesn't: it leaves the minimum raise, and players who already
+          // acted may only call the extra or fold.
+          final full = raiseBy >= minRaise;
+          if (full) minRaise = raiseBy;
           currentBet = target;
           for (final o in players) {
-            if (o != p && o.canAct) o.acted = false;
+            if (o == p || !o.canAct) continue;
+            if (full) {
+              o.raiseClosed = false;
+            } else if (o.acted) {
+              o.raiseClosed = true;
+            }
+            o.acted = false;
           }
         }
         p.lastAction = p.allIn ? 'All-in' : (currentBet == target && raiseBy > 0 ? 'Raise ${_fmt(target)}' : 'Call');
@@ -314,7 +335,8 @@ class PokerGame extends ChangeNotifier {
     for (final p in players) {
       p
         ..bet = 0
-        ..acted = false;
+        ..acted = false
+        ..raiseClosed = false;
       if (p.inHand && !p.allIn) p.lastAction = null;
     }
     currentBet = 0;
@@ -412,8 +434,17 @@ class PokerGame extends ChangeNotifier {
 
 String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 
-/// A computer player's choice: (move, raise-to).
-(PokerMove, int) botDecision(PokerGame g, int difficulty, math.Random rng) {
+/// Monte Carlo iterations a computer player of [difficulty] runs.
+int botEquityIterations(int difficulty) => difficulty >= 3 ? 320 : 200;
+
+/// The computer's raw equity for `compute` (background isolate): args are
+/// (hole, board, opponents, iterations, seed).
+double botEquity((List<PlayingCard>, List<PlayingCard>, int, int, int) a) =>
+    estimateEquity(a.$1, a.$2, a.$3, math.Random(a.$5), iterations: a.$4);
+
+/// A computer player's choice: (move, raise-to). Pass [equity] from
+/// [botEquity] (run off the UI thread); without it the estimate runs here.
+(PokerMove, int) botDecision(PokerGame g, int difficulty, math.Random rng, {double? equity}) {
   final p = g.current;
   final opponents = g.players.where((o) => o.inHand && o != p).length;
   final noise = switch (difficulty) {
@@ -421,9 +452,8 @@ String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d)
     2 => 0.07,
     _ => 0.03,
   };
-  final equity = (estimateEquity(p.hole, g.board, opponents, rng, iterations: difficulty >= 3 ? 320 : 200) +
-          (rng.nextDouble() * 2 - 1) * noise)
-      .clamp(0.0, 1.0);
+  final raw = equity ?? estimateEquity(p.hole, g.board, opponents, rng, iterations: botEquityIterations(difficulty));
+  final eq = (raw + (rng.nextDouble() * 2 - 1) * noise).clamp(0.0, 1.0);
   final call = g.toCall(p);
   final pot = g.pot;
   // How good a hand must be to bet with this many opponents.
@@ -439,18 +469,18 @@ String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d)
   }
 
   if (call == 0) {
-    if (equity > strong || rng.nextDouble() < bluff) {
-      final t = sized(equity > strong + 0.2 ? 0.75 : 0.5);
+    if (g.canRaise(p) && (eq > strong || rng.nextDouble() < bluff)) {
+      final t = sized(eq > strong + 0.2 ? 0.75 : 0.5);
       return (t >= g.maxRaiseTo(p) ? PokerMove.allIn : PokerMove.raise, t);
     }
     return (PokerMove.check, 0);
   }
   final potOdds = call / (pot + call);
-  if (equity > strong + 0.15 && rng.nextDouble() < 0.6 && g.maxRaiseTo(p) > g.currentBet) {
+  if (eq > strong + 0.15 && rng.nextDouble() < 0.6 && g.canRaise(p)) {
     final t = sized(0.8);
     return (t >= g.maxRaiseTo(p) ? PokerMove.allIn : PokerMove.raise, t);
   }
-  if (equity >= potOdds + 0.02 || (difficulty <= 1 && rng.nextDouble() < 0.2)) {
+  if (eq >= potOdds + 0.02 || (difficulty <= 1 && rng.nextDouble() < 0.2)) {
     return (call >= p.chips ? PokerMove.allIn : PokerMove.call, 0);
   }
   return (PokerMove.fold, 0);

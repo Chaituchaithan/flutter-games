@@ -37,8 +37,11 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
   Timer? _ticker;
 
   /// Shared ambient loop: rays, chest float, flame flicker, today pulse.
-  late final AnimationController _ambient = AnimationController(vsync: this, duration: const Duration(seconds: 6))
-    ..repeat();
+  /// Started once the page has finished sliding in (see
+  /// [didChangeDependencies]) so the first, most expensive frames — often
+  /// right after login, while Home is still settling — don't also animate.
+  late final AnimationController _ambient = AnimationController(vsync: this, duration: const Duration(seconds: 6));
+  Animation<double>? _routeAnimation;
 
   /// Coin burst after a successful claim.
   late final AnimationController _burst = AnimationController(
@@ -63,7 +66,30 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context)?.animation;
+    if (route == _routeAnimation) return;
+    _routeAnimation?.removeStatusListener(_onRouteStatus);
+    _routeAnimation = route;
+    if (route == null || route.status == AnimationStatus.completed) {
+      _startAmbient();
+    } else {
+      route.addStatusListener(_onRouteStatus);
+    }
+  }
+
+  void _onRouteStatus(AnimationStatus s) {
+    if (s == AnimationStatus.completed) _startAmbient();
+  }
+
+  void _startAmbient() {
+    if (mounted && !_ambient.isAnimating) _ambient.repeat();
+  }
+
+  @override
   void dispose() {
+    _routeAnimation?.removeStatusListener(_onRouteStatus);
     _ticker?.cancel();
     _ambient.dispose();
     _burst.dispose();
@@ -246,12 +272,12 @@ class _RewardHero extends StatelessWidget {
         child: Stack(
           children: [
             // Light rays behind the chest (dimmed while waiting).
+            // Own layer: the rays repaint every frame, the card doesn't.
             Positioned.fill(
-              child: AnimatedBuilder(
-                animation: ambient,
-                builder: (_, _) => CustomPaint(
+              child: RepaintBoundary(
+                child: CustomPaint(
                   painter: _RaysPainter(
-                    turn: ambient.value,
+                    animation: ambient,
                     color: accent,
                     strength: ready ? 1 : 0.35,
                     center: const Alignment(0, -0.2),
@@ -281,9 +307,12 @@ class _RewardHero extends StatelessWidget {
                       offset: Offset(0, ready ? math.sin(ambient.value * 2 * math.pi * 3) * 4 : 0),
                       child: child,
                     ),
-                    child: CustomPaint(
-                      size: const Size(84, 70),
-                      painter: _ChestPainter(open: !ready, accent: accent),
+                    // Painted once (blurred shadow + glow), then only moved.
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        size: const Size(84, 70),
+                        painter: _ChestPainter(open: !ready, accent: accent),
+                      ),
                     ),
                   ),
                   const Spacer(),
@@ -354,14 +383,16 @@ class _Pill extends StatelessWidget {
 
 /// Soft rotating light rays + glow from [center].
 class _RaysPainter extends CustomPainter {
-  _RaysPainter({required this.turn, required this.color, required this.strength, required this.center});
-  final double turn;
+  _RaysPainter({required this.animation, required this.color, required this.strength, required this.center})
+    : super(repaint: animation);
+  final Animation<double> animation;
   final Color color;
   final double strength;
   final Alignment center;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final turn = animation.value;
     final c = center.alongSize(size);
     final glowR = size.width * 0.5;
     canvas.drawCircle(
@@ -397,7 +428,7 @@ class _RaysPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RaysPainter o) => o.turn != turn || o.strength != strength || o.color != color;
+  bool shouldRepaint(_RaysPainter o) => o.animation != animation || o.strength != strength || o.color != color;
 }
 
 /// Drawn treasure chest. Closed (with a lock) = reward waiting; open with the
@@ -529,20 +560,22 @@ class _StreakCard extends StatelessWidget {
                   final flick = lit ? 1 + 0.06 * math.sin(t) + 0.03 * math.sin(t * 2.7) : 1.0;
                   return Transform.scale(scale: flick, alignment: Alignment.bottomCenter, child: child);
                 },
-                child: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: lit
-                          ? const [AuraColors.brandOrange, AuraColors.danger]
-                          : const [Color(0xFF2A2440), Color(0xFF1C1830)],
+                child: RepaintBoundary(
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: lit
+                            ? const [AuraColors.brandOrange, AuraColors.danger]
+                            : const [Color(0xFF2A2440), Color(0xFF1C1830)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    child: Icon(Icons.local_fire_department, color: lit ? Colors.white : Colors.white38, size: 28),
                   ),
-                  child: Icon(Icons.local_fire_department, color: lit ? Colors.white : Colors.white38, size: 28),
                 ),
               ),
               const SizedBox(width: 14),
@@ -787,28 +820,39 @@ class _DayTile extends StatelessWidget {
 
     // Today: a pulsing glow on an opaque base (so it never shows through the
     // translucent fill).
-    return AnimatedBuilder(
-      animation: ambient,
-      builder: (_, child) {
-        final p = 0.5 + 0.5 * math.sin(ambient.value * 2 * math.pi * 4);
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: const Color(0xFF1A1236),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFA855F7).withValues(alpha: 0.35 + 0.3 * p),
-                blurRadius: 14 + 10 * p,
-                spreadRadius: -4,
+    // The glow is painted once with a fixed blur and only its opacity
+    // pulses — animating the blur radius re-rasterised a Gaussian blur every
+    // frame.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: FadeTransition(
+            opacity: ambient.drive(const _Pulse()),
+            child: const RepaintBoundary(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.all(Radius.circular(16)),
+                  boxShadow: [BoxShadow(color: Color(0xFFA855F7), blurRadius: 20, spreadRadius: -4)],
+                ),
               ),
-            ],
+            ),
           ),
-          child: child,
-        );
-      },
-      child: DecoratedBox(decoration: decoration, child: content),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: const Color(0xFF1A1236)),
+          child: DecoratedBox(decoration: decoration, child: content),
+        ),
+      ],
     );
   }
+}
+
+/// The "today" glow's opacity over the ambient loop: 4 soft pulses.
+class _Pulse extends Animatable<double> {
+  const _Pulse();
+  @override
+  double transform(double t) => 0.35 + 0.3 * (0.5 + 0.5 * math.sin(t * 2 * math.pi * 4));
 }
 
 // ── Claim celebration ───────────────────────────────────────────────────────

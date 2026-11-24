@@ -15,6 +15,8 @@ import 'chess_engine.dart';
 class ChessBot {
   ChessBot({this.depth = 2, Random? rng, this.timeMs = 3000, List<String> history = const []})
     : _rng = rng ?? Random(),
+      // A named parameter can't be private, so `this._history` isn't possible.
+      // ignore: prefer_initializing_formals
       _history = history {
     _salt = _rng.nextInt(1 << 30);
   }

@@ -1116,24 +1116,36 @@ class _BetPanel extends StatelessWidget {
                       height: 22,
                       width: 36,
                       child: FittedBox(
-                        child: Switch(
+                        child: Semantics(
+                          label: l.autoCashOut,
+                          child: Switch(
                           value: b.autoCashOut != null,
                           activeTrackColor: AuraColors.brandPurple,
                           onChanged: (on) =>
                               game.setAuto(index, on ? 2.0 : null),
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        l.autoCashOut,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11.5,
+                    // With the target stepper showing there's no room for
+                    // the label (it wrapped a letter or two per line): the
+                    // switch + "2.00×" speak for themselves, and the switch
+                    // keeps the label for screen readers.
+                    if (b.autoCashOut != null)
+                      const Spacer()
+                    else
+                      Expanded(
+                        child: Text(
+                          l.autoCashOut,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11.5,
+                          ),
                         ),
                       ),
-                    ),
                     if (b.autoCashOut != null) ...[
                       _Step(
                         icon: Icons.remove,

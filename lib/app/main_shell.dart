@@ -65,12 +65,22 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     }
   }
 
+  /// How long Home settles before the Daily Rewards prompt slides in.
+  static const _promptDelay = Duration(milliseconds: 900);
+
   /// Check the daily-bonus status once Home is up; if it can be claimed, show
   /// Daily Rewards (a slow or failed check just stays on Home).
   Future<void> _promptDailyBonus() async {
     final sub = ref.listenManual(dailyBonusStatusProvider, (_, _) {});
     try {
-      final s = await ref.read(dailyBonusStatusProvider.future).timeout(const Duration(seconds: 6));
+      // Give Home a moment to finish its first, heaviest frames (layout,
+      // images, fonts, data landing) before sliding Daily Rewards over it.
+      // Pushing ~80 ms after Home appeared stacked both screens' first
+      // frames into the transition: half a second of dropped frames.
+      final (s, _) = await (
+        ref.read(dailyBonusStatusProvider.future).timeout(const Duration(seconds: 6)),
+        Future<void>.delayed(_promptDelay),
+      ).wait;
       if (!s.canClaim || !mounted) return;
       // Only over Home itself — never on top of a screen the player opened.
       if (ModalRoute.of(context)?.isCurrent != true) return;

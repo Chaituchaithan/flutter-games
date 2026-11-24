@@ -4,6 +4,33 @@ import 'package:flutter/material.dart';
 
 import '../../widgets/aura.dart';
 
+/// Tells a game screen when its page is fully covered by another page (and
+/// uncovered again) — e.g. on web, a URL change pushes a new page on top
+/// while the game stays mounted underneath, its timers still running.
+///
+/// Uses [TickerMode]: the navigator switches it off for a route that's
+/// hidden behind an opaque page, and leaves it on under dialogs and sheets
+/// (the pause menu, a forfeit confirm, a promotion picker), so those don't
+/// count as "covered". Call [update] from `didChangeDependencies`; the
+/// callbacks run after the frame, never during build.
+class CoverWatch {
+  bool _covered = false;
+
+  /// The page is hidden behind another page right now.
+  bool get covered => _covered;
+
+  void update(State state, {required VoidCallback onCovered, required VoidCallback onUncovered}) {
+    final covered = !TickerMode.valuesOf(state.context).enabled;
+    if (covered == _covered) return;
+    _covered = covered;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Skip if it flipped back before the frame ended, or the screen left.
+      if (!state.mounted || _covered != covered) return;
+      covered ? onCovered() : onUncovered();
+    });
+  }
+}
+
 /// The game-flow plumbing every local (vs-computer) game screen shares:
 /// pause / resume, forfeit with confirmation, and the hand-off to the result
 /// screen once the game ends. A game screen mixes this in and implements the
@@ -16,6 +43,39 @@ mixin LocalGameFlow<T extends StatefulWidget> on State<T> {
 
   /// Pending computer action (cancelled on pause / game over / dispose).
   Timer? botTimer;
+
+  final _cover = CoverWatch();
+
+  /// Paused because the page was covered (not by the player).
+  bool _pausedWhileCovered = false;
+
+  /// The game ended while covered: show the result once it's visible again.
+  bool _resultWaiting = false;
+
+  /// Covered by another page: pause (clocks, computer players, callers),
+  /// and hold back the result screen. Uncovered: the pause menu, so the
+  /// player picks up deliberately rather than mid-move.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cover.update(
+      this,
+      onCovered: () {
+        if (paused || resigned || _resultShown) return;
+        _pausedWhileCovered = true;
+        pauseGame();
+      },
+      onUncovered: () {
+        if (_resultWaiting) {
+          _resultWaiting = false;
+          showResult();
+        } else if (_pausedWhileCovered) {
+          _pausedWhileCovered = false;
+          if (paused && !_resultShown && !resigned) openPause();
+        }
+      },
+    );
+  }
 
   /// "Move 12" etc. for the pause overlay.
   String get pauseSubtitle;
@@ -71,7 +131,13 @@ mixin LocalGameFlow<T extends StatefulWidget> on State<T> {
     _resultShown = true;
     botTimer?.cancel();
     _resultTimer = Timer(immediate ? Duration.zero : (delay ?? const Duration(milliseconds: 1100)), () {
-      if (mounted) showResult();
+      if (!mounted) return;
+      // Never push the result over a page the player moved on to.
+      if (_cover.covered) {
+        _resultWaiting = true;
+      } else {
+        showResult();
+      }
     });
   }
 

@@ -157,16 +157,19 @@ class CrashGame extends ChangeNotifier {
         if (elapsed >= CrashRules.bettingSeconds) _startFlight(now);
       case CrashPhase.flying:
         final m = CrashRules.multiplierAt(elapsed);
-        if (m >= crashPoint) {
-          multiplier = crashPoint;
-          _crash(now);
-        } else {
-          multiplier = (m * 100).floorToDouble() / 100;
-          for (final b in bets) {
-            final auto = b.autoCashOut;
-            if (b.active && b.cashedAt == null && auto != null && multiplier >= auto) _cashOut(b, auto);
+        final crashed = m >= crashPoint;
+        multiplier = crashed ? crashPoint : (m * 100).floorToDouble() / 100;
+        // Auto cash-outs first: a long frame (app resumed, a stall) can jump
+        // past both the target and the crash — a target the flight reached
+        // still pays. "Crash at x" means x was reached, so a target equal to
+        // the crash point wins (P(win) = P(crash ≥ x) = 0.99 / x).
+        for (final b in bets) {
+          final auto = b.autoCashOut;
+          if (b.active && b.cashedAt == null && auto != null && auto <= multiplier) {
+            _cashOut(b, auto);
           }
         }
+        if (crashed) _crash(now);
       case CrashPhase.crashed:
         if (elapsed >= CrashRules.afterCrashSeconds) _startBetting(now);
     }

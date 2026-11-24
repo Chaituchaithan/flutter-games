@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -246,8 +247,21 @@ class _PokerScreenState extends State<PokerScreen> with LocalGameFlow, TickerPro
       2 => 1200 + _rng.nextInt(1300),
       _ => 1500 + _rng.nextInt(1700),
     };
-    scheduleBot(Duration(milliseconds: think), () {
-      final (move, to) = botDecision(_game, widget.difficulty, _rng);
+    scheduleBot(Duration(milliseconds: think), () async {
+      // The equity estimate is thousands of hand evaluations: run it off
+      // the UI thread, then act only if the table is still where it was.
+      final bot = g.current, hand = g.handNo, stage = g.stage;
+      final equity = await compute(botEquity, (
+        List.of(bot.hole),
+        List.of(g.board),
+        g.players.where((o) => o.inHand && o != bot).length,
+        botEquityIterations(widget.difficulty),
+        _rng.nextInt(1 << 30),
+      ));
+      if (!mounted || paused || resigned || g.handOver || g.handNo != hand || g.stage != stage || g.current != bot) {
+        return;
+      }
+      final (move, to) = botDecision(g, widget.difficulty, _rng, equity: equity);
       _game.act(move, raiseTo: to);
       _advance();
     });
@@ -1031,7 +1045,7 @@ class _ActionBar extends StatelessWidget {
     final l = context.l10n;
     final me = game.you;
     final call = game.toCall(me);
-    final canRaise = enabled && game.maxRaiseTo(me) > game.currentBet && me.chips > call;
+    final canRaise = enabled && game.canRaise(me) && me.chips > call;
     Widget button(String label, List<Color> colors, VoidCallback? onTap) => Expanded(
       child: Opacity(
         opacity: onTap == null ? 0.4 : 1,

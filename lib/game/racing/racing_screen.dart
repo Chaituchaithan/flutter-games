@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -36,6 +37,14 @@ class _RacingScreenState extends State<RacingScreen>
   double _t = 0;
   int _chip = 25;
 
+  /// The order the live standings show: [RacingGame.stableStandings],
+  /// refreshed at most once per row slide so rows always finish moving
+  /// before they move again (neck-and-neck cars used to swap back and forth
+  /// mid-slide, leaving two rows drawn on top of each other).
+  List<int>? _shown;
+  double _shownAt = 0;
+  static const _reorderEvery = 0.4; // s; the rows slide for 0.35 s
+
   // Commentary.
   String? _call;
   int? _leader;
@@ -62,6 +71,8 @@ class _RacingScreenState extends State<RacingScreen>
   void _start() {
     _game.start();
     _t = 0;
+    _shown = null;
+    _shownAt = 0;
     _leader = null;
     _calledStretch = false;
     _call = context.l10n.andTheyreOff;
@@ -72,7 +83,12 @@ class _RacingScreenState extends State<RacingScreen>
     final l = context.l10n;
     _t = elapsed.inMicroseconds / 1e6;
     final g = _game;
-    final lead = g.standings(_t).first;
+    final next = g.stableStandings(_t, _shown);
+    if (_shown == null || (_t - _shownAt >= _reorderEvery && !listEquals(next, _shown))) {
+      _shown = next;
+      _shownAt = _t;
+    }
+    final lead = _shown!.first;
     final leadX = g.runs[lead].at(_t);
     if (_t > 1.6 && lead != _leader && leadX < 1) {
       _call = l.takesTheLead(raceField[lead].name);
@@ -135,7 +151,7 @@ class _RacingScreenState extends State<RacingScreen>
           if (g.phase == RacePhase.racing) ...[
             _Commentary(text: _call ?? ''),
             const SizedBox(height: 8),
-            _LiveStandings(game: g, t: _t),
+            _LiveStandings(game: g, t: _t, order: _shown ?? g.standings(_t)),
           ],
           if (g.phase == RacePhase.finished) ...[
             _Podium(game: g),
@@ -751,15 +767,15 @@ class _Commentary extends StatelessWidget {
 
 /// Positions during the race; rows slide when cars swap places.
 class _LiveStandings extends StatelessWidget {
-  const _LiveStandings({required this.game, required this.t});
+  const _LiveStandings({required this.game, required this.t, required this.order});
   final RacingGame game;
   final double t;
+  final List<int> order;
 
   static const rowH = 36.0;
 
   @override
   Widget build(BuildContext context) {
-    final order = game.standings(t);
     return SizedBox(
       height: rowH * raceField.length,
       child: Stack(

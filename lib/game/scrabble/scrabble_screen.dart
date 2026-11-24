@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,6 +12,7 @@ import '../common/board_game_setup.dart';
 import '../common/local_game_flow.dart';
 import '../common/turn_timer.dart';
 import 'scrabble_board_view.dart';
+import 'scrabble_bot_worker.dart';
 import 'scrabble_engine.dart';
 import 'scrabble_words.g.dart';
 
@@ -275,13 +275,9 @@ class _ScrabbleScreenState extends State<ScrabbleScreen> with LocalGameFlow {
       _ => (2000, 1200),
     };
     final think = minMs + _rng.nextInt(spread);
-    compute(_scrabbleBot, (
-      List<Tile?>.of(_game.board),
-      List<Tile>.of(_game.racks[1]),
-      lex.words,
-      widget.difficulty,
-      _rng.nextInt(1 << 30),
-    )).then((play) {
+    ScrabbleBotWorker.instance
+        .choose(List<Tile?>.of(_game.board), List<Tile>.of(_game.racks[1]), widget.difficulty, _rng.nextInt(1 << 30))
+        .then((play) {
       if (!mounted || gen != _botGen) return;
       final wait = think - DateTime.now().difference(started).inMilliseconds;
       scheduleBot(Duration(milliseconds: wait.clamp(0, think)), () {
@@ -660,7 +656,3 @@ class _LoadingBoard extends StatelessWidget {
     ],
   );
 }
-
-/// The computer's move search for [compute] (background isolate).
-ScrabblePlay? _scrabbleBot((List<Tile?>, List<Tile>, List<String>, int, int) a) =>
-    chooseScrabblePlay(a.$1, a.$2, Lexicon(a.$3), a.$4, a.$5);

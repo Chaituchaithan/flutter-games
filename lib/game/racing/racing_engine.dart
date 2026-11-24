@@ -202,6 +202,35 @@ class RacingGame extends ChangeNotifier {
     return idx;
   }
 
+  /// [standings] for display: starts from the [previous] order and only
+  /// moves a car up once it's clearly ahead (by [margin] of the track), so
+  /// cars running neck and neck don't swap places every frame — that made the
+  /// sliding standings rows re-target mid-slide and sit on top of each other.
+  /// Finished cars always show in their true finishing order.
+  List<int> stableStandings(double t, List<int>? previous, {double margin = 0.004}) {
+    final exact = standings(t);
+    if (previous == null || previous.length != exact.length) return exact;
+    final rank = {for (var k = 0; k < exact.length; k++) exact[k]: k};
+    bool clearlyAhead(int a, int b) {
+      if (runs[a].finishAt <= t || runs[b].finishAt <= t) return rank[a]! < rank[b]!;
+      return runs[a].at(t) > runs[b].at(t) + margin;
+    }
+
+    final o = List.of(previous);
+    for (var swapped = true; swapped;) {
+      swapped = false;
+      for (var k = 0; k + 1 < o.length; k++) {
+        if (clearlyAhead(o[k + 1], o[k])) {
+          final x = o[k];
+          o[k] = o[k + 1];
+          o[k + 1] = x;
+          swapped = true;
+        }
+      }
+    }
+    return o;
+  }
+
   /// Gap between first and second at the line (seconds).
   double get winningMargin => runs[order[1]].finishAt - runs[order[0]].finishAt;
 

@@ -384,7 +384,7 @@ class _LudoScreenState extends State<LudoScreen> with LocalGameFlow {
           turnColor: _isOver ? null : ludoColor(_game.current),
           yourTurn: _myTurn,
         ),
-        actionBar: BoardActionBar(statusLabel: _status, active: _canRoll || _canPick, onResign: live ? forfeit : null),
+        actionBar: BoardActionBar(statusLabel: _status, active: _canRoll || _canPick, onStatusTap: _canRoll ? _roll : null, onResign: live ? forfeit : null),
       ),
     ),
     );

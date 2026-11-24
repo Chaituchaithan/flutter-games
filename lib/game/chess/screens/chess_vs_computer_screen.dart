@@ -73,6 +73,34 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
     });
   }
 
+  final _cover = CoverWatch();
+  bool _pausedWhileCovered = false;
+  bool _resultWaiting = false;
+
+  /// Hidden behind another page: pause (clock + bot) and hold the result;
+  /// back in view: the pause menu (see [CoverWatch]).
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cover.update(
+      this,
+      onCovered: () {
+        if (_paused || _resultShown) return;
+        _pausedWhileCovered = true;
+        _pause();
+      },
+      onUncovered: () {
+        if (_resultWaiting) {
+          _resultWaiting = false;
+          _showResult();
+        } else if (_pausedWhileCovered) {
+          _pausedWhileCovered = false;
+          if (_paused && !_resultShown) _openPause();
+        }
+      },
+    );
+  }
+
   @override
   void dispose() {
     _botGen++;
@@ -247,6 +275,10 @@ class _ChessVsComputerScreenState extends State<ChessVsComputerScreen> {
 
   void _showResult() {
     if (!mounted) return;
+    if (_cover.covered) {
+      _resultWaiting = true;
+      return;
+    }
     final outcome = _isDraw ? MatchOutcome.draw : (_playerWon ? MatchOutcome.victory : MatchOutcome.defeat);
     Navigator.pushReplacement(
       context,

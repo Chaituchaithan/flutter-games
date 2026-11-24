@@ -15,7 +15,7 @@ extension DiscX on Disc {
 ///   and the most discs wins.
 @immutable
 class OthelloState {
-  const OthelloState(this.cells, this.turn);
+  OthelloState(this.cells, this.turn);
 
   /// null = empty.
   final List<Disc?> cells;
@@ -55,13 +55,17 @@ class OthelloState {
     return out;
   }
 
-  List<int> legalMoves([Disc? who]) {
-    final w = who ?? turn;
-    return [
-      for (var i = 0; i < 64; i++)
-        if (cells[i] == null && flipsFor(i, w).isNotEmpty) i,
-    ];
-  }
+  /// Legal squares for [who] (default: the side to move). Computed once per
+  /// position and side: [isOver], [play] and the bot all ask.
+  List<int> legalMoves([Disc? who]) => (who ?? turn) == Disc.black ? _blackMoves : _whiteMoves;
+
+  late final List<int> _blackMoves = _generateMoves(Disc.black);
+  late final List<int> _whiteMoves = _generateMoves(Disc.white);
+
+  List<int> _generateMoves(Disc w) => List.unmodifiable([
+    for (var i = 0; i < 64; i++)
+      if (cells[i] == null && flipsFor(i, w).isNotEmpty) i,
+  ]);
 
   /// Place at [sq] for the player to move, flip, and hand over the turn (the
   /// opponent passes automatically when they have no move).

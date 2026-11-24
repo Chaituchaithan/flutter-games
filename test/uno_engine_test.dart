@@ -101,8 +101,9 @@ void main() {
   test('Wild +4 names the colour; the next player draws 4', () {
     final g = rigged(3, const [
       UnoCard(501, UnoKind.wildDrawFour),
-      UnoCard(502, UnoKind.number, color: UnoColor.red, number: 1),
-      UnoCard(503, UnoKind.number, color: UnoColor.red, number: 2),
+      // No red (the colour in play), so the +4 is legal.
+      UnoCard(502, UnoKind.number, color: UnoColor.green, number: 1),
+      UnoCard(503, UnoKind.number, color: UnoColor.yellow, number: 2),
     ]);
     final before = g.hands[1].length;
     g.play(g.hands[0].first, chosen: UnoColor.blue);

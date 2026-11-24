@@ -183,15 +183,21 @@ class UnoGame extends ChangeNotifier {
     return ((f + direction * steps) % players + players) % players;
   }
 
-  bool canPlay(UnoCard c) => UnoRules.canPlay(c, top, color);
+  /// Can [seat] (default: the player to move) play [c] now? A Wild +4 is
+  /// only allowed when they hold no other card of the colour in play.
+  bool canPlay(UnoCard c, [int? seat]) {
+    if (!UnoRules.canPlay(c, top, color)) return false;
+    if (c.kind != UnoKind.wildDrawFour) return true;
+    return !hands[seat ?? turn].any((h) => h != c && h.color == color);
+  }
 
   /// The current player's legal cards (only the drawn one after a draw).
   List<UnoCard> playable([int? seat]) {
     final s = seat ?? turn;
     if (s == turn && drawn != null) {
-      return canPlay(drawn!) ? [drawn!] : const [];
+      return canPlay(drawn!, s) ? [drawn!] : const [];
     }
-    return hands[s].where(canPlay).toList();
+    return [for (final c in hands[s]) if (canPlay(c, s)) c];
   }
 
   List<UnoCard> _take(int n) {

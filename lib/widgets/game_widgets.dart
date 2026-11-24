@@ -826,9 +826,14 @@ class BoardActionBar extends StatelessWidget {
     this.resignIcon = Icons.flag_outlined,
     this.undoLeft,
     this.onUndo,
+    this.onStatusTap,
   });
 
   final String statusLabel;
+
+  /// Makes the status bar itself a button (e.g. "Your turn — roll" rolls).
+  /// Null = just a label.
+  final VoidCallback? onStatusTap;
 
   /// Quick Play: take-backs left (shows the undo button when set); [onUndo]
   /// null = not possible right now (button dimmed).
@@ -856,35 +861,42 @@ class BoardActionBar extends StatelessWidget {
           const SizedBox(width: 10),
         ],
         Expanded(
-          child: Container(
-            height: 54,
-            alignment: Alignment.center,
-            decoration: active
-                ? BoxDecoration(
-                    gradient: AuraGradients.brand,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AuraColors.brandPink.withValues(alpha: 0.4),
-                        blurRadius: 22,
-                        offset: const Offset(0, 10),
+          child: Semantics(
+            button: onStatusTap != null,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onStatusTap,
+              child: Container(
+                height: 54,
+                alignment: Alignment.center,
+                decoration: active
+                    ? BoxDecoration(
+                        gradient: AuraGradients.brand,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AuraColors.brandPink.withValues(alpha: 0.4),
+                            blurRadius: 22,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      )
+                    : BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
                       ),
-                    ],
-                  )
-                : BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                child: Text(
+                  statusLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AuraText.displayFamily,
+                    color: Colors.white.withValues(alpha: active ? 1 : 0.7),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                   ),
-            child: Text(
-              statusLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: AuraText.displayFamily,
-                color: Colors.white.withValues(alpha: active ? 1 : 0.7),
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),

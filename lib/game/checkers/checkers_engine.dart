@@ -45,7 +45,7 @@ class CheckerMove {
 ///   capture and no man moving is a draw.
 @immutable
 class CheckersState {
-  const CheckersState(this.board, this.turn, {this.quietPlies = 0});
+  CheckersState(this.board, this.turn, {this.quietPlies = 0});
 
   final List<Checker?> board;
   final CheckerSide turn;
@@ -72,7 +72,12 @@ class CheckersState {
       p.king ? const [(-1, -1), (-1, 1), (1, -1), (1, 1)] : [(p.side.forward, -1), (p.side.forward, 1)];
 
   /// Every legal move for the side to move (captures only, if any exist).
-  List<CheckerMove> legalMoves() {
+  /// Computed once per position: [isOver], [winner] and the bot all ask.
+  List<CheckerMove> legalMoves() => _legal;
+
+  late final List<CheckerMove> _legal = List.unmodifiable(_generateMoves());
+
+  List<CheckerMove> _generateMoves() {
     final jumps = <CheckerMove>[];
     final steps = <CheckerMove>[];
     for (var sq = 0; sq < 64; sq++) {

@@ -649,7 +649,7 @@ class SnookerGame extends ChangeNotifier {
         ..wz = 0;
     }
     final me = turn, other = 1 - turn;
-    final on = _shotOn, wasFree = freeBall;
+    final on = _shotOn;
     final j = _judge(on, _first, _inShot, _cueIn);
     final foul = j.foul > 0;
     final pots = List.of(_inShot);
@@ -696,7 +696,8 @@ class SnookerGame extends ChangeNotifier {
       inOff: _cueIn,
       again: again,
     );
-    _checkEnd(foul, wasBlackOnly: on == SnookerKind.black && !wasFree);
+    // The black is only ever on once it's the last ball, free ball or not.
+    _checkEnd(foul, wasBlackOnly: on == SnookerKind.black);
     if (!isOver && foul && !inHand) freeBall = snookered;
   }
 

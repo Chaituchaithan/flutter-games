@@ -376,10 +376,14 @@ class RummyGame extends ChangeNotifier {
       ..add(top);
   }
 
+  /// The card the player to move drew this turn (goes back on a drop).
+  PlayingCard? _drawn;
+
   PlayingCard draw({required bool fromDiscard}) {
     assert(phase == RummyTurnPhase.draw && !over);
     _refillStock();
     final c = fromDiscard ? discard.removeLast() : stock.removeLast();
+    _drawn = c;
     current.hand.add(c);
     current.hasDrawn = true;
     phase = RummyTurnPhase.discard;
@@ -398,6 +402,7 @@ class RummyGame extends ChangeNotifier {
 
   void _nextTurn() {
     phase = RummyTurnPhase.draw;
+    _drawn = null;
     final active = players.where((p) => !p.dropped).length;
     if (active < 2) {
       winner = players.indexWhere((p) => !p.dropped);
@@ -416,7 +421,11 @@ class RummyGame extends ChangeNotifier {
     assert(phase == RummyTurnPhase.discard && !over);
     current.hand.remove(finish);
     discard.add(finish);
-    if (isValidDeclaration(groups, wildRank)) {
+    // The groups must be exactly the cards left in hand (each card unique).
+    final laid = [for (final g in groups) ...g];
+    final laidSet = laid.toSet();
+    final sameCards = laid.length == current.hand.length && laidSet.length == laid.length && laidSet.containsAll(current.hand);
+    if (sameCards && isValidDeclaration(groups, wildRank)) {
       winner = turn;
       lastEvent = 'declared';
       _score();
@@ -441,7 +450,9 @@ class RummyGame extends ChangeNotifier {
       ..score = p.hasDrawn ? RummyRules.middleDrop : RummyRules.firstDrop;
     if (phase == RummyTurnPhase.discard) {
       // Drop after drawing: the drawn card goes back on the discard pile.
-      discard.add(p.hand.removeLast());
+      final c = _drawn ?? p.hand.last;
+      p.hand.remove(c);
+      discard.add(c);
     }
     lastEvent = 'dropped';
     _nextTurn();

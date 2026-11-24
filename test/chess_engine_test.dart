@@ -82,8 +82,8 @@ void main() {
       expect(draw('8/8/8/4k3/8/8/8/4K3 w - - 0 1'), isTrue, reason: 'bare kings');
       expect(draw('8/8/8/4k3/8/8/8/2N1K3 w - - 0 1'), isTrue, reason: 'lone knight');
       expect(draw('8/8/8/4k3/8/8/8/2B1K3 w - - 0 1'), isTrue, reason: 'lone bishop');
-      expect(draw('5b2/8/8/4k3/8/8/8/2B1K3 w - - 0 1'), isFalse, reason: 'f8 and c1: opposite colours');
-      expect(draw('2b5/8/8/4k3/8/8/8/2B1K3 w - - 0 1'), isTrue, reason: 'c8 and c1: same colour');
+      expect(draw('5b2/8/8/4k3/8/8/8/2B1K3 w - - 0 1'), isTrue, reason: 'f8 and c1: both dark squares');
+      expect(draw('2b5/8/8/4k3/8/8/8/2B1K3 w - - 0 1'), isFalse, reason: 'c8 (light) and c1 (dark): opposite colours');
       expect(draw('8/8/8/4k3/8/8/4P3/4K3 w - - 0 1'), isFalse, reason: 'a pawn can promote');
       expect(draw('8/8/8/4k3/8/8/8/1NN1K3 w - - 0 1'), isFalse);
     });

@@ -5,7 +5,7 @@ import 'package:snakeladder/game/othello/othello_engine.dart';
 void main() {
   test('opening: Black has the 4 classic moves; a move flips', () {
     final s = OthelloState.initial();
-    expect(s.legalMoves()..sort(), [19, 26, 37, 44]); // d3 c4 f5 e6
+    expect([...s.legalMoves()]..sort(), [19, 26, 37, 44]); // d3 c4 f5 e6
     final n = s.play(19);
     expect(n.cells[19], Disc.black);
     expect(n.cells[27], Disc.black, reason: 'd4 flipped');

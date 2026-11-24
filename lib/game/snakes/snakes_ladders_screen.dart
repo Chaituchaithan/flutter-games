@@ -331,7 +331,7 @@ class _SnakesLaddersScreenState extends State<SnakesLaddersScreen> with LocalGam
           turnColor: _isOver ? null : _seats[_game.turn].color,
           yourTurn: _myTurn,
         ),
-        actionBar: BoardActionBar(statusLabel: _status, active: _canRoll, onResign: live ? forfeit : null),
+        actionBar: BoardActionBar(statusLabel: _status, active: _canRoll, onStatusTap: _canRoll ? _roll : null, onResign: live ? forfeit : null),
       ),
     ),
     );

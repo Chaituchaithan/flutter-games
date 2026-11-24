@@ -311,8 +311,16 @@ class ChessState {
   }
 
   /// What makes two positions "the same" for repetition: pieces, side to
-  /// move, castling rights and en passant.
-  String get positionKey => toFen().split(' ').take(4).join(' ');
+  /// move, castling rights and en passant — the en-passant square only
+  /// counts when a pawn can actually take there (FIDE 9.2).
+  String get positionKey {
+    final parts = toFen().split(' ').take(4).toList();
+    if (enPassant != null && !_enPassantPossible) parts[3] = '-';
+    return parts.join(' ');
+  }
+
+  bool get _enPassantPossible =>
+      legalMoves().any((m) => m.isEnPassant);
 
   /// Apply a legal [move], returning the next state. Promotion defaults to
   /// queen if the move reaches the last rank without a promotion set.
