@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/main_shell.dart';
 import '../../app/routes.dart';
+import '../../data/repositories/inbox_repository.dart';
 import '../../services/session.dart';
 import '../../l10n/l10n.dart';
 import '../../widgets/aura.dart';
@@ -11,6 +12,10 @@ import '../match/online_play_sheet.dart';
 import '../../app/app_profile.dart';
 import '../../app/game_area.dart';
 import '../../configs/games/games.dart';
+import '../../services/catalogue_service.dart';
+import '../../configs/games/core/game_codes.dart';
+import '../profile/progress_ui.dart';
+import '../../services/progress_service.dart';
 
 /// Home tab (v2). Body only — MainShell provides the background, SafeArea and
 /// bottom nav. The HUD header is a fixed (sticky) block; everything below it
@@ -143,13 +148,24 @@ class _HomeScreenState extends State<HomeScreen> {
         else
         // ── All games: scrolling content ──
         Expanded(
-          child: ListView(
+          // Pull to refresh re-reads the games list (04-game-catalogue.md).
+          child: RefreshIndicator(
+            onRefresh: () => ProviderScope.containerOf(context).read(catalogueEventsProvider).refreshGames().catchError((Object _) {}),
+            child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(kPageGutter, 14, kPageGutter, 20),
             children: [
               // Mockup game chips: pick the active game (registry-driven).
               // Games without a built game area show as "Soon".
               // A single-game app has no game picker.
               if (!AppProfile.current.singleGame) const _GameChips(),
+              // 08-progress: the active game's level, XP and rating.
+              Consumer(
+                builder: (context, ref, _) => Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: GameProgressHeader(gameCode: GameCodes.codeOf(ref.watch(activeGameProvider))),
+                ),
+              ),
               const SizedBox(height: 14),
               _FeaturedHero(onTap: _openMatchFlow),
               const SizedBox(height: 14),
@@ -201,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ],
           ),
+          ),
         ),
       ],
     );
@@ -229,6 +246,8 @@ class _ProfileHeaderCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    // No account-wide level exists (08): the bar shows the active game's.
+    final lvl = ref.watch(activeGameLevelProvider);
     final country = user.country;
     return AuraCard(
       child: Column(
@@ -242,7 +261,7 @@ class _ProfileHeaderCard extends ConsumerWidget {
                   onTap: onProfile,
                   child: Row(
                     children: [
-                      AuraAvatar(initials: user.initials, size: 50, level: user.level),
+                      AuraAvatar(initials: user.initials, size: 50, level: lvl.level),
                       const SizedBox(width: 11),
                       Expanded(
                         child: Column(
@@ -274,7 +293,8 @@ class _ProfileHeaderCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _NotificationBell(count: '6', onTap: onBell),
+              // 10-inbox: unread messages + new notifications; hidden at 0.
+              _NotificationBell(count: ref.watch(inboxBadgeProvider).any ? ref.watch(inboxBadgeProvider).label : null, onTap: onBell),
               const SizedBox(width: 8),
               Column(
                 mainAxisSize: MainAxisSize.min,
@@ -303,7 +323,7 @@ class _ProfileHeaderCard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: Text(
-                  'LV ${user.level}',
+                  'LV ${lvl.level}',
                   style: TextStyle(
                     fontFamily: AuraText.displayFamily,
                     color: AuraColors.accentGlow,
@@ -313,9 +333,9 @@ class _ProfileHeaderCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(child: _ProgressBar(fraction: user.xpFraction)),
+              Expanded(child: _ProgressBar(fraction: lvl.fraction)),
               const SizedBox(width: 10),
-              Text('${_fmt(user.xp)} / ${_fmt(user.xpMax)}', style: AuraText.cardSub.copyWith(fontSize: 11)),
+              Text('${_fmt(lvl.xp)} / ${_fmt(lvl.xpNeeded)} XP', style: AuraText.cardSub.copyWith(fontSize: 11)),
             ],
           ),
         ],
@@ -326,7 +346,9 @@ class _ProfileHeaderCard extends ConsumerWidget {
 
 class _NotificationBell extends StatelessWidget {
   const _NotificationBell({required this.count, required this.onTap});
-  final String count;
+
+  /// Null = no badge.
+  final String? count;
   final VoidCallback onTap;
 
   @override
@@ -353,6 +375,7 @@ class _NotificationBell extends StatelessWidget {
               ),
             ),
           ),
+          if (count != null)
           Positioned(
             top: -5,
             right: -5,
@@ -366,7 +389,7 @@ class _NotificationBell extends StatelessWidget {
                 border: Border.all(color: AuraColors.bgBase, width: 2),
               ),
               child: Text(
-                count,
+                count!,
                 style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
               ),
             ),
@@ -708,26 +731,17 @@ class _AdBanner extends StatelessWidget {
   }
 }
 
-/// Game-chip row (scrolls sideways to the screen edges): every registered game. The active one is highlighted;
-/// tapping a playable game switches to it, others show "Soon" and a toast.
+/// Game-chip row (scrolls sideways to the screen edges): the catalogue's
+/// games in the gateway's order (the local registry while offline). The
+/// active one is highlighted; tapping a playable game switches to it, others
+/// show "Soon" and a toast.
 class _GameChips extends ConsumerWidget {
   const _GameChips();
-
-  /// This app's games, then (dev build) the not-yet-built ones as "Soon".
-  static List<GameConfig> get _chips {
-    final profile = AppProfile.current;
-    return [
-      for (final m in profile.modules) m.config,
-      if (profile.showComingSoon)
-        for (final g in GameRegistry.homeChips)
-          if (!profile.includes(g.id)) g,
-    ];
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = ref.watch(activeGameProvider);
-    final chips = _chips;
+    final chips = ref.watch(homeGamesProvider);
     // One sideways-scrolling row running to the screen edges (12 games no
     // longer wrap into four rows); the active game is scrolled into view.
     return SizedBox(
@@ -740,15 +754,17 @@ class _GameChips extends ConsumerWidget {
           separatorBuilder: (_, _) => const SizedBox(width: 8),
           itemBuilder: (context, i) {
             final g = chips[i];
+            final playable = g.playable && g.id != null && GameRegistry.isAvailable(g.id!);
             return _GameChip(
               game: g,
-              selected: g.id == active,
+              playable: playable,
+              selected: g.id != null && g.id == active,
               onTap: () {
-                if (GameRegistry.isAvailable(g.id)) {
-                  ref.read(activeGameProvider.notifier).select(g.id);
+                if (playable) {
+                  ref.read(activeGameProvider.notifier).select(g.id!);
                   Scrollable.ensureVisible(context, alignment: 0.5, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
                 } else {
-                  showAuraToast(context, context.l10n.gameComingSoon(g.displayName), kind: AuraToastKind.info);
+                  showAuraToast(context, context.l10n.gameComingSoon(g.name), kind: AuraToastKind.info);
                 }
               },
             );
@@ -760,8 +776,9 @@ class _GameChips extends ConsumerWidget {
 }
 
 class _GameChip extends StatelessWidget {
-  const _GameChip({required this.game, required this.selected, required this.onTap});
-  final GameConfig game;
+  const _GameChip({required this.game, required this.playable, required this.selected, required this.onTap});
+  final HomeGame game;
+  final bool playable;
   final bool selected;
   final VoidCallback onTap;
 
@@ -770,7 +787,7 @@ class _GameChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Opacity(
-        opacity: GameRegistry.isAvailable(game.id) ? 1 : 0.55,
+        opacity: playable ? 1 : 0.55,
         child: Container(
           height: 38,
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -786,12 +803,13 @@ class _GameChip extends StatelessWidget {
               Text(game.icon, style: const TextStyle(fontSize: 13)),
               const SizedBox(width: 6),
               Text(
-                game.chipName,
+                // Offline: the app's short chip name; else the catalogue's name.
+                game.game == null ? (game.config?.chipName ?? game.name) : game.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 11.5, color: Colors.white),
               ),
-              if (!GameRegistry.isAvailable(game.id)) ...[
+              if (!playable) ...[
                 const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),

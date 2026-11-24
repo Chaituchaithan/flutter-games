@@ -6,7 +6,10 @@ import 'package:share_plus/share_plus.dart';
 import '../../app/app_profile.dart';
 import '../../data/models/referral.dart';
 import '../../data/repositories/referral_repository.dart';
+import '../../data/sources/referral_source.dart' show inviteLink;
 import '../../l10n/l10n.dart';
+import '../../services/app_exception.dart';
+import '../../services/social_api.dart' show SocialOp, socialErrorText;
 import '../../widgets/aura.dart';
 import '../system/loading_skeleton_screen.dart' show Shimmer, SkeletonBox;
 
@@ -49,6 +52,8 @@ class ReferralScreen extends ConsumerWidget {
               },
             ),
           ),
+          const SizedBox(height: 14),
+          const _ApplyCodeCard(),
           const SizedBox(height: 22),
           SectionBar(l.howItWorks),
           const SizedBox(height: 12),
@@ -87,6 +92,89 @@ class ReferralScreen extends ConsumerWidget {
               ),
             ),
           const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Have a friend's code?" (09-social.md §5b): `POST /referrals/apply`,
+/// shown only until it succeeds or answers `409` (already used one).
+class _ApplyCodeCard extends ConsumerStatefulWidget {
+  const _ApplyCodeCard();
+
+  @override
+  ConsumerState<_ApplyCodeCard> createState() => _ApplyCodeCardState();
+}
+
+class _ApplyCodeCardState extends ConsumerState<_ApplyCodeCard> {
+  final _code = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  Future<void> _apply() async {
+    final text = _code.text.trim();
+    if (text.isEmpty || text.length > 16) {
+      setState(() => _error = socialErrorText(const AppException('', statusCode: 400, code: ApiErrorCode.validation), SocialOp.referralApply));
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(referralAppliedProvider.notifier).apply(text);
+      if (mounted) showAuraToast(context, context.l10n.referralApplied, kind: AuraToastKind.success);
+    } on AppException catch (e) {
+      final msg = socialErrorText(e, SocialOp.referralApply);
+      if (!mounted) return;
+      if (e.code == ApiErrorCode.conflict) {
+        showAuraToast(context, msg, kind: AuraToastKind.info);
+      } else {
+        setState(() => _error = msg);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    if (ref.watch(referralAppliedProvider).value ?? true) return const SizedBox.shrink();
+    return AuraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l.referralHaveCode, style: AuraText.cardTitle.copyWith(fontSize: 14.5)),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AuraTextField(
+                  hint: l.referralCodeHint,
+                  icon: Icons.card_giftcard_outlined,
+                  controller: _code,
+                  errorText: _error,
+                  onChanged: (_) => setState(() => _error = null),
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _apply(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: TextButton(onPressed: _busy ? null : _apply, child: Text(l.referralApply)),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -154,7 +242,8 @@ class _CodeCard extends StatelessWidget {
     final box = context.findRenderObject() as RenderBox?;
     await SharePlus.instance.share(
       ShareParams(
-        text: l.inviteMessage(AppProfile.current.appName, code.code),
+        // The code as text plus a link built on the device (no server link).
+        text: '${l.inviteMessage(AppProfile.current.appName, code.code)}\n${inviteLink(code.code)}',
         subject: AppProfile.current.appName,
         // iPad anchors the share popover to the card.
         sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,

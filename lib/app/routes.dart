@@ -17,6 +17,9 @@ import '../screens/economy/transactions_screen.dart';
 import '../screens/economy/daily_rewards_screen.dart';
 import '../screens/economy/season_pass_screen.dart';
 import '../screens/economy/referral_screen.dart';
+import '../screens/economy/quests_screen.dart';
+import '../screens/economy/bonus_game_screen.dart';
+import '../screens/economy/bonus_games_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
 import '../screens/profile/avatars_screen.dart';
 import '../screens/profile/game_history_screen.dart';
@@ -32,10 +35,21 @@ import '../screens/social/player_profile_screen.dart';
 import '../screens/leaderboard/leaderboard_screen.dart';
 import '../screens/tournaments/tournaments_screen.dart';
 import '../screens/match/matchmaking_screen.dart';
+import '../screens/match/lobby_screens.dart';
+import '../configs/games/core/game_id.dart';
 import '../screens/system/maintenance_screen.dart';
 import '../screens/system/force_update_screen.dart';
 import '../screens/system/loading_skeleton_screen.dart';
 import '../screens/settings/change_password_screen.dart';
+import '../screens/settings/account_screen.dart';
+import '../screens/settings/addresses_screen.dart';
+import '../screens/settings/delete_account_screen.dart';
+import '../screens/settings/game_settings_screen.dart';
+import '../screens/settings/privacy_screen.dart';
+import '../screens/settings/notification_settings_screen.dart';
+import '../screens/settings/sessions_screen.dart';
+import '../screens/safety/my_reports_screen.dart';
+import '../screens/safety/safety_screens.dart';
 import 'app_profile.dart';
 import 'main_shell.dart';
 
@@ -61,6 +75,9 @@ class Routes {
   static const dailyRewards = '/economy/daily-rewards';
   static const seasonPass = '/economy/season-pass';
   static const referral = '/economy/referral';
+  static const quests = '/economy/quests';
+  static const bonusGames = '/economy/bonus-games';
+  static const bonusGame = '/economy/bonus-game'; // args: code, trigger, triggerRef
   static const inbox = '/social/inbox';
   static const friends = '/social/friends';
   static const playFriends = '/social/play';
@@ -68,11 +85,21 @@ class Routes {
   static const leaderboard = '/leaderboard';
   static const tournaments = '/tournaments';
   static const matchmaking = '/match/vs';
+  static const openTables = '/match/open-tables'; // args: {'game': GameId}
+  static const liveRooms = '/match/live-rooms'; // Bingo
   static const maintenance = '/system/maintenance';
   static const forceUpdate = '/system/update';
   static const loading = '/system/loading';
   static const editProfile = '/profile/edit';
   static const changePassword = '/settings/change-password';
+  // Account screens (docs/services/02-profile-and-sessions.md)
+  static const account = '/settings/account';
+  static const addresses = '/settings/addresses';
+  static const privacy = '/settings/privacy';
+  static const gameSettings = '/settings/game';
+  static const notificationSettings = '/settings/notifications';
+  static const sessions = '/settings/sessions';
+  static const deleteAccount = '/settings/delete-account';
   static const avatars = '/profile/avatars';
   static const gameHistory = '/profile/history';
   static const achievements = '/profile/achievements';
@@ -80,6 +107,11 @@ class Routes {
   static const resultVictory = '/result/victory';
   static const resultDefeat = '/result/defeat';
   static const resultDraw = '/result/draw';
+  // Safety (docs/services/12-safety.md)
+  static const myReports = '/settings/my-reports';
+  static const responsibleGaming = '/settings/responsible-gaming';
+  static const accountRestricted = '/system/account-restricted'; // args: {'until': DateTime?}
+  static const regionBlocked = '/system/region-blocked';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) =>
       MaterialPageRoute(builder: (_) => pageFor(settings), settings: settings);
@@ -111,11 +143,19 @@ class Routes {
       case onboarding:
         page = const OnboardingScreen();
       case login:
-        page = const LoginScreen();
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = LoginScreen(initialEmail: args?['email'] as String?);
       case register:
-        page = const RegisterScreen();
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = RegisterScreen(
+            saveProgress: args?['saveProgress'] as bool? ?? false, referralCode: args?['referralCode'] as String?);
       case otp:
-        page = const OtpScreen();
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = OtpScreen(
+          mode: args?['mode'] == 'login' ? OtpMode.login : OtpMode.verifyEmail,
+          email: args?['email'] as String?,
+          minutes: args?['minutes'] as int? ?? 10,
+        );
       case resetPassword:
         page = const ResetPasswordScreen();
       case welcomeBonus:
@@ -154,6 +194,17 @@ class Routes {
         page = const DailyRewardsScreen();
       case seasonPass:
         page = const SeasonPassScreen();
+      case quests:
+        page = const QuestsScreen();
+      case bonusGames:
+        page = const BonusGamesScreen();
+      case bonusGame:
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = BonusGameScreen(
+          code: args?['code'] as String? ?? 'scratch_gold',
+          trigger: args?['trigger'] as String? ?? 'store',
+          triggerRef: args?['triggerRef'] as String?,
+        );
       case referral:
         page = const ReferralScreen();
       case inbox:
@@ -163,7 +214,8 @@ class Routes {
       case playFriends:
         page = const PlayWithFriendsScreen();
       case playerProfile:
-        page = const PlayerProfileScreen();
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = PlayerProfileScreen(userId: args?['userId'] as String?, name: args?['name'] as String? ?? 'ZeroCool');
       case leaderboard:
         page = const LeaderboardScreen();
       case tournaments:
@@ -175,12 +227,31 @@ class Routes {
           tokens: args?['tokens'] as bool? ?? true,
           label: args?['label'] as String? ?? 'Friends room',
         );
+      case openTables:
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = OpenTablesScreen(game: args?['game'] as GameId? ?? GameId.ludo, variant: args?['variant'] as String?);
+      case liveRooms:
+        page = const LiveRoomsScreen();
       case maintenance:
         page = const MaintenanceScreen();
       case forceUpdate:
         page = const ForceUpdateScreen();
       case loading:
         page = const LoadingSkeletonScreen();
+      case account:
+        page = const AccountScreen();
+      case addresses:
+        page = const AddressesScreen();
+      case privacy:
+        page = const PrivacyScreen();
+      case gameSettings:
+        page = const GameSettingsScreen();
+      case notificationSettings:
+        page = const NotificationSettingsScreen();
+      case sessions:
+        page = const SessionsScreen();
+      case deleteAccount:
+        page = const DeleteAccountScreen();
       case changePassword:
         page = const ChangePasswordScreen();
       case editProfile:
@@ -191,6 +262,15 @@ class Routes {
         page = const GameHistoryScreen();
       case achievements:
         page = const AchievementsScreen();
+      case myReports:
+        page = const MyReportsScreen();
+      case responsibleGaming:
+        page = const ResponsibleGamingScreen();
+      case accountRestricted:
+        final args = settings.arguments as Map<String, dynamic>?;
+        page = AccountRestrictedScreen(until: args?['until'] as DateTime?);
+      case regionBlocked:
+        page = const RegionBlockedScreen();
       default:
         // A game screen owned by one of this app's game modules; otherwise
         // the entry point ('/' on web maps here) — start at Splash.

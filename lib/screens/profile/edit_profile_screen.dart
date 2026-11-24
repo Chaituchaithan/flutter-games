@@ -5,11 +5,19 @@ import '../../l10n/l10n.dart';
 import '../../app/main_shell.dart';
 import '../../app/routes.dart';
 import '../../data/languages.dart';
+import '../../data/models/account.dart';
+import '../../services/account_service.dart';
+import '../../services/account_store.dart';
 import '../../services/app_exception.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
+import '../../widgets/player_avatar.dart';
 
-/// Edit profile. Seeds from and saves back to the session. See docs/DESIGN_SPEC.md.
+/// Edit profile (02-profile-and-sessions.md §2): display name, avatar, bio,
+/// birthday, language, country, full name, gender, time zone and contact
+/// channel. Seeds from `GET /users/me` and saves the whole form in one
+/// `PATCH /users/me/profile`; a `VALIDATION_ERROR` marks its field and keeps
+/// the input.
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -29,17 +37,70 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     ('🇬🇧', 'GB'),
   ];
 
-  // Seeded from the signed-in player (GET /users/me + /users/{id}/profile).
+  /// IANA zones offered in the picker (plus the saved one if not listed).
+  static const _zones = [
+    'Asia/Kolkata',
+    'Europe/London',
+    'Europe/Paris',
+    'Europe/Berlin',
+    'Europe/Rome',
+    'America/New_York',
+    'America/Chicago',
+    'America/Los_Angeles',
+    'America/Sao_Paulo',
+    'Asia/Tokyo',
+    'Asia/Dubai',
+    'Asia/Singapore',
+    'Australia/Sydney',
+    'UTC',
+  ];
+
+  static const _genderLabels = {
+    'female': 'Female',
+    'male': 'Male',
+    'non_binary': 'Non-binary',
+    'prefer_not_to_say': 'Prefer not to say',
+  };
+
+  static const _channelLabels = {'email': 'Email', 'push': 'Push', 'sms': 'SMS'};
+
+  // Seeded from the signed-in player (GET /users/me).
   late final _initial = ref.read(currentUserProvider);
+  late Me? _me = ref.read(accountStoreProvider);
   late String? _selected = _initial.country;
   late final _nameCtrl = TextEditingController(text: _initial.displayName);
   late final _bioCtrl = TextEditingController(text: _initial.bio);
+  late final _fullNameCtrl = TextEditingController(text: _me?.fullName ?? '');
   // Saved language, else the one picked on first launch.
   late int _language = languageIndexFor(_initial.preferredLanguage) ?? ref.read(languageProvider);
   late DateTime? _dob = DateTime.tryParse(_initial.dateOfBirth ?? '');
+  late String? _gender = _me?.gender;
+  late String? _timezone = _me?.timezone;
+  late String _channel = _me?.preferredChannel ?? 'email';
   bool _saving = false;
 
-  /// Players must be at least 13.
+  /// Field → the rule to show next to it (client check or the server's 400).
+  final Map<String, String> _errors = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _bioCtrl.addListener(() => setState(() {})); // the n/140 counter
+    if (_me == null) {
+      ref.read(accountStoreProvider.notifier).ensure().then((m) {
+        if (!mounted || m == null) return;
+        setState(() {
+          _me = m;
+          if (_fullNameCtrl.text.isEmpty) _fullNameCtrl.text = m.fullName ?? '';
+          _gender = m.gender;
+          _timezone = m.timezone;
+          _channel = m.preferredChannel;
+        });
+      });
+    }
+  }
+
+  /// Players must be at least 13 (and never born in the future).
   static DateTime get _latestDob {
     final now = DateTime.now();
     return DateTime(now.year - 13, now.month, now.day);
@@ -90,6 +151,36 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (picked != null && mounted) setState(() => _language = picked);
   }
 
+  Future<void> _pickTimezone() async {
+    FocusScope.of(context).unfocus();
+    final zones = [
+      if (_timezone != null && !_zones.contains(_timezone)) _timezone!,
+      ..._zones,
+    ];
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _OptionSheet(title: 'Time zone', options: {for (final z in zones) z: z}, selected: _timezone),
+    );
+    if (picked != null && mounted) setState(() => _timezone = picked);
+  }
+
+  Future<void> _pickGender() async {
+    FocusScope.of(context).unfocus();
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _OptionSheet(
+        title: 'Gender',
+        options: const {'': 'Not set', ..._genderLabels},
+        selected: _gender ?? '',
+      ),
+    );
+    if (picked != null && mounted) setState(() => _gender = picked.isEmpty ? null : picked);
+  }
+
   /// The grid, plus the player's saved country if it isn't one of the 8.
   List<(String, String)> get _countryOptions {
     final c = _initial.country;
@@ -107,45 +198,65 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     Navigator.popUntil(context, ModalRoute.withName(Routes.home));
   }
 
+  /// Client checks matching the server rules (§2). True when the form is valid.
+  bool _validate() {
+    _errors.clear();
+    final name = AccountRules.displayName(_nameCtrl.text);
+    if (name != null) _errors['display_name'] = _nameCtrl.text.trim().isEmpty ? context.l10n.displayNameEmpty : name;
+    final bio = AccountRules.bio(_bioCtrl.text.trim());
+    if (bio != null) _errors['bio'] = bio;
+    final full = AccountRules.fullName(_fullNameCtrl.text);
+    if (full != null) _errors['full_name'] = full;
+    final dob = AccountRules.dateOfBirth(_dob);
+    if (dob != null) _errors['date_of_birth'] = dob;
+    setState(() {});
+    return _errors.isEmpty;
+  }
+
   /// PATCH /users/me/profile with only the fields that changed.
   Future<void> _save() async {
+    FocusScope.of(context).unfocus();
+    if (!_validate()) return;
+    final me = _me;
     final name = _nameCtrl.text.trim();
     final bio = _bioCtrl.text.trim();
-    if (name.isEmpty) {
-      showAuraToast(context, context.l10n.displayNameEmpty, kind: AuraToastKind.error);
-      return;
-    }
-    final changedName = name != _initial.displayName ? name : null;
-    final changedBio = bio != _initial.bio ? bio : null;
-    final changedCountry = _selected != _initial.country ? _selected : null;
+    final fullName = _fullNameCtrl.text.trim();
     final lang = appLanguages[_language].code;
-    final changedLanguage = lang != _initial.preferredLanguage ? lang : null;
     final dob = _dob == null ? null : _apiDate(_dob!);
-    final changedDob = dob != null && dob != _initial.dateOfBirth ? dob : null;
-    if (changedName == null &&
-        changedBio == null &&
-        changedCountry == null &&
-        changedLanguage == null &&
-        changedDob == null) {
+    final patch = ProfilePatch(
+      displayName: name != _initial.displayName ? name : null,
+      // `""` empties the bio; treat "" and null the same when comparing.
+      bio: bio != _initial.bio ? bio : null,
+      country: _selected != _initial.country ? _selected : null,
+      preferredLanguage: lang != _initial.preferredLanguage ? lang : null,
+      dateOfBirth: dob != null && dob != _initial.dateOfBirth ? dob : null,
+      // Only gender can be cleared; an emptied full name keeps its value.
+      fullName: fullName.isNotEmpty && fullName != (me?.fullName ?? '') ? fullName : null,
+      gender: _gender != null && _gender != me?.gender ? _gender : null,
+      clearGender: _gender == null && me?.gender != null,
+      timezone: _timezone != null && _timezone != me?.timezone ? _timezone : null,
+      preferredChannel: _channel != (me?.preferredChannel ?? 'email') ? _channel : null,
+    );
+    if (patch.isEmpty) {
       _toProfile();
       return;
     }
     setState(() => _saving = true);
     try {
-      await ref
-          .read(sessionProvider.notifier)
-          .updateProfile(
-            displayName: changedName,
-            bio: changedBio,
-            country: changedCountry,
-            preferredLanguage: changedLanguage,
-            dateOfBirth: changedDob,
-          );
+      await ref.read(accountStoreProvider.notifier).updateProfile(patch);
       if (!mounted) return;
       showAuraToast(context, context.l10n.profileSaved);
       _toProfile();
     } on AppException catch (e) {
-      if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
+      if (!mounted) return;
+      final text = accountErrorText(e, AccountOp.profile);
+      // Mark the field (taken name → the name field) and keep the input.
+      final field = e.code == ApiErrorCode.conflict ? 'display_name' : (e.isValidation ? e.field : null);
+      if (field != null && _fieldShown.contains(field)) {
+        setState(() => _errors[field] = text);
+      } else {
+        showAuraToast(context, text, kind: AuraToastKind.error);
+      }
     } on Object catch (_) {
       if (mounted) showAuraToast(context, "Couldn't save your profile. Try again.", kind: AuraToastKind.error);
     } finally {
@@ -153,10 +264,23 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     }
   }
 
+  /// Fields drawn with an inline error.
+  static const _fieldShown = {'display_name', 'bio', 'full_name', 'date_of_birth', 'country', 'timezone', 'gender', 'preferred_language'};
+
+  Widget _fieldError(String key) {
+    final e = _errors[key];
+    if (e == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 4),
+      child: Text(e, style: const TextStyle(color: AuraColors.dangerText, fontSize: 12)),
+    );
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
     _bioCtrl.dispose();
+    _fullNameCtrl.dispose();
     super.dispose();
   }
 
@@ -182,7 +306,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        LetterAvatar(letter: _initial.initials, color: _initial.color, size: 88, glow: true),
+                        const MyAvatar(size: 88, glow: true),
                         Positioned(
                           right: -2,
                           bottom: -2,
@@ -227,7 +351,15 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 12),
             SectionHeader(context.l10n.displayName),
             const SizedBox(height: 8),
-            AuraTextField(hint: context.l10n.displayNameHint, icon: Icons.person_outline, controller: _nameCtrl),
+            AuraTextField(
+              hint: context.l10n.displayNameHint,
+              icon: Icons.person_outline,
+              controller: _nameCtrl,
+              errorText: _errors['display_name'],
+              onChanged: (_) {
+                if (_errors.containsKey('display_name')) setState(() => _errors.remove('display_name'));
+              },
+            ),
             const SizedBox(height: 20),
             SectionHeader(context.l10n.bio),
             const SizedBox(height: 8),
@@ -236,8 +368,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               icon: Icons.edit_note_rounded,
               controller: _bioCtrl,
               maxLines: 4,
+              errorText: _errors['bio'],
             ),
-            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, right: 4),
+              child: Text(
+                '${_bioCtrl.text.trim().length}/140',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: _bioCtrl.text.trim().length > 140 ? AuraColors.dangerText : AuraColors.textMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             SectionHeader(context.l10n.dateOfBirth),
             const SizedBox(height: 8),
             _PickerField(
@@ -247,10 +391,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               trailingIcon: Icons.calendar_today_rounded,
               onTap: _pickDob,
             ),
+            _fieldError('date_of_birth'),
             const SizedBox(height: 20),
             SectionHeader(context.l10n.languageTitle),
             const SizedBox(height: 8),
             _PickerField(icon: Icons.translate_rounded, value: appLanguages[_language].label, onTap: _pickLanguage),
+            _fieldError('preferred_language'),
             const SizedBox(height: 20),
             SectionHeader(context.l10n.country),
             const SizedBox(height: 10),
@@ -276,10 +422,157 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 );
               },
             ),
+            _fieldError('country'),
+            const SizedBox(height: 28),
+            const SectionHeader('Private details'),
+            const SizedBox(height: 4),
+            Text('Only you can see these.', style: AuraText.cardSub.copyWith(fontSize: 12)),
+            const SizedBox(height: 10),
+            AuraTextField(
+              hint: 'Full name',
+              icon: Icons.badge_outlined,
+              controller: _fullNameCtrl,
+              errorText: _errors['full_name'],
+            ),
+            const SizedBox(height: 12),
+            _PickerField(
+              icon: Icons.wc_rounded,
+              value: _gender == null ? null : _genderLabels[_gender] ?? _gender,
+              hint: 'Gender: not set',
+              onTap: _pickGender,
+            ),
+            _fieldError('gender'),
+            const SizedBox(height: 12),
+            _PickerField(
+              icon: Icons.schedule_rounded,
+              value: _timezone,
+              hint: 'Time zone',
+              onTap: _pickTimezone,
+            ),
+            _fieldError('timezone'),
+            const SizedBox(height: 20),
+            const SectionHeader('Contact me by'),
+            const SizedBox(height: 4),
+            Text('Receipts, security alerts and support replies.', style: AuraText.cardSub.copyWith(fontSize: 12)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                for (final c in Me.channels) ...[
+                  Expanded(
+                    child: _ChoiceChip(
+                      label: _channelLabels[c]!,
+                      selected: _channel == c,
+                      onTap: () => setState(() => _channel = c),
+                    ),
+                  ),
+                  if (c != Me.channels.last) const SizedBox(width: 10),
+                ],
+              ],
+            ),
             const SizedBox(height: 28),
             GradientButton(label: context.l10n.saveChanges, loading: _saving, onPressed: _save),
             const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A pill choice (contact channel), styled like the country tiles.
+class _ChoiceChip extends StatelessWidget {
+  const _ChoiceChip({required this.label, required this.selected, required this.onTap});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final inner = Container(
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AuraColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: selected ? null : Border.all(color: AuraColors.cardBorder),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: selected ? AuraColors.textPrimary : AuraColors.textSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: selected
+          ? Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(gradient: AuraGradients.brand, borderRadius: BorderRadius.circular(14)),
+              child: inner,
+            )
+          : inner,
+    );
+  }
+}
+
+/// Bottom-sheet list of labelled options; pops the chosen key.
+class _OptionSheet extends StatelessWidget {
+  const _OptionSheet({required this.title, required this.options, this.selected});
+  final String title;
+  final Map<String, String> options;
+  final String? selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final keys = options.keys.toList();
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF17112C), Color(0xFF0B0916)],
+          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 20, 22, 8),
+                child: Text(title, style: AuraText.title.copyWith(fontSize: 20)),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  itemCount: keys.length,
+                  itemBuilder: (_, i) {
+                    final k = keys[i];
+                    final on = k == selected;
+                    return ListTile(
+                      onTap: () => Navigator.pop(context, k),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      tileColor: on ? AuraColors.brandPurple.withValues(alpha: 0.18) : null,
+                      title: Text(
+                        options[k]!,
+                        style: AuraText.body.copyWith(color: AuraColors.textPrimary, fontWeight: FontWeight.w600),
+                      ),
+                      trailing: on ? const Icon(Icons.check_circle_rounded, color: AuraColors.accentGlow) : null,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

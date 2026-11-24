@@ -149,7 +149,7 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
               children: [
                 Positioned.fill(
                   child: RepaintBoundary(
-                    child: CustomPaint(painter: _LudoBoardPainter(turns: _turns)),
+                    child: CustomPaint(painter: _LudoBoardPainter(turns: _turns, innerLane: widget.game.layout.innerLaneCell)),
                   ),
                 ),
                 ..._pawns(cell),
@@ -197,6 +197,13 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
     LudoColor.blue: Offset(0, 9),
   };
   static const _baseSpots = [Offset(1.9, 1.9), Offset(4.1, 1.9), Offset(1.9, 4.1), Offset(4.1, 4.1)];
+  static const _innerHomeSpot = {
+    LudoColor.red: Offset(7.28, 7.5),
+    LudoColor.green: Offset(7.5, 7.28),
+    LudoColor.yellow: Offset(7.72, 7.5),
+    LudoColor.blue: Offset(7.5, 7.72),
+  };
+
   static const _homeSpot = {
     LudoColor.red: Offset(6.55, 7.5),
     LudoColor.green: Offset(7.5, 6.55),
@@ -206,11 +213,16 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
 
   Offset _restingPoint(LudoColor c, int token, int progress) {
     if (progress == LudoRules.base) return _baseOrigin[c]! + _baseSpots[token];
-    if (progress == LudoRules.home) {
+    if (progress == widget.game.layout.home) {
+      if (widget.game.layout.innerLaneCell) {
+        // Online: home is the middle cell; each colour on its own side of it.
+        final h = _innerHomeSpot[c]!;
+        return h + Offset((token % 2 - 0.5) * 0.16, (token ~/ 2 - 0.5) * 0.16);
+      }
       final h = _homeSpot[c]!;
       return h + Offset((token % 2 - 0.5) * 0.36, (token ~/ 2 - 0.5) * 0.36);
     }
-    final (col, row) = LudoRules.cellOf(c, progress)!;
+    final (col, row) = widget.game.layout.cellOf(c, progress)!;
     return Offset(col + 0.5, row + 0.5);
   }
 
@@ -228,8 +240,9 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
       for (var i = 0; i < 4; i++) {
         final p = game.tokens[c]![i];
         if (m != null && m.color == c && m.token == i) continue;
-        if (p == LudoRules.base || p == LudoRules.home) continue;
-        byCell.putIfAbsent(LudoRules.cellOf(c, p)!, () => []).add((c, i));
+        if (m != null && m.capturedFrom.containsKey((c, i))) continue;
+        if (p == LudoRules.base || p == widget.game.layout.home) continue;
+        byCell.putIfAbsent(widget.game.layout.cellOf(c, p)!, () => []).add((c, i));
       }
     }
 
@@ -246,26 +259,27 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
         final moving = m != null && m.color == c && m.token == i;
         if (moving) {
           (pt, lift) = _moverPoint(m, ms);
-        } else if (m != null && m.captured.contains((c, i)) && ms > moveMs) {
-          // Fly back to base after the mover lands.
+        } else if (m != null && m.captured.contains((c, i)) && (ms > moveMs || m.capturedFrom.containsKey((c, i)))) {
+          // Online: the server already has it in base, so it waits on the
+          // square it was captured on; then it flies back after the mover lands.
+          final from = _restingPoint(c, i, m.capturedFrom[(c, i)] ?? progress);
           final u = Curves.easeInOut.transform(((ms - moveMs) / LudoBoardView.captureMs).clamp(0.0, 1.0));
-          final from = _restingPoint(c, i, progress);
           final to = _restingPoint(c, i, LudoRules.base);
           pt = Offset.lerp(from, to, u)!;
           lift = math.sin(u * math.pi) * 2.2;
         } else {
           pt = _restingPoint(c, i, progress);
-          if (widget.perspective && progress != LudoRules.base && progress != LudoRules.home) {
+          if (widget.perspective && progress != LudoRules.base && progress != widget.game.layout.home) {
             // 3D: the original placement (the tilt gives the depth).
-            final group = byCell[LudoRules.cellOf(c, progress)!]!;
+            final group = byCell[widget.game.layout.cellOf(c, progress)!]!;
             if (group.length > 1) {
               final k = group.indexOf((c, i));
               const offs = [Offset(-0.18, -0.16), Offset(0.18, -0.16), Offset(-0.18, 0.16), Offset(0.18, 0.16)];
               pt += offs[k % 4];
               scale = 0.78;
             }
-          } else if (progress != LudoRules.base && progress != LudoRules.home) {
-            final group = byCell[LudoRules.cellOf(c, progress)!]!;
+          } else if (progress != LudoRules.base && progress != widget.game.layout.home) {
+            final group = byCell[widget.game.layout.cellOf(c, progress)!]!;
             final n = group.length;
             feet = n > 2 ? 0.2 : 0.3;
             scale = switch (n) {
@@ -284,7 +298,7 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
               };
               pt += offs[k % offs.length];
             }
-          } else if (progress == LudoRules.home) {
+          } else if (progress == widget.game.layout.home) {
             scale = 0.6;
           } else if (progress == LudoRules.base && !widget.perspective) {
             // 2D: the pawn's base sits in its circle (not floating above it).
@@ -341,15 +355,30 @@ class _LudoBoardViewState extends State<LudoBoardView> with TickerProviderStateM
     if (ms >= total) return (_restingPoint(m.color, m.token, m.to), 0);
     final k = (ms / LudoBoardView.stepMs).floor().clamp(0, path.length - 1);
     final u = (ms - k * LudoBoardView.stepMs) / LudoBoardView.stepMs;
-    final a = _restingPoint(m.color, m.token, k == 0 ? m.from : path[k - 1]);
+    final stepFrom = k == 0 ? m.from : path[k - 1];
+    final a = _restingPoint(m.color, m.token, stepFrom);
     final b = _restingPoint(m.color, m.token, path[k]);
-    return (Offset.lerp(a, b, Curves.easeInOut.transform(u))!, math.sin(u * math.pi) * 0.45);
+    final t = Curves.easeInOut.transform(u);
+    final layout = widget.game.layout;
+    if (layout.innerLaneCell && stepFrom == layout.lastTrack && path[k] == layout.lastTrack + 1) {
+      // Online: the 52nd square is just past the lane mouth; bend the hop
+      // around the mouth instead of cutting across diagonally.
+      final (mc, mr) = layout.laneMouth(m.color);
+      final ctl = Offset(mc + 0.5, mr + 0.5);
+      final p = a * ((1 - t) * (1 - t)) + ctl * (2 * (1 - t) * t) + b * (t * t);
+      return (p, math.sin(u * math.pi) * 0.45);
+    }
+    return (Offset.lerp(a, b, t)!, math.sin(u * math.pi) * 0.45);
   }
 }
 
 class _LudoBoardPainter extends CustomPainter {
-  _LudoBoardPainter({required this.turns});
+  _LudoBoardPainter({required this.turns, this.innerLane = false});
   final int turns;
+
+  /// Online board: draw each lane's 6th square on the centre's edge, so the
+  /// squares left to walk match what the player sees.
+  final bool innerLane;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -476,14 +505,45 @@ class _LudoBoardPainter extends CustomPainter {
     tri(c0, c1, LudoColor.green); // top
     tri(c1, c2, LudoColor.yellow); // right
     tri(c3, c2, LudoColor.blue); // bottom
-    canvas.drawCircle(
-      mid,
-      cell * 0.55,
-      Paint()
-        ..shader = const RadialGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)])
-            .createShader(Rect.fromCircle(center: mid, radius: cell * 0.55)),
-    );
-    _star(canvas, mid, cell * 0.38, Colors.white);
+    if (innerLane) {
+      for (final lc in LudoColor.values) {
+        final (c, r) = LudoLayout.innerCell(lc);
+        final rc = cellRect(c, r).deflate(cell * 0.04);
+        final col = ludoColor(lc);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rc, Radius.circular(cell * 0.18)),
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color.lerp(col, Colors.white, 0.2)!, Color.lerp(col, Colors.black, 0.2)!],
+            ).createShader(rc),
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rc, Radius.circular(cell * 0.18)),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = cell * 0.05
+            ..color = Colors.white.withValues(alpha: 0.55),
+        );
+      }
+      // Home: the middle cell only.
+      final home = cellRect(7, 7).deflate(cell * 0.06);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(home, Radius.circular(cell * 0.3)),
+        Paint()..shader = const RadialGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)]).createShader(home),
+      );
+      _star(canvas, home.center, cell * 0.3, Colors.white);
+    } else {
+      canvas.drawCircle(
+        mid,
+        cell * 0.55,
+        Paint()
+          ..shader = const RadialGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)])
+              .createShader(Rect.fromCircle(center: mid, radius: cell * 0.55)),
+      );
+      _star(canvas, mid, cell * 0.38, Colors.white);
+    }
     canvas.restore();
   }
 
@@ -499,5 +559,5 @@ class _LudoBoardPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_LudoBoardPainter o) => o.turns != turns;
+  bool shouldRepaint(_LudoBoardPainter o) => o.turns != turns || o.innerLane != innerLane;
 }

@@ -9,8 +9,10 @@ import '../../configs/feature_flags.dart';
 import '../../app/routes.dart';
 import '../../data/repositories/store_repository.dart';
 import '../../services/session.dart';
+import '../../services/social_store.dart';
 import '../../widgets/aura.dart';
 import '../../app/game_area.dart';
+import '../../app/game_module.dart';
 import '../../configs/games/core/active_game.dart';
 
 /// Play with Friends — menu → create room / join room → room lobby → match.
@@ -21,7 +23,7 @@ import '../../configs/games/core/active_game.dart';
 ///
 /// Navigation (mockup): Menu back → Home · Create/Join back → Menu ·
 /// "Create & get code" → Lobby (you host, waiting for a friend) · Join (only
-/// once all 6 characters are in) → Lobby · Lobby back → "Leave the room?" →
+/// once the whole code is in) → Lobby · Lobby back → "Leave the room?" →
 /// Home · Start match → matchmaking → game · Invite → Create ·
 /// "All friends ›" → Friends.
 ///
@@ -46,7 +48,17 @@ class _UpperCaseFormatter extends TextInputFormatter {
 
 class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
   _Mode _mode = _Mode.menu;
-  static const int _seats = 2; // chess
+  /// Seats a room can have (chess 2; Ludo 2–4) and the code length (6 / 8).
+  late final List<int> _seatChoices = GameArea.friendsPlayerCounts(ref.read(activeGameProvider));
+  late int _seats = _seatChoices.first;
+  late final int _codeLen = GameArea.roomCodeLength(ref.read(activeGameProvider));
+  late final OnlineStakeTiers? _gameTiers = GameArea.onlineStakeTiers(ref.read(activeGameProvider));
+
+  /// Free + the game's own tiers when it has them (the server's), else the defaults.
+  List<int> get _stakeChoices {
+    final server = _gameTiers?.call(ref, players: _seats, tokens: _tokens, friends: true);
+    return server == null ? _stakes : [0, ...server];
+  }
   bool _tokens = true;
   int _stake = 200;
 
@@ -55,7 +67,7 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
   final TextEditingController _codeCtrl = TextEditingController();
   final FocusNode _codeFocus = FocusNode();
   String get _joinCode => _codeCtrl.text;
-  bool get _joinReady => _joinCode.length == 6;
+  bool get _joinReady => _joinCode.length == _codeLen;
 
   // Lobby (simulated while the socket is bypassed).
   String _roomCode = '';
@@ -123,7 +135,10 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
     if (kSocketEnabled) {
       // Live: the server creates the room and shows its code while waiting.
       final route = GameArea.onlineRoute(ref.read(activeGameProvider));
-      if (route != null) Navigator.pushNamed(context, route, arguments: {'mode': 'create', 'stake': _stake, 'tokens': _tokens});
+      if (route != null) {
+        Navigator.pushNamed(context, route,
+            arguments: {'mode': 'create', 'stake': _stake, 'tokens': _tokens, 'players': _seats});
+      }
       return;
     }
     const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -259,9 +274,20 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
           accent: false,
           icon: Icons.login_rounded,
           title: 'Join room',
-          sub: 'Enter a 6-character code',
+          sub: 'Enter a $_codeLen-character code',
           onTap: () => _go(_Mode.join),
         ),
+        // Browse waiting tables on the game's socket (05-matchmaking-and-rooms.md Flow C).
+        if (kSocketEnabled && GameArea.onlineRoute(ref.read(activeGameProvider)) != null) ...[
+          const SizedBox(height: 12),
+          _BigActionCard(
+            accent: false,
+            icon: Icons.table_restaurant_rounded,
+            title: 'Open tables',
+            sub: 'Join a table that is waiting for players',
+            onTap: () => Navigator.pushNamed(context, Routes.openTables, arguments: {'game': ref.read(activeGameProvider)}),
+          ),
+        ],
         const SizedBox(height: 24),
         Row(
           children: [
@@ -276,23 +302,41 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        // Invite → Create room (mockup).
-        _OnlineFriend(
-          name: 'ZeroCool',
-          colors: const [Color(0xFF22D3EE), Color(0xFF6366F1)],
-          status: 'LV 9 · in lobby',
-          onInvite: () => _go(_Mode.create),
-        ),
-        const SizedBox(height: 9),
-        _OnlineFriend(
-          name: 'LunaWolf',
-          colors: const [Color(0xFFFB923C), Color(0xFFF43F5E)],
-          status: 'LV 6 · online',
-          onInvite: () => _go(_Mode.create),
-        ),
+        // Friends online now (09-social.md §2b). There is no invite route:
+        // Invite → Create room, then share its code.
+        ..._onlineFriends(),
         const SizedBox(height: 12),
       ],
     );
+  }
+
+  List<Widget> _onlineFriends() {
+    final s = ref.watch(friendsProvider).value;
+    final names = ref.watch(playerNameCacheProvider);
+    final blocked = ref.watch(blockListProvider);
+    final online = s == null ? const <String>[] : [for (final f in s.friends) if (s.online.contains(f.userId) && !blocked.containsKey(f.userId)) f.userId];
+    if (online.isEmpty) {
+      return [
+        Text(s == null ? 'Loading friends…' : 'No friends online right now.',
+            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+      ];
+    }
+    const palettes = [
+      [Color(0xFF22D3EE), Color(0xFF6366F1)],
+      [Color(0xFFFB923C), Color(0xFFF43F5E)],
+      [Color(0xFF34D399), Color(0xFF0EA5E9)],
+    ];
+    return [
+      for (final (i, id) in online.take(5).indexed) ...[
+        if (i > 0) const SizedBox(height: 9),
+        _OnlineFriend(
+          name: names[id]?.name ?? 'Player',
+          colors: palettes[i % palettes.length],
+          status: 'Online',
+          onInvite: () => _go(_Mode.create),
+        ),
+      ],
+    ];
   }
 
   // ── Create ──
@@ -308,12 +352,29 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
             Expanded(child: _Pick(label: 'Gold', on: !_tokens, onTap: () => setState(() => _tokens = false))),
           ],
         ),
+        if (_seatChoices.length > 1) ...[
+          const _FieldLabel('Players'),
+          Row(
+            children: [
+              for (var i = 0; i < _seatChoices.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: _Pick(
+                    label: '${_seatChoices[i]} players',
+                    on: _seats == _seatChoices[i],
+                    onTap: () => setState(() => _seats = _seatChoices[i]),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
         const _FieldLabel('Stake per player'),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final s in _stakes)
+            for (final s in _stakeChoices)
               _Pick(
                 label: s == 0 ? 'Free' : (s >= 1000 ? '${s ~/ 1000}k' : '$s'),
                 on: _stake == s,
@@ -383,11 +444,17 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(6, (i) => _CodeCell(
-                      char: i < _joinCode.length ? _joinCode[i] : '',
-                      // The next cell to fill is highlighted (mockup), brighter while typing.
-                      active: i == _joinCode.length,
-                      focused: _codeFocus.hasFocus,
+                // Long codes (Ludo: 8) shrink the cells to fit the width.
+                children: List.generate(_codeLen, (i) => Flexible(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: _codeLen > 6 ? 2 : 0),
+                        child: _CodeCell(
+                          char: i < _joinCode.length ? _joinCode[i] : '',
+                          // The next cell to fill is highlighted (mockup), brighter while typing.
+                          active: i == _joinCode.length,
+                          focused: _codeFocus.hasFocus,
+                        ),
+                      ),
                     )),
               ),
               // Invisible field that captures the typing.
@@ -408,7 +475,7 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
                       textInputAction: TextInputAction.go,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]')),
-                        LengthLimitingTextInputFormatter(6),
+                        LengthLimitingTextInputFormatter(_codeLen),
                         _UpperCaseFormatter(),
                       ],
                       onChanged: (_) => setState(() {}),
@@ -429,7 +496,7 @@ class _PlayWithFriendsScreenState extends ConsumerState<PlayWithFriendsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        // Disabled (dimmed) until all 6 characters are entered.
+        // Disabled (dimmed) until the whole code is entered.
         GradientButton(label: 'Join room', onPressed: _joinRoom, enabled: _joinReady),
         const SizedBox(height: 12),
       ],

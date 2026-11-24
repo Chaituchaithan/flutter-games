@@ -1,5 +1,5 @@
-// Socket sign-in at app login: connection.established → auth.login
-// {token, username} → auth.login_success, plus failure and log-out handling.
+// Socket sign-in at app login: connection.established → auth.login {token}
+// → auth.login_success, plus failure and log-out handling.
 
 import 'dart:async';
 import 'dart:convert';
@@ -7,6 +7,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:snakeladder/app/game_socket_login.dart';
 import 'package:snakeladder/configs/configs.dart';
 import 'package:snakeladder/services/socket/app_socket.dart';
 import 'package:snakeladder/services/socket/socket_client.dart';
@@ -61,17 +63,18 @@ _FakeChannel _server({required bool accept}) {
 }
 
 void main() {
-  test('login: auth.login carries event name, token and username → authenticated', () async {
+  test('login: auth.login carries only the token (never a username) → authenticated', () async {
     final ch = _server(accept: true);
     final sock = AppSocket(channelFactory: (u) => ch..dialed = u);
     await sock.connect(token: 'jwt-123', username: 'chaitu01', game: chessConfig);
 
     final login = ch.sent.firstWhere((f) => f['event'] == 'auth.login');
     expect(login['id'], isNotNull);
-    expect(login['data'], {'token': 'jwt-123', 'username': 'chaitu01'});
+    expect(login['data'], {'token': 'jwt-123'});
     expect(sock.isConnected, isTrue);
-    // Dials the chess service (through the dev proxy by default).
-    expect(ch.dialed.toString(), contains('/svc/${chessConfig.port}/ws'));
+    expect(sock.username, 'chaitu01');
+    // Dials the chess service directly, with no token in the URL.
+    expect(ch.dialed.toString(), 'ws://192.168.0.235:${AppConfig.server.servicePort(chessConfig.port)}/ws');
     sock.disconnect();
   });
 
@@ -93,5 +96,21 @@ void main() {
     sock.logout();
     expect(ch.sent.last['event'], 'auth.logout');
     expect(sock.client, isNull);
+  });
+
+  test('after login the app signs in on the live Ludo server (ws://<host>:1285/ws)', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final game = container.read(gameSocketLoginProvider).game;
+    expect(game.id, GameId.ludo);
+    expect(GameEndpoints(game).socketUrl, 'ws://192.168.0.235:1285/ws');
+  });
+
+  test('the shared socket remembers its game server', () async {
+    final sock = AppSocket(channelFactory: (_) => _server(accept: true));
+    await sock.connect(token: 'jwt-123', game: ludoConfig);
+    expect(sock.game?.id, GameId.ludo);
+    sock.disconnect();
+    expect(sock.game, isNull);
   });
 }

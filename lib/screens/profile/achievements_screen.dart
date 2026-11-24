@@ -1,154 +1,326 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/models/daily_bonus.dart' show formatAmount;
+import '../../data/models/rewards.dart';
+import '../../data/repositories/rewards_repository.dart';
+import '../../services/app_exception.dart';
+import '../../services/rewards_service.dart';
+import '../../state/async_view.dart';
 import '../../widgets/aura.dart';
+import '../economy/rewards_ui.dart';
 
-/// Achievements — "Trophy Room". See docs/DESIGN_SPEC.md.
-class AchievementsScreen extends StatelessWidget {
+/// Achievements — "Trophy Room" (07-rewards.md §4): every badge from
+/// `GET /achievements/my`, flat and tiered (bronze, silver, gold, royal),
+/// secret ones as locked mystery badges, and a Claim for each reward reached.
+class AchievementsScreen extends ConsumerStatefulWidget {
   const AchievementsScreen({super.key});
 
-  static const _items = <_Achievement>[
-    _Achievement(Icons.emoji_events, AuraColors.gold, 'First Win', 'Win your first match',
-        unlocked: true),
-    _Achievement(Icons.local_fire_department, AuraColors.brandOrange, 'On Fire', '5-win streak',
-        unlocked: true),
-    _Achievement(Icons.gps_fixed, AuraColors.gems, 'Sharpshooter', '10 flawless wins',
-        unlocked: true),
-    _Achievement(Icons.diamond, AuraColors.gems, 'High Roller', 'Win a 2k+ stake match',
-        current: 3, target: 5),
-    _Achievement(Icons.group_add, AuraColors.brandPurple, 'Socialite', 'Add 10 friends',
-        current: 6, target: 10),
-    _Achievement(Icons.timer, AuraColors.green, 'Marathon', 'Play 100 matches', unlocked: true),
-    _Achievement(Icons.workspace_premium, AuraColors.brandPink, 'Champion', 'Win a tournament',
-        current: 0, target: 1),
-    _Achievement(Icons.replay, AuraColors.brandPurple, 'Comeback', 'Win from 0-2 down',
-        current: 1, target: 3),
-    _Achievement(Icons.category, AuraColors.avatarBlue, 'Collector', 'Own every power-up',
-        current: 3, target: 5),
-    _Achievement(Icons.calendar_month, AuraColors.brandPink, 'Streak Keeper', '30-day login streak',
-        current: 3, target: 30),
-    _Achievement(Icons.savings, AuraColors.gold, 'Big Spender', 'Spend 10k Gold',
-        current: 2100, target: 10000, progressLabel: '2,100 / 10,000'),
-    _Achievement(Icons.military_tech, AuraColors.brandOrange, 'Legend', 'Reach Level 50',
-        current: 7, target: 50),
-  ];
+  @override
+  ConsumerState<AchievementsScreen> createState() => _AchievementsScreenState();
+}
+
+class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
+  /// "badge id:tier" being claimed.
+  final _claiming = <String>{};
+  bool _onlyClaimable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Opening the screen re-reads (nothing is pushed by the server).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(myAchievementsProvider);
+    });
+  }
+
+  Future<void> _claim(Achievement a, {String? tier}) async {
+    final key = '${a.id}:${tier ?? ''}';
+    if (_claiming.contains(key)) return;
+    setState(() => _claiming.add(key));
+    try {
+      final c = await ref.read(rewardsApiProvider).claimAchievement(a.id, tier: a.tiered ? tier : null);
+      if (!mounted) return;
+      final what = [
+        rewardSummary(tokens: c.tokens, gold: c.gold),
+        if (c.title != null) 'the title "${c.title}"',
+        if (c.avatarId != null) 'a new avatar',
+      ].where((x) => x.isNotEmpty).join(' + ');
+      final xp = !a.tiered && a.expReward > 0 ? ' · +${a.expReward} XP' : '';
+      showAuraToast(
+        context,
+        what.isEmpty ? 'Claimed "${a.name}"$xp' : 'Claimed $what$xp',
+        kind: c.gold > 0 ? AuraToastKind.gold : AuraToastKind.success,
+      );
+      if (c.paysMoney) applyRewardToWallet(ref);
+    } on AppException catch (e) {
+      if (mounted) showRewardIssue(context, achievementClaimIssue(e));
+    } finally {
+      ref.invalidate(myAchievementsProvider);
+      if (mounted) setState(() => _claiming.remove(key));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final list = ref.watch(myAchievementsProvider);
+    final items = list.value;
+    final unlocked = items?.where((a) => a.completed).length ?? 0;
     return AuraScaffold(
-      appBar: const AuraAppBar(
+      appBar: AuraAppBar(
         title: 'Achievements',
-        trailing: AuraBadge('4 / 12', color: AuraColors.brandPink),
+        trailing: items == null ? null : AuraBadge('$unlocked / ${items.length}', color: AuraColors.brandPink),
       ),
       scroll: true,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 4),
+      body: AsyncView<List<Achievement>>(
+        value: list,
+        onRetry: () => ref.invalidate(myAchievementsProvider),
+        data: _content,
+      ),
+    );
+  }
+
+  Widget _content(List<Achievement> items) {
+    final unlocked = items.where((a) => a.completed).length;
+    final claimable = items.where((a) => a.claimable).length;
+    final shown = [...items.where((a) => !_onlyClaimable || a.claimable)];
+    // Claimable first, then the server's order (stable).
+    final ordered = [...shown.where((a) => a.claimable), ...shown.where((a) => !a.claimable)];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 14),
+        _TrophyRoomCard(fraction: items.isEmpty ? 0 : unlocked / items.length),
+        const SizedBox(height: 16),
+        SegmentedTabs(
+          labels: ['All', claimable > 0 ? 'To claim ($claimable)' : 'To claim'],
+          index: _onlyClaimable ? 1 : 0,
+          onChanged: (i) => setState(() => _onlyClaimable = i == 1),
+        ),
+        const SizedBox(height: 12),
+        if (ordered.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Text('Nothing to claim right now.', textAlign: TextAlign.center, style: AuraText.cardSub),
+          ),
+        for (final a in ordered) ...[
+          _AchievementRow(item: a, claiming: _claiming, onClaim: (tier) => _claim(a, tier: tier)),
           const SizedBox(height: 10),
-          _TrophyRoomCard(fraction: _items.where((a) => a.unlocked).length / 12),
-          const SizedBox(height: 16),
-          for (final a in _items) ...[
-            _AchievementRow(item: a),
-            const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+Color _tierColor(String tier) => switch (tier) {
+  'bronze' => const Color(0xFFCD7F32),
+  'silver' => const Color(0xFFC0C7D1),
+  'gold' => AuraColors.gold,
+  'royal' => AuraColors.brandPurple,
+  _ => AuraColors.accentGlow,
+};
+
+String _tierReward(TierReward r) => switch (r.kind) {
+  'tokens' => '${formatAmount(r.amount)} Tokens',
+  'gold' => '${formatAmount(r.amount)} Gold',
+  'title' => 'Title: ${r.name ?? ''}',
+  'avatar' => 'Avatar',
+  _ => '',
+};
+
+class _AchievementRow extends StatelessWidget {
+  const _AchievementRow({required this.item, required this.claiming, required this.onClaim});
+
+  final Achievement item;
+  final Set<String> claiming;
+  final void Function(String? tier) onClaim;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = item;
+    final mystery = a.mystery;
+    final next = a.nextTier;
+    final reached = a.tierReached;
+    final color = reached != null ? _tierColor(reached) : (a.completed ? AuraColors.gold : AuraColors.brandPurple);
+    final String sub;
+    if (mystery) {
+      sub = 'Keep playing to discover this badge.';
+    } else {
+      final reward = a.tiered
+          ? ''
+          : [
+              rewardSummary(tokens: a.rewardTokens, gold: a.rewardGold),
+              if (a.expReward > 0) '${a.expReward} XP',
+            ].where((x) => x.isNotEmpty).join(' + ');
+      sub = [
+        if (a.description != null && a.description!.isNotEmpty) a.description!,
+        if (reward.isNotEmpty) reward,
+      ].join(' · ');
+    }
+    return AuraCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _IconTile(
+                icon: mystery ? Icons.help_outline_rounded : (a.tiered ? Icons.military_tech : Icons.emoji_events),
+                color: color,
+                unlocked: a.completed,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      mystery ? 'Secret achievement' : a.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AuraText.displayFamily,
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (sub.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(sub, style: const TextStyle(color: AuraColors.textSecondary, fontSize: 13)),
+                    ],
+                    if (a.tiered && !mystery && next != null && a.progressValue != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RewardProgressBar(
+                              fraction: next.threshold <= 0 ? 0 : a.progressValue! / next.threshold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${formatAmount(a.progressValue!)} / ${formatAmount(next.threshold)}',
+                            style: AuraText.cardSub.copyWith(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (a.titles.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text('Titles: ${a.titles.join(', ')}', style: const TextStyle(color: AuraColors.amber, fontSize: 12)),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (!a.tiered)
+                a.claimable
+                    ? ClaimChip(label: 'Claim', busy: claiming.contains('${a.id}:'), onTap: () => onClaim(null))
+                    : a.claimedAt != null
+                    ? const _Claimed()
+                    : const Icon(Icons.lock_outline_rounded, color: AuraColors.textMuted, size: 18),
+            ],
+          ),
+          if (a.tiered && !mystery) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final t in a.tiers)
+                  _TierChip(
+                    tier: t,
+                    claimed: a.claimedTiers.contains(t.tier),
+                    claimable: a.claimableTiers.contains(t.tier),
+                    busy: claiming.contains('${a.id}:${t.tier}'),
+                    onClaim: () => onClaim(t.tier),
+                  ),
+              ],
+            ),
           ],
-          const SizedBox(height: 8),
         ],
       ),
     );
   }
 }
 
-class _Achievement {
-  const _Achievement(
-    this.icon,
-    this.color,
-    this.name,
-    this.description, {
-    this.unlocked = false,
-    this.current = 0,
-    this.target = 1,
-    this.progressLabel,
-  });
+class _Claimed extends StatelessWidget {
+  const _Claimed();
 
-  final IconData icon;
-  final Color color;
-  final String name;
-  final String description;
-  final bool unlocked;
-  final int current;
-  final int target;
-  final String? progressLabel;
-
-  double get fraction => target == 0 ? 0 : (current / target).clamp(0.0, 1.0);
-  String get statusText => progressLabel ?? '$current / $target';
+  @override
+  Widget build(BuildContext context) => const Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.check_circle, color: AuraColors.green, size: 18),
+      SizedBox(width: 5),
+      Text('Claimed', style: TextStyle(color: AuraColors.green, fontSize: 13, fontWeight: FontWeight.w700)),
+    ],
+  );
 }
 
-class _AchievementRow extends StatelessWidget {
-  const _AchievementRow({required this.item});
-
-  final _Achievement item;
+/// One tier: threshold and reward; Claim when reached and not yet claimed.
+class _TierChip extends StatelessWidget {
+  const _TierChip({
+    required this.tier,
+    required this.claimed,
+    required this.claimable,
+    required this.busy,
+    required this.onClaim,
+  });
+  final AchievementTier tier;
+  final bool claimed;
+  final bool claimable;
+  final bool busy;
+  final VoidCallback onClaim;
 
   @override
   Widget build(BuildContext context) {
-    return AuraCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _IconTile(icon: item.icon, color: item.color, unlocked: item.unlocked),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final c = _tierColor(tier.tier);
+    final active = claimed || claimable;
+    return GestureDetector(
+      onTap: claimable && !busy ? onClaim : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: c.withValues(alpha: active ? 0.22 : 0.07),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: c.withValues(alpha: claimable ? 0.95 : (active ? 0.5 : 0.2)),
+            width: claimable ? 1.6 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  item.name,
-                  overflow: TextOverflow.ellipsis,
+                  tier.tier.toUpperCase(),
                   style: TextStyle(
-                    fontFamily: AuraText.displayFamily,
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    color: active ? c : c.withValues(alpha: 0.6),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  item.description,
-                  style: const TextStyle(color: AuraColors.textSecondary, fontSize: 13),
-                ),
-                if (!item.unlocked) ...[
-                  const SizedBox(height: 8),
-                  _ProgressBar(fraction: item.fraction),
-                ],
+                const SizedBox(width: 6),
+                if (claimed)
+                  const Icon(Icons.check_rounded, color: AuraColors.green, size: 14)
+                else if (busy)
+                  const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.6))
+                else if (claimable)
+                  const Text('CLAIM', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
               ],
             ),
-          ),
-          const SizedBox(width: 10),
-          item.unlocked
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.check_circle, color: AuraColors.green, size: 18),
-                    SizedBox(width: 5),
-                    Text(
-                      'Unlocked',
-                      style: TextStyle(
-                        color: AuraColors.green,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                )
-              : Text(
-                  item.statusText,
-                  style: const TextStyle(
-                    color: AuraColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              '${formatAmount(tier.threshold)} · ${_tierReward(tier.reward)}',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -226,33 +398,6 @@ class _DashedBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(_DashedBorderPainter oldDelegate) =>
       oldDelegate.color != color || oldDelegate.radius != radius;
-}
-
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.fraction});
-
-  final double fraction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 6,
-      decoration: BoxDecoration(
-        color: AuraColors.pagerInactive,
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: fraction,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: AuraGradients.brand,
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// Mockup "Trophy Room" card: gold-tinted glass, gold trophy tile, title,

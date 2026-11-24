@@ -140,7 +140,7 @@
   "vipPerks": "2× rewards, no ads & more",
   "passwordChanged": "Password changed",
   "passwordChangedBody": "For your security you’ve been signed out on all devices. Log in with your new password.",
-  "currentPasswordWrong": "Current password is incorrect",
+  "currentPasswordWrong": "Your current password is incorrect.",
   "tooManyAttempts": "Too many attempts. Try again in a few minutes.",
   "changePasswordNote": "You’ll be signed out on all devices after changing it.",
   "currentPassword": "Current password",
@@ -246,7 +246,7 @@
       }
     }
   },
-  "powerUpCount": "{count}× power-up",
+  "powerUpCount": "{count}× boost",
   "@powerUpCount": {
     "placeholders": {
       "count": {
@@ -267,6 +267,28 @@
   "@dayOfSeven": {
     "placeholders": {
       "day": {
+        "type": "int"
+      }
+    }
+  },
+  "dayOfCycle": "DAY {day} / {total}",
+  "@dayOfCycle": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "claimedOfBlock": "{count}/{total} claimed",
+  "@claimedOfBlock": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
         "type": "int"
       }
     }
@@ -1219,6 +1241,10 @@
   },
   "referralCouldntLoad": "Couldn't load your invite code.",
   "inviteFriendsTitle": "Invite friends",
+  "referralHaveCode": "Have a friend's code?",
+  "referralCodeHint": "Friend's code",
+  "referralApply": "Apply",
+  "referralApplied": "Code applied. You both get a reward after your first purchase.",
   "yourTurnTapDice": "YOUR TURN · tap the dice",
   "playerTurnName": "{name}'s turn",
   "@playerTurnName": {

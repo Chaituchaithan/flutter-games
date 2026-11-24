@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../services/server_clock.dart';
 
 /// Your invite code (`GET /referrals/my-code`).
 @immutable
@@ -14,7 +15,7 @@ class ReferralCode {
   /// When it stops working (null = never).
   final DateTime? expiresAt;
 
-  bool get expired => expiresAt != null && expiresAt!.isBefore(DateTime.now());
+  bool get expired => expiresAt != null && expiresAt!.isBefore(ServerClock.now());
   bool get usedUp => maxUses != null && uses >= maxUses!;
 
   factory ReferralCode.fromJson(Map<String, dynamic> j) => ReferralCode(

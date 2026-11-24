@@ -9,10 +9,12 @@ import 'root_key.dart';
 import 'routes.dart';
 import 'screen_orientation.dart';
 import 'session_guard.dart';
+import '../services/account_standing.dart';
 import '../services/api_client.dart';
 import '../services/session.dart';
 import '../services/socket/app_socket.dart';
 import '../theme.dart';
+import '../widgets/reconnecting_banner.dart';
 
 class AuraApp extends ConsumerStatefulWidget {
   const AuraApp({super.key});
@@ -27,14 +29,22 @@ class _AuraAppState extends ConsumerState<AuraApp> {
     super.initState();
     final api = ref.read(apiClientProvider);
     // Expired access token (15 min): refresh with the refresh token and retry.
-    api.onRefreshToken = () => ref.read(sessionProvider.notifier).refreshSession();
+    api.onRefreshToken = () => ref.read(sessionProvider.notifier).refreshSession(rethrowErrors: true);
     // Socket reconnects (e.g. after the 15-min token expiry) sign in with a
     // valid token — refreshed when the saved one has expired.
     ref.read(appSocketProvider).freshToken = () => ref.read(sessionProvider.notifier).validAccessToken();
-    // Still 401 after that: clear the session and show "Session expired".
-    api.onUnauthorized = () {
+    // Session over (401 after a refresh, failed refresh, TOKEN_BLACKLISTED,
+    // or a ban): clear it and tell the player why.
+    api.onUnauthorized = (reason) {
       ref.read(sessionProvider.notifier).forceSignOut();
-      showSessionExpiredDialog();
+      showSessionExpiredDialog(reason);
+    };
+    // Safety (12-safety.md): ban check after sign-in and on resume; region
+    // refusals from any route (full → region screen; writes / store → state).
+    final standing = ref.read(accountStandingProvider.notifier)..attach();
+    api.onGeoBlocked = (kind) {
+      standing.geoBlocked(kind);
+      if (kind == GeoBlock.full) showRegionBlocked();
     };
   }
 
@@ -70,7 +80,15 @@ class _AuraAppState extends ConsumerState<AuraApp> {
       onGenerateRoute: Routes.onGenerateRoute,
       // Portrait layout everywhere, even where the orientation lock can't
       // apply (browser / desktop windows, Android 16 large screens).
-      builder: (context, child) => PortraitFrame(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => PortraitFrame(
+        child: Stack(
+          children: [
+            child ?? const SizedBox.shrink(),
+            // Game socket dropped: "Reconnecting… 0:27" (hidden otherwise).
+            const ReconnectingBanner(),
+          ],
+        ),
+      ),
     );
   }
 }

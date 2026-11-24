@@ -1,20 +1,44 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../configs/games/core/active_game.dart';
+import '../../configs/games/core/game_codes.dart';
 import '../../data/models/tournament.dart';
-import '../../data/repositories/store_repository.dart';
-import '../../data/repositories/tournaments_repository.dart';
+import '../../services/catalogue_service.dart';
+import '../../services/server_clock.dart';
+import '../../services/tournament_api.dart';
+import '../../services/tournament_controller.dart';
 import '../../state/async_view.dart';
 import '../../widgets/aura.dart';
 import '../../widgets/wallet_pill.dart';
+import 'tournament_detail_screen.dart';
 
-/// Tournaments (mockup `isTournaments`): header with your Tokens · Live /
-/// Upcoming / Past tabs · on Live, the Neon Cup hero + bracket · Events list.
+/// The lobby's game filter: the numeric catalogue id of the game the Home is
+/// showing (06 §1: always pass `game_id` inside one game). Null = every game
+/// (catalogue not loaded, demo).
+final tournamentLobbyGameIdProvider = Provider<int?>((ref) {
+  final active = ref.watch(activeGameProvider);
+  final code = GameCodes.all.where((g) => g.id == active).firstOrNull?.code;
+  if (code == null) return null;
+  return ref.watch(catalogueGamesProvider).value?.where((g) => g.code == code).firstOrNull?.id;
+});
+
+/// One lobby tab's rows (one call per status; Finished newest first).
+final tournamentTabProvider = FutureProvider.autoDispose.family<List<Tournament>, ({TournamentTab tab, int? gameId})>(
+  (ref, q) => loadTournamentTab(ref.watch(tournamentApiProvider), q.tab, gameId: q.gameId),
+);
+
+/// The catalogue's name for a numeric game id (null when unknown).
+String? tournamentGameName(WidgetRef ref, int gameId) =>
+    ref.watch(catalogueGamesProvider).value?.where((g) => g.id == gameId).firstOrNull?.name;
+
+/// Tournaments lobby (06 §1): Upcoming / Running / Finished from
+/// `GET /tournaments`, one status per call, filtered by the Home's game.
+/// Pull to refresh; no automatic refresh. A row opens the detail screen.
 ///
-/// Navigation: back → Home. Join → "Not enough balance" if the fee is above
-/// your Tokens (Buy more → Store tab), else "You're in!" and the button turns
-/// into "Joined ✓". Live events show Watch, past events show Results.
-/// Events load through [tournamentEventsProvider] (skeleton while waiting).
+/// Pops 'store' when the player chose "Buy more" (Home opens the Store tab).
 class TournamentsScreen extends ConsumerStatefulWidget {
   const TournamentsScreen({super.key});
 
@@ -23,104 +47,101 @@ class TournamentsScreen extends ConsumerStatefulWidget {
 }
 
 class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
-  int _tab = 0; // 0 Live · 1 Upcoming · 2 Past
+  TournamentTab _tab = TournamentTab.upcoming;
 
-  static const _states = [TournamentState.live, TournamentState.upcoming, TournamentState.ended];
+  ({TournamentTab tab, int? gameId}) get _query => (tab: _tab, gameId: ref.read(tournamentLobbyGameIdProvider));
 
-  int _tokenBalance() => walletBalance(ref, Currency.gems) ?? 0;
-
-  /// Events you've joined this session (their CTA turns into "Joined").
-  final Set<String> _joined = {};
-
-  /// Realistic CTA per event state (the mockup's prototype shows "Join" on
-  /// past events and a "You're in!" dialog for Watch — a real app doesn't):
-  /// upcoming/not-yet-live → Join (balance check → "You're in!" → Joined);
-  /// live → Watch (spectating isn't available yet); past → Results.
-  Future<void> _onCta(Tournament t) async {
-    if (t.state == TournamentState.ended) {
-      await showAuraDialog(
-        context,
-        icon: Icons.emoji_events_outlined,
-        title: t.name,
-        body: '${t.when} · ${t.players} players · ${t.prize} prize pool.',
-        primaryLabel: 'Close',
-      );
-      return;
+  Future<void> _refresh() async {
+    ref.invalidate(tournamentTabProvider(_query));
+    try {
+      await ref.read(tournamentTabProvider(_query).future);
+    } on Object {
+      // The error view shows Retry.
     }
-    if (t.live) {
-      showAuraToast(context, 'Live spectating opens in a future update', kind: AuraToastKind.info);
-      return;
-    }
-    if (_joined.contains(t.name)) return;
-    if (t.fee > _tokenBalance()) {
-      final buyMore = await showInsufficientBalanceDialog(context);
-      if (buyMore == true && mounted) Navigator.pop(context, 'store'); // Home opens the Store tab
-      return;
-    }
-    if (!mounted) return;
-    setState(() => _joined.add(t.name));
-    await showAuraDialog(
-      context,
-      icon: Icons.check_rounded,
-      title: "You're in!",
-      body: 'Your seat is reserved. We will notify you when the bracket goes live.',
-      primaryLabel: 'Great',
-      tone: AuraDialogTone.success,
+  }
+
+  Future<void> _open(Tournament t) async {
+    final r = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: t)),
     );
+    if (!mounted) return;
+    if (r == 'store') {
+      Navigator.pop(context, 'store');
+      return;
+    }
+    // Back from a tournament: its status, seats or the player's entry may
+    // have changed.
+    unawaited(_refresh());
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = _states[_tab];
+    final gameId = ref.watch(tournamentLobbyGameIdProvider);
+    final q = (tab: _tab, gameId: gameId);
+    final joined = ref.watch(joinedTournamentsProvider);
     return AuraScaffold(
-      scroll: true,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 14),
-          const _Header(),
-          const SizedBox(height: 16),
-          SegmentedTabs(
-            labels: const ['Live', 'Upcoming', 'Past'],
-            index: _tab,
-            onChanged: (i) => setState(() => _tab = i),
-          ),
-          if (_tab == 0) ...[
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 14),
+            const _Header(),
             const SizedBox(height: 16),
-            const _NeonCupHero(),
-            const SizedBox(height: 22),
-            const SectionBar('Bracket'),
-            const SizedBox(height: 12),
-            const _Bracket(),
-          ],
-          const SizedBox(height: 22),
-          const SectionBar('Events'),
-          const SizedBox(height: 12),
-          AsyncView<List<Tournament>>(
-            value: ref.watch(tournamentEventsProvider(state)),
-            onRetry: () => ref.invalidate(tournamentEventsProvider(state)),
-            data: (events) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final e in events) ...[
-                  _EventCard(
-                    event: e,
-                    joined: _joined.contains(e.name),
-                    onCta: () => _onCta(e),
-                  ),
-                  const SizedBox(height: 11),
-                ],
-              ],
+            SegmentedTabs(
+              labels: [for (final t in TournamentTab.values) t.label],
+              index: _tab.index,
+              onChanged: (i) => setState(() => _tab = TournamentTab.values[i]),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 22),
+            AsyncView<List<Tournament>>(
+              value: ref.watch(tournamentTabProvider(q)),
+              onRetry: () => ref.invalidate(tournamentTabProvider(q)),
+              data: (rows) => rows.isEmpty
+                  ? _Empty(tab: _tab)
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final t in rows) ...[
+                          TournamentCard(tournament: t, entered: joined.contains(t.id), onTap: () => _open(t)),
+                          const SizedBox(height: 11),
+                        ],
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Empty extends StatelessWidget {
+  const _Empty({required this.tab});
+  final TournamentTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = switch (tab) {
+      TournamentTab.upcoming => 'No tournaments open right now. Pull down to check again.',
+      TournamentTab.running => 'No tournaments are being played right now.',
+      TournamentTab.finished => 'No finished tournaments yet.',
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          const Icon(Icons.emoji_events_outlined, color: AuraColors.textSecondary, size: 34),
+          const SizedBox(height: 10),
+          Text(text, textAlign: TextAlign.center, style: AuraText.cardSub),
         ],
       ),
     );
   }
 }
 
-/// Mockup header: 42px glass back button · "Tournaments" · cyan Tokens pill.
+/// Mockup header: 42px glass back button · "Tournaments" · Tokens pill.
 class _Header extends StatelessWidget {
   const _Header();
 
@@ -128,23 +149,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        GestureDetector(
-          onTap: () => Navigator.of(context).maybePop(),
-          child: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.white.withValues(alpha: 0.12), Colors.white.withValues(alpha: 0.05)],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
-            ),
-            child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 24),
-          ),
-        ),
+        GlassIconButton(icon: Icons.chevron_left, iconSize: 24, onTap: () => Navigator.of(context).maybePop()),
         const SizedBox(width: 12),
         Expanded(
           child: Text('Tournaments', style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 22, color: Colors.white)),
@@ -155,403 +160,233 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// Live hero: "LIVE · ROUND OF 16" pill, ends-in, "Neon Cup", 3 stat tiles.
-class _NeonCupHero extends StatelessWidget {
-  const _NeonCupHero();
+/// Gradient for a tournament's icon tile and fill bar.
+List<Color> tournamentColors(Tournament t) {
+  if (t.status.isOver) return const [Color(0xFF6366F1), Color(0xFFA855F7)];
+  if (t.comingSoon) return const [Color(0xFF64748B), Color(0xFF475569)];
+  return switch (t.type) {
+    TournamentType.singleTableSng => const [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+    TournamentType.leaderboardWindow => const [Color(0xFF22D3EE), Color(0xFF3B82F6)],
+    _ => const [Color(0xFFFB923C), Color(0xFFF43F5E)],
+  };
+}
+
+/// "2h 14m", "3d 4h", "12m", "45s".
+String formatStartsIn(Duration d) {
+  if (d.inDays > 0) return '${d.inDays}d ${d.inHours % 24}h';
+  if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
+  if (d.inMinutes > 0) return '${d.inMinutes}m';
+  return '${d.inSeconds}s';
+}
+
+/// "1:58" (a seat deadline).
+String formatClock(Duration d) => '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+
+/// The start in local time: "Mon 24 Nov, 18:00".
+String formatLocalStart(DateTime t) {
+  final l = t.toLocal();
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${days[l.weekday - 1]} ${l.day} ${months[l.month - 1]}, ${two(l.hour)}:${two(l.minute)}';
+}
+
+/// The row's "when" line (06 §1 "What the app does"): a Sit & Go never
+/// shows `starts_at`.
+String tournamentWhen(Tournament t, {DateTime? now}) {
+  // Server time: `starts_at` is the server's clock.
+  final n = now ?? ServerClock.now();
+  if (t.comingSoon && !t.status.isOver) return '${t.type.label} · Coming soon';
+  switch (t.status) {
+    case TournamentStatus.completed:
+      return '${t.type.label} · Finished';
+    case TournamentStatus.cancelled:
+    case TournamentStatus.refunded:
+      return '${t.type.label} · Cancelled';
+    case TournamentStatus.running:
+      return '${t.type.label} · Live now';
+    case TournamentStatus.paused:
+      return '${t.type.label} · Paused';
+    case TournamentStatus.unknown:
+      return t.type.label;
+    case TournamentStatus.announced:
+    case TournamentStatus.registering:
+  }
+  if (t.isSitAndGo) {
+    return 'Sit & Go${t.maxPlayers == null ? '' : ', ${t.maxPlayers} players'} · Starts when full';
+  }
+  final s = t.startsAt;
+  final open = t.status == TournamentStatus.announced ? 'Opens soon · ' : '';
+  if (s == null) return '$open${t.type.label}';
+  final left = s.difference(n);
+  return left.isNegative ? '$open${formatLocalStart(s)}' : '${open}Starts in ${formatStartsIn(left)}';
+}
+
+/// The row's chip.
+String tournamentChip(Tournament t, {required bool entered}) {
+  if (t.status.isOver) return t.status == TournamentStatus.completed ? 'Results' : 'Cancelled';
+  if (t.comingSoon) return 'Soon';
+  return switch (t.status) {
+    TournamentStatus.registering => entered ? 'Entered' : 'Join',
+    TournamentStatus.announced => 'Opens soon',
+    TournamentStatus.running => entered ? 'Your table' : 'View',
+    TournamentStatus.paused => 'Paused',
+    _ => 'View',
+  };
+}
+
+/// A lobby row: icon tile · name · when · chip, then pool/price · fill bar ·
+/// seats. "Sit & Go, 4 players · Starts when full", "250 + 25 tokens", "3 / 4".
+class TournamentCard extends StatelessWidget {
+  const TournamentCard({super.key, required this.tournament, required this.onTap, this.entered = false});
+  final Tournament tournament;
+  final VoidCallback onTap;
+  final bool entered;
 
   @override
   Widget build(BuildContext context) {
-    // Shadow on an opaque base: a BoxShadow under a translucent fill would
-    // show through as an inner panel.
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0C0A16),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: AuraColors.brandPurple.withValues(alpha: 0.8), blurRadius: 40, spreadRadius: -16, offset: const Offset(0, 18))],
-      ),
+    final t = tournament;
+    final colors = tournamentColors(t);
+    final grad = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors);
+    final chip = tournamentChip(t, entered: entered);
+    final primary = chip == 'Join' || chip == 'Your table';
+    final pool = t.poolText;
+    final fill = t.maxPlayers == null || t.maxPlayers == 0 || t.status.isCancelled ? null : (t.currentPlayers / t.maxPlayers!).clamp(0.0, 1.0);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
       child: Container(
-        clipBehavior: Clip.antiAlias,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AuraColors.brandPurple.withValues(alpha: 0.32), AuraColors.brandPink.withValues(alpha: 0.14)],
+            colors: [Colors.white.withValues(alpha: 0.09), Colors.white.withValues(alpha: 0.03)],
           ),
-          border: Border.all(color: AuraColors.accentGlow.withValues(alpha: 0.55), width: 1.5),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
         ),
-        child: Stack(
+        child: Column(
           children: [
-            Positioned(
-              right: -40,
-              top: -40,
-              child: Container(
-                width: 170,
-                height: 170,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(colors: [AuraColors.brandPink.withValues(alpha: 0.4), AuraColors.brandPink.withValues(alpha: 0)], stops: const [0, 0.7]),
+            Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    gradient: grad,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                  ),
+                  child: const Icon(Icons.emoji_events_outlined, color: Colors.white, size: 24),
                 ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AuraColors.green.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(99),
-                          border: Border.all(color: AuraColors.green.withValues(alpha: 0.4)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              t.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 15.5, color: Colors.white),
+                            ),
+                          ),
+                          if (t.status == TournamentStatus.running) ...[
+                            const SizedBox(width: 7),
                             Container(
-                              width: 6,
-                              height: 6,
+                              width: 7,
+                              height: 7,
                               decoration: const BoxDecoration(
                                 color: AuraColors.green,
                                 shape: BoxShape.circle,
                                 boxShadow: [BoxShadow(color: AuraColors.green, blurRadius: 8)],
                               ),
                             ),
-                            const SizedBox(width: 5),
-                            Flexible(
-                              child: Text(
-                                'LIVE · ROUND OF 16',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 11, color: AuraColors.green),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Ends in 2h 14m', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text('Neon Cup', style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 26, color: Colors.white)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _HeroStat(
-                          label: 'PRIZE POOL',
-                          child: Row(
-                            children: [
-                              const CurrencyGlyph(kind: Currency.gems, size: 15),
-                              const SizedBox(width: 5),
-                              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text('50,000', style: _statValue(Colors.white)))),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: _HeroStat(label: 'YOUR SEED', child: Text('#12', style: _statValue(const Color(0xFFFBBF24))))),
-                      const SizedBox(width: 8),
-                      Expanded(child: _HeroStat(label: 'PLAYERS', child: Text('128', style: _statValue(Colors.white)))),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static TextStyle _statValue(Color c) => TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 17, color: c);
-}
-
-class _HeroStat extends StatelessWidget {
-  const _HeroStat({required this.label, required this.child});
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w600, fontSize: 10, letterSpacing: 0.8, color: Colors.white.withValues(alpha: 0.55)),
-          ),
-          const SizedBox(height: 3),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-/// Mockup bracket: QF (4 matches) → SF (2) → Final (?), winner = green dot +
-/// bold, loser dimmed. Scrolls sideways on narrow screens.
-class _Bracket extends StatelessWidget {
-  const _Bracket();
-
-  // (a, b, winner: 0 = a, 1 = b, -1 = not played)
-  static const _rounds = [
-    ('QF', [('ZeroCool', 'NovaKid', 1), ('You', 'IronByte', 0), ('LunaWolf', 'StormFox', 0), ('AcePilot', 'PixelGhost', 1)]),
-    ('SF', [('ZeroCool', 'You', -1), ('LunaWolf', 'PixelGhost', -1)]),
-    ('Final', [('?', '?', -1)]),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white.withValues(alpha: 0.09), Colors.white.withValues(alpha: 0.03)],
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: LayoutBuilder(
-        builder: (context, c) {
-          // Each round ≥ 96px wide (mockup min-width); scroll if they don't fit.
-          final colWidth = ((c.maxWidth - 16) / 3).clamp(96.0, double.infinity);
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < _rounds.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 8),
-                    SizedBox(
-                      width: colWidth,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Text(
-                            _rounds[i].$1.toUpperCase(),
-                            style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 1, color: Colors.white.withValues(alpha: 0.5)),
-                          ),
-                          for (final m in _rounds[i].$2) ...[
-                            const SizedBox(height: 8),
-                            _MatchCell(a: m.$1, b: m.$2, winner: m.$3),
                           ],
                         ],
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _MatchCell extends StatelessWidget {
-  const _MatchCell({required this.a, required this.b, required this.winner});
-  final String a;
-  final String b;
-  final int winner;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        children: [
-          _slot(a, winner == 0, winner == 1, top: true),
-          _slot(b, winner == 1, winner == 0),
-        ],
-      ),
-    );
-  }
-
-  Widget _slot(String name, bool won, bool lost, {bool top = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: top ? BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.12)))) : null,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, fontWeight: won ? FontWeight.w700 : FontWeight.w500, color: lost ? Colors.white.withValues(alpha: 0.4) : Colors.white),
-            ),
-          ),
-          if (won) Container(width: 6, height: 6, decoration: const BoxDecoration(color: AuraColors.green, shape: BoxShape.circle)),
-        ],
-      ),
-    );
-  }
-}
-
-/// Event card (mockup): gradient icon tile · name (+ live dot) · when · fee ·
-/// CTA, then prize · fill bar · players.
-class _EventCard extends StatelessWidget {
-  const _EventCard({required this.event, required this.onCta, this.joined = false});
-  final Tournament event;
-  final VoidCallback onCta;
-  final bool joined;
-
-  String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
-
-  @override
-  Widget build(BuildContext context) {
-    final e = event;
-    final grad = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: e.colors);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white.withValues(alpha: 0.09), Colors.white.withValues(alpha: 0.03)],
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  gradient: grad,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                      const SizedBox(height: 2),
+                      Text(
+                        tournamentWhen(t),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.55)),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        t.priceText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.8)),
+                      ),
+                    ],
+                  ),
                 ),
-                child: const Icon(Icons.emoji_events_outlined, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            e.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 15.5, color: Colors.white),
-                          ),
-                        ),
-                        if (e.live) ...[
-                          const SizedBox(width: 7),
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: const BoxDecoration(
-                              color: AuraColors.green,
-                              shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: AuraColors.green, blurRadius: 8)],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${e.when} · ${e.fee == 0 ? 'Free entry' : '${_fmt(e.fee)} entry'}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.55)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: onCta,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
                   decoration: BoxDecoration(
-                    // Joined / past events read as secondary (glass), not a call to action.
-                    gradient: joined || e.state == TournamentState.ended ? null : AuraGradients.brand,
-                    color: joined || e.state == TournamentState.ended ? Colors.white.withValues(alpha: 0.08) : null,
+                    gradient: primary ? AuraGradients.brand : null,
+                    color: primary ? null : Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                   ),
                   child: Text(
-                    e.state == TournamentState.ended ? 'Results' : (e.live ? 'Watch' : (joined ? 'Joined ✓' : 'Join')),
+                    chip,
                     style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.emoji_events_rounded, size: 13, color: Color(0xFFFBBF24)),
-              const SizedBox(width: 4),
-              Flexible(
-                flex: 2,
-                child: Text.rich(
-                  TextSpan(children: [
-                    TextSpan(text: e.prize, style: TextStyle(fontFamily: AuraText.displayFamily, fontWeight: FontWeight.w700, color: const Color(0xFFFBBF24))),
-                    TextSpan(text: ' prize', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
-                  ]),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11.5),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: Container(
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-                  ),
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: e.fill,
-                    child: Container(decoration: BoxDecoration(gradient: grad, borderRadius: BorderRadius.circular(99))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.emoji_events_rounded, size: 13, color: Color(0xFFFBBF24)),
+                const SizedBox(width: 4),
+                Flexible(
+                  flex: 3,
+                  child: Text(
+                    pool ?? (t.status.isCancelled ? 'Entries refunded' : 'No prize pool yet'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: pool == null ? Colors.white.withValues(alpha: 0.55) : const Color(0xFFFBBF24)),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(e.players, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.55))),
-              ),
-            ],
-          ),
-        ],
+                if (fill != null) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                      ),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: fill,
+                        child: Container(decoration: BoxDecoration(gradient: grad, borderRadius: BorderRadius.circular(99))),
+                      ),
+                    ),
+                  ),
+                ],
+                if (!t.status.isCancelled) ...[
+                  const SizedBox(width: 10),
+                  Text(
+                    t.isSitAndGo && !t.status.isOver ? '${t.seatsText} seated' : t.seatsText,
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.55)),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

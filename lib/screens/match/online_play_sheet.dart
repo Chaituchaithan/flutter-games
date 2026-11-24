@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/store_repository.dart';
+import '../../services/account_standing.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
+import '../../widgets/restriction_banner.dart';
 import '../../app/game_area.dart';
 import '../../app/game_module.dart';
 import '../../configs/games/core/active_game.dart';
@@ -34,10 +36,15 @@ class OnlinePlaySheet extends ConsumerStatefulWidget {
 }
 
 class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
-  // Chess is always 2-player, so the "How many players?" step (0) is skipped —
-  // the sheet opens directly on "Choose your stake" (step 1).
-  int _step = 1; // 1 currency ("Choose your stake") · 2 side · 3 amount · 4 preview
-  final int _players = 2;
+  // The game's match sizes: one (chess 2P) skips "How many players?" (step 0).
+  late final List<int> _counts = GameArea.onlinePlayerCounts(ref.read(activeGameProvider));
+  late int _step = _counts.length > 1 ? 0 : 1; // 0 players · 1 currency · 2 side · 3 amount · 4 preview
+  late int _players = _counts.first;
+
+  /// Free match allowed (Ludo) and the game's own tiers (the server's).
+  late final bool _free = GameArea.onlineFreePlay(ref.read(activeGameProvider));
+  late final OnlineStakeTiers? _gameTiers = GameArea.onlineStakeTiers(ref.read(activeGameProvider));
+  List<int>? _serverTiers() => _gameTiers?.call(ref, players: _players, tokens: _isTokens, friends: false);
   bool _isTokens = true;
   /// The active game's online side options (chess: White / Black); empty =
   /// no side step.
@@ -45,7 +52,7 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
   int _sideIdx = 0;
   bool get _hasSides => _sides.isNotEmpty;
   String get _sideLabel => _hasSides ? _sides[_sideIdx].label : '';
-  int _stake = 200;
+  late int _stake = _free ? 0 : 200;
 
   static const _minStake = 50;
   static const _maxStake = 5000;
@@ -69,7 +76,15 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
   int get _balance => _walletBalance(_isTokens);
 
   Future<void> _createGame() async {
-    if (_stake > _balance) {
+    // Matchmaking ban / region (12-safety.md §4): the server doesn't stop it,
+    // so the app does.
+    final standing = ref.read(accountStandingProvider);
+    final blocked = _stake > 0 ? standing.playBlockedText : (standing.canPlay ? null : standing.playBlockedText);
+    if (blocked != null) {
+      showAuraToast(context, blocked, kind: AuraToastKind.info);
+      return;
+    }
+    if (_stake > 0 && _stake > _balance) {
       final buyMore = await showInsufficientBalanceDialog(context);
       if (buyMore == true && mounted) {
         Navigator.of(context).pop(); // close the sheet
@@ -85,13 +100,14 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
     Navigator.pushNamed(context, route, arguments: {
       'stake': _stake,
       'tokens': _isTokens,
+      'players': _players,
       if (_hasSides) 'color': _sides[_sideIdx].value,
     });
   }
 
   void _back() {
-    // Step 1 ("Choose your stake") is the first step now — back from it closes.
-    if (_step > 1) {
+    // The first step (players, or "Choose your stake") closes on back.
+    if (_step > (_counts.length > 1 ? 0 : 1)) {
       // No side step: stake (3) goes straight back to currency (1).
       setState(() => _step = (_step == 3 && !_hasSides) ? 1 : _step - 1);
     } else {
@@ -99,7 +115,7 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
     }
   }
 
-  void _setStake(int v) => setState(() => _stake = v.clamp(_minStake, _maxStake));
+  void _setStake(int v) => setState(() => _stake = v == 0 && _free ? 0 : v.clamp(_minStake, _maxStake));
 
   String _fmt(int n) {
     final s = n.toString();
@@ -112,6 +128,7 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
   }
 
   (String, String, String) get _headerText => switch (_step) {
+    0 => ('players', 'How many players?', 'Pick the match size'),
     1 => (_hasSides ? '1/3' : '1/2', 'Choose your stake', 'Token or Gold buy-in'),
     2 => ('2/3 · side', 'Choose your side', _sides.first.sub),
     3 => (
@@ -200,6 +217,7 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                   Flexible(
                     child: SingleChildScrollView(
                       child: switch (_step) {
+                        0 => _players_(),
                         1 => _currency_(),
                         2 => _side_(),
                         3 => _stake_(),
@@ -213,6 +231,35 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
           ),
         ),
       ),
+    );
+  }
+
+  // ── Step 0: players (games with more than one match size) ──
+  Widget _players_() {
+    return Row(
+      children: [
+        for (var i = 0; i < _counts.length; i++) ...[
+          if (i > 0) const SizedBox(width: 12),
+          Expanded(
+            child: _OptCard(
+              selected: _players == _counts[i],
+              onTap: () => setState(() {
+                _players = _counts[i];
+                _step = 1;
+              }),
+              child: Column(
+                children: [
+                  Icon(_counts[i] == 2 ? Icons.people_alt_rounded : Icons.groups_rounded, color: Colors.white, size: 40),
+                  const SizedBox(height: 10),
+                  Text('${_counts[i]} Players', style: AuraText.cardTitle.copyWith(fontSize: 17)),
+                  const SizedBox(height: 4),
+                  Text(_counts[i] == 2 ? '1 vs 1' : 'Free for all', style: AuraText.cardSub.copyWith(fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -291,6 +338,15 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
 
   // ── Step 3: stake ──
   Widget _stake_() {
+    final server = _serverTiers();
+    final tiers = <(int, String)>[
+      if (_free) (0, 'free match'),
+      if (server != null)
+        for (final a in server) (a, 'pot ${_fmt(a * _players)}')
+      else
+        ..._tiers,
+    ];
+    if (!tiers.any((t) => t.$1 == _stake)) _stake = tiers.first.$1;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -304,7 +360,7 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
           mainAxisSpacing: 10,
           childAspectRatio: 1.35,
           children: [
-            for (final (amt, pot) in _tiers)
+            for (final (amt, pot) in tiers)
               _OptCard(
                 selected: _stake == amt,
                 radius: 14,
@@ -314,7 +370,7 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      amt >= 1000 ? '${amt ~/ 1000}k' : '$amt',
+                      amt == 0 ? 'Free' : (amt >= 1000 ? '${amt ~/ 1000}k' : '$amt'),
                       style: TextStyle(
                         fontFamily: AuraText.displayFamily,
                         color: Colors.white,
@@ -329,6 +385,8 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
               ),
           ],
         ),
+        // The server only takes its own tiers: no custom amount then.
+        if (server == null) ...[
         const SizedBox(height: 20),
         Row(
           children: [
@@ -362,6 +420,7 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
             _stepBtn(Icons.add, () => _setStake(_stake + _stakeStep)),
           ],
         ),
+        ],
         const SizedBox(height: 18),
         Container(
           padding: const EdgeInsets.all(16),
@@ -376,9 +435,9 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
           ),
           child: Column(
             children: [
-              _summaryRow('YOUR STAKE', _fmt(_stake), Colors.white),
+              _summaryRow('YOUR STAKE', _stake == 0 ? 'Free' : _fmt(_stake), Colors.white),
               const SizedBox(height: 8),
-              _summaryRow('TOTAL POT · $_players×', _fmt(_stake * _players), AuraColors.amber),
+              _summaryRow('TOTAL POT · $_players×', _stake == 0 ? '—' : _fmt(_stake * _players), AuraColors.amber),
             ],
           ),
         ),
@@ -487,15 +546,16 @@ class _OnlinePlaySheetState extends ConsumerState<OnlinePlaySheet> {
                 _infoRow('Your side', _sideLabel),
                 _divider(),
               ],
-              _infoRow('Entry stake', _fmt(_stake)),
+              _infoRow('Entry stake', _stake == 0 ? 'Free' : _fmt(_stake)),
               _divider(),
-              _infoRow('Total prize pot', _fmt(_stake * _players), valueColor: AuraColors.amber),
+              _infoRow('Total prize pot', _stake == 0 ? 'Bragging rights' : _fmt(_stake * _players), valueColor: AuraColors.amber),
               _divider(),
               _infoRow('Format', 'Winner takes all'),
             ],
           ),
         ),
         const SizedBox(height: 20),
+        const RestrictionBanner(feature: RestrictedFeature.play),
         GradientButton(label: 'Find match', onPressed: _createGame),
       ],
     );

@@ -25,8 +25,12 @@ abstract final class ProxyConfig {
   /// Whether REST + WS route through the local proxy. Release builds (real
   /// phones, demos) never do — the proxy only exists on the developer's
   /// machine — unless `--dart-define=USE_PROXY=true` asks for it.
+  ///
+  /// Web only by default: the proxy exists for the browser's CORS/Origin
+  /// rules. Phones and emulators talk to the server directly (a phone's
+  /// `localhost` is the phone itself) — 00-conventions.md "Servers".
   static const bool enabled = BuildOverrides.useProxy == ''
-      ? proxyEnabledByDefault && !kReleaseMode
+      ? proxyEnabledByDefault && !kReleaseMode && kIsWeb
       : BuildOverrides.useProxy == 'true';
 
   /// `host:port` of the proxy. The Android emulator reaches the host machine's

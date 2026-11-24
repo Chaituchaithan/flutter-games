@@ -18,12 +18,13 @@ class Validators {
     return null;
   }
 
-  /// Register username: letters, digits, and underscores; 3–20 chars, no spaces.
+  /// Register username: letters, digits, and underscores; 3–32 chars, no
+  /// spaces (the gateway checks the length; the app enforces the characters).
   static String? username(String value) {
     final v = value.trim();
     if (v.isEmpty) return 'Please choose a username';
     if (v.length < 3) return 'At least 3 characters';
-    if (v.length > 20) return 'At most 20 characters';
+    if (v.length > 32) return 'At most 32 characters';
     if (!RegExp(r'^[A-Za-z0-9_]+$').hasMatch(v)) return 'Letters, numbers, and _ only';
     return null;
   }
@@ -58,6 +59,12 @@ class Validators {
     if (!RegExp(r'[A-Za-z]').hasMatch(value) || !RegExp(r'\d').hasMatch(value)) {
       return 'Mix letters and numbers';
     }
+    return null;
+  }
+
+  /// Forgot password: the 6-digit reset code.
+  static String? resetCode(String value) {
+    if (!RegExp(r'^\d{6}$').hasMatch(value)) return 'Enter the 6-digit code';
     return null;
   }
 

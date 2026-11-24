@@ -1,104 +1,138 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/models/rewards.dart';
+import '../../data/repositories/rewards_repository.dart';
+import '../../services/app_exception.dart';
+import '../../services/rewards_service.dart';
+import '../../services/server_clock.dart';
+import '../../app/routes.dart';
+import '../../state/async_view.dart' show ErrorRetry;
 import '../../widgets/aura.dart';
 import '../../widgets/wallet_pill.dart';
+import '../economy/rewards_ui.dart';
+import '../system/loading_skeleton_screen.dart' show Shimmer, SkeletonBox;
 
-/// One wheel wedge: an amount + unit, with gold/jackpot flags.
+/// One wheel wedge, drawn from a server prize: the label split into an
+/// amount and a unit ("150" / "tokens"), coloured by rarity.
+@immutable
 class _Seg {
-  const _Seg(
-    this.amount,
-    this.unit,
-    this.value, {
-    this.gold = false,
-    this.jackpot = false,
-  });
+  const _Seg(this.amount, this.unit, this.color, {this.jackpot = false});
   final String amount;
   final String unit;
-  final int value;
-  final bool gold;
+  final Color color;
   final bool jackpot;
+
+  static const _purple = Color(0xFF6D28D9);
+  static const _pink = Color(0xFF9D174D);
+  static const _empty = Color(0xFF2A2440);
+
+  /// The wedges of [g], in slot order (slot 0 under the pointer).
+  static List<_Seg> of(BonusGame g) {
+    final n = math.max(1, g.slots);
+    return [
+      for (var i = 0; i < n; i++)
+        if (i < g.prizes.length) _from(g.prizes[i], i) else const _Seg('', '', _empty),
+    ];
+  }
+
+  static _Seg _from(BonusPrize p, int i) {
+    final m = RegExp(r'^([\d.,]+[×x]?)\s+(.+)$').firstMatch(p.label.trim());
+    final (amount, unit) = m == null ? (p.label.trim(), '') : (m.group(1)!, m.group(2)!);
+    final color = switch (p.rarity) {
+      'legendary' => const Color(0xFFB45309),
+      'epic' => const Color(0xFF0E7490),
+      _ => i.isEven ? _purple : _pink,
+    };
+    return _Seg(amount, unit, color, jackpot: p.rarity == 'legendary');
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _Seg && other.amount == amount && other.unit == unit && other.color == color && other.jackpot == jackpot;
+
+  @override
+  int get hashCode => Object.hash(amount, unit, color, jackpot);
 }
 
 /// Wheel tab — "Lucky Spin". Scrollable body only (shell provides chrome).
-/// Spins land on a wedge, reveal the win, and consume a free spin. See
-/// docs/DESIGN_SPEC.md.
-class WheelScreen extends StatefulWidget {
+///
+/// Shows the server's wheel-type bonus games (07-rewards.md §5): the free
+/// spins the player is entitled to (welcome spin, a spin-day daily claim's
+/// spin) and the paid `store` wheels. SPIN calls the play route; the wheel
+/// lands on the reply's `slot_index` and shows its `prize`. Nothing about
+/// the outcome is decided on the device. See docs/DESIGN_SPEC.md.
+class WheelScreen extends ConsumerStatefulWidget {
   const WheelScreen({super.key});
 
   @override
-  State<WheelScreen> createState() => _WheelScreenState();
+  ConsumerState<WheelScreen> createState() => _WheelScreenState();
 }
 
-class _WheelScreenState extends State<WheelScreen>
-    with TickerProviderStateMixin {
-  late final AnimationController _controller;
+class _WheelScreenState extends ConsumerState<WheelScreen> with TickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 5200),
+  );
 
-  /// The jackpot celebration (only when the jackpot wedge wins).
+  /// The jackpot celebration (only when a legendary prize wins).
   late final AnimationController _jackpot = AnimationController(vsync: this, duration: const Duration(milliseconds: 3600))
     ..addListener(() => setState(() {}));
 
   /// Marquee bulbs around the rim: a slow blink at rest, a chase while spinning.
-  late final AnimationController _lights;
+  late final AnimationController _lights = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat();
 
-  // Segments clockwise from the top wedge (index 0 sits under the pointer).
-  static const _segs = <_Seg>[
-    _Seg('500', 'Tokens', 500),
-    _Seg('200', 'Gold', 200, gold: true),
-    _Seg('1,000', 'Tokens', 1000),
-    _Seg('50', 'Gold', 50, gold: true),
-    _Seg('500', 'Gold', 500, gold: true),
-    _Seg('2,000', 'Tokens', 2000),
-    _Seg('5,000', 'JACKPOT', 5000, jackpot: true),
-    _Seg('100', 'Tokens', 100),
-  ];
-
-  static const _segmentColors = <Color>[
-    Color(0xFF6D28D9),
-    Color(0xFF9D174D),
-    Color(0xFF6D28D9),
-    Color(0xFF9D174D),
-    Color(0xFF6D28D9),
-    Color(0xFF9D174D),
-    Color(0xFFB45309), // JACKPOT
-    Color(0xFF9D174D),
-  ];
-
-  int _spinsLeft = 3;
   double _fromAngle = 0;
   double _toAngle = 0;
-  _Seg? _result;
+
+  /// The play request is running: SPIN can't be tapped twice (a double tap
+  /// on a paid wheel would pay twice).
+  bool _playing = false;
+
+  /// The wheel picked in the selector (by [WheelSpin.key]).
+  String? _selected;
+
+  /// The wheel being played or whose prize is showing: it stays on screen
+  /// while the list re-reads (a used free spin leaves the list).
+  WheelSpin? _active;
+
+  /// The last play's reply (the prize banner), until it hides.
+  BonusPlayResult? _result;
+
+  /// Free spins used or refused this session (keys are per entitlement), so
+  /// one isn't offered again while a re-read lags behind.
+  final _spent = <String>{};
+
+  /// Limits from the last reply's `plays_left_today`, until the next read.
+  final _limits = <String, BonusGameLimits>{};
 
   /// Hides the win message 3 s after the wheel stops.
   Timer? _hideResult;
 
-  bool get _canSpin => _spinsLeft > 0 && !_controller.isAnimating;
+  bool get _busy => _playing || _controller.isAnimating;
+
+  /// Ticks the "next free spin" countdown while the wheel is locked.
+  Timer? _clock;
 
   @override
   void initState() {
     super.initState();
-    _controller =
-        AnimationController(
-          vsync: this,
-          duration: const Duration(milliseconds: 5200),
-        )..addStatusListener((status) {
-          if (status == AnimationStatus.completed) {
-            // Normalise so the next spin starts from the resting angle.
-            _fromAngle = _toAngle % (2 * math.pi);
-            setState(() {});
-          }
-        });
-    _lights = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..repeat();
+    _clock = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted && !_busy) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _clock?.cancel();
     _hideResult?.cancel();
     _lights.dispose();
     _jackpot.dispose();
@@ -106,202 +140,156 @@ class _WheelScreenState extends State<WheelScreen>
     super.dispose();
   }
 
-  void _spin() {
-    if (!_canSpin) return;
-    final sweep = 2 * math.pi / _segs.length;
-    final i = math.Random().nextInt(_segs.length);
-    // Rotation that brings segment i under the top pointer: a ≡ -i*sweep.
-    final current = _fromAngle % (2 * math.pi);
-    final target = (-i * sweep) % (2 * math.pi);
-    final delta = (target - current + 2 * math.pi) % (2 * math.pi);
-    _fromAngle = current;
-    _toAngle = current + 2 * math.pi * 5 + delta; // 5 full turns + align
+  BonusGameLimits _me(WheelSpin s) => _limits[s.key] ?? s.game.me;
 
+  /// May [s] be spun now? Only a wheel from the latest list read.
+  bool _canSpin(WheelSpin s, List<WheelSpin> list) =>
+      !_busy &&
+      list.any((x) => x.key == s.key) &&
+      !(s.free && _spent.contains(s.key)) &&
+      _me(s).blockReason == null;
+
+  /// The wheel to show: the one in play (or showing its prize), else the
+  /// selected one, else the first.
+  WheelSpin? _shown(List<WheelSpin> list) {
+    WheelSpin? find(String? key) => key == null ? null : list.where((s) => s.key == key).firstOrNull;
+    final active = _active;
+    if (active != null && (_busy || _result != null)) return find(active.key) ?? active;
+    return find(_selected) ?? list.firstOrNull;
+  }
+
+  void _select(WheelSpin s) {
+    if (_busy || s.key == _selected) return;
     _hideResult?.cancel();
     setState(() {
-      _spinsLeft -= 1;
+      _selected = s.key;
       _result = null;
+      _active = null;
+      // A different wheel: start upright.
+      _fromAngle = _toAngle = 0;
     });
-    _controller.forward(from: 0).then((_) {
+  }
+
+  Future<void> _spin(WheelSpin s, List<WheelSpin> list) async {
+    if (!_canSpin(s, list)) return;
+    _hideResult?.cancel();
+    setState(() {
+      _playing = true;
+      _result = null;
+      _active = s;
+      _selected = s.key;
+    });
+    try {
+      final r = await ref
+          .read(rewardsApiProvider)
+          .playBonusGame(s.game.code, trigger: s.trigger, triggerRef: s.triggerRef);
       if (!mounted) return;
-      setState(() => _result = _segs[i]);
-      if (_segs[i].jackpot) {
+      // Land the server's slice under the pointer after five full turns.
+      _fromAngle = _toAngle % (2 * math.pi);
+      _toAngle = bonusWheelTarget(_fromAngle, r.slotIndex, s.game.slots);
+      setState(() {
+        _limits[s.key] = _me(s).withPlaysLeft(r.playsLeftToday);
+        if (s.free) _spent.add(s.key);
+      });
+      await _controller.forward(from: 0);
+      if (!mounted) return;
+      // Header balance after the animation, from the reply.
+      applyRewardToWallet(ref, balances: r.balances);
+      setState(() => _result = r);
+      if (r.prize.rarity == 'legendary' && !r.prize.isNothing) {
         HapticFeedback.heavyImpact();
         _jackpot.forward(from: 0);
       }
       _hideResult = Timer(const Duration(seconds: 3), () {
         if (mounted) setState(() => _result = null);
       });
-    });
+      _refreshAfterPlay(s);
+    } on AppException catch (e) {
+      if (!mounted) return;
+      final issue = bonusPlayIssue(e, cooldownUntil: _me(s).cooldownUntil);
+      if (issue.kind == RewardIssueKind.notEnoughFunds) {
+        unawaited(offerBonusShop(context, ref, s.game));
+        return;
+      }
+      showRewardIssue(context, issue);
+      if (issue.kind == RewardIssueKind.gone) {
+        // Used, expired or over a limit: re-read what can be spun.
+        if (s.free) setState(() => _spent.add(s.key));
+        _refreshAfterPlay(s);
+      }
+    } on Object catch (_) {
+      if (mounted) showAuraToast(context, 'Something went wrong. Try again.', kind: AuraToastKind.error);
+    } finally {
+      if (mounted) setState(() => _playing = false);
+    }
   }
 
-  /// Pointer deflection for wheel [angle]: pegs sit on the wedge borders; one
-  /// passing under the pointer pushes it aside, then it springs back.
-  double _flapperAngle(double angle) {
-    final sweep = 2 * math.pi / _segs.length;
-    // How far the nearest border has travelled past the pointer (0 → sweep).
-    final d = (angle - sweep / 2) % sweep;
-    const kick = 0.32; // fraction of a wedge the pointer stays pushed
-    if (d >= sweep * kick) return 0;
-    final f = 1 - d / (sweep * kick);
-    return -0.42 * f * f;
+  /// After a play: the welcome spin, history and limits changed.
+  void _refreshAfterPlay(WheelSpin s) {
+    ref.invalidate(welcomeBonusProvider);
+    ref.invalidate(bonusPlaysProvider);
+    ref.invalidate(bonusGamesProvider);
+    ref.invalidate(bonusGameProvider(s.game.code));
   }
 
-  String get _resultText {
-    final r = _result;
-    if (r == null) return '';
-    if (r.jackpot) return 'JACKPOT!  +${r.amount} Tokens';
-    return 'You won  +${r.amount} ${r.gold ? 'Gold' : 'Tokens'}';
+  void _showOdds(BonusGame g) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          decoration: AuraGlass.decoration(radius: 22),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SectionBar('Odds · ${g.name}'),
+                const SizedBox(height: 10),
+                BonusOddsTable(prizes: g.prizes),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _resultText(BonusPlayResult r) {
+    final text = bonusPrizeText(r.prize);
+    return r.prize.rarity == 'legendary' && !r.prize.isNothing ? 'JACKPOT!  $text' : text;
   }
 
   @override
   Widget build(BuildContext context) {
+    // A fresh list read has the server's limits.
+    ref.listen(wheelSpinsProvider, (_, next) {
+      if (next.hasValue && !next.isLoading) _limits.clear();
+    });
+    final spins = ref.watch(wheelSpinsProvider);
+    final Widget body;
+    if (spins.hasValue) {
+      body = _content(spins.requireValue);
+    } else if (spins.hasError) {
+      body = Center(child: ErrorRetry(onRetry: () => refreshWheelSpins(ref)));
+    } else {
+      body = const _WheelSkeleton();
+    }
     return Stack(
       children: [
         Padding(
-      // Same insets as the Store tab, so the header pills line up.
-      padding: const EdgeInsets.fromLTRB(kPageGutter, 8, kPageGutter, 0),
-      child: Column(
-        children: [
-          const WalletTitleBar(title: 'Lucky Spin'),
-          // Spins chip, wheel and result, centred in the space below the
-          // header (scrolls only on very short screens).
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, box) => SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: box.maxHeight),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 12),
-                      Center(child: _FreeSpinsChip(spinsLeft: _spinsLeft)),
-                      const SizedBox(height: 28),
-                      Center(
-                        child: SizedBox(
-                          width: 312,
-                          height: 324,
-                          child: AnimatedBuilder(
-                            animation: Listenable.merge([_controller, _lights]),
-                            builder: (context, _) {
-                              // Long, natural slow-down (most of the time is spent easing in).
-                              final t = Curves.easeOutQuart.transform(
-                                _controller.value,
-                              );
-                              final angle =
-                                  _fromAngle + (_toAngle - _fromAngle) * t;
-                              return Stack(
-                                alignment: Alignment.center,
-                                clipBehavior: Clip.none,
-                                children: [
-                                  // Soft drop shadow under the whole wheel.
-                                  Positioned(
-                                    top: 12,
-                                    child: Container(
-                                      width: 300,
-                                      height: 300,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(
-                                              alpha: 0.55,
-                                            ),
-                                            blurRadius: 28,
-                                            offset: const Offset(0, 14),
-                                          ),
-                                          BoxShadow(
-                                            color: AuraColors.accentGlow
-                                                .withValues(alpha: 0.25),
-                                            blurRadius: 40,
-                                            spreadRadius: 2,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  // Gold rim + marquee bulbs (fixed).
-                                  Positioned(
-                                    top: 12,
-                                    child: CustomPaint(
-                                      size: const Size(300, 300),
-                                      painter: _RimPainter(
-                                        phase: _lights.value,
-                                        spinning: _controller.isAnimating,
-                                        jackpot: _jackpot.isAnimating,
-                                      ),
-                                    ),
-                                  ),
-                                  // The wedges (rotating).
-                                  Positioned(
-                                    top: 12 + 22,
-                                    child: Transform.rotate(
-                                      angle: angle,
-                                      child: CustomPaint(
-                                        size: const Size(256, 256),
-                                        painter: _WheelPainter(
-                                          segs: _segs,
-                                          colors: _segmentColors,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  // Centre hub: brass bezel around the SPIN button.
-                                  Positioned(
-                                    top: 12 + 150 - 50,
-                                    child: _SpinButton(onTap: _spin, enabled: _canSpin, phase: _lights.value),
-                                  ),
-                                  // Flapper pointer: kicks back as each peg passes, then settles.
-                                  Positioned(
-                                    top: 0,
-                                    child: Transform.rotate(
-                                      angle: _flapperAngle(angle),
-                                      alignment: const Alignment(0, -0.62),
-                                      child: CustomPaint(
-                                        size: const Size(34, 44),
-                                        painter: _PointerPainter(),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 26),
-                      // Fixed height: the wheel stays put when the win shows.
-                      SizedBox(
-                        height: 46,
-                        child: Center(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 350),
-                            transitionBuilder: (c, a) => FadeTransition(
-                              opacity: a,
-                              child: ScaleTransition(scale: Tween(begin: 0.92, end: 1.0).animate(a), child: c),
-                            ),
-                            child: _result != null
-                                ? _ResultBanner(key: ValueKey(_resultText), text: _resultText)
-                                : Text(
-                                    _spinsLeft > 0
-                                        ? 'Land on a wedge to win tokens or gold'
-                                        : 'No spins left — come back tomorrow',
-                                    key: ValueKey(_spinsLeft > 0),
-                                    style: AuraText.cardSub,
-                                  ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          // Same insets as the Store tab, so the header pills line up.
+          padding: const EdgeInsets.fromLTRB(kPageGutter, 8, kPageGutter, 0),
+          child: Column(
+            children: [
+              const WalletTitleBar(title: 'Lucky Spin'),
+              Expanded(child: body),
+            ],
           ),
-        ],
-      ),
-    ),
+        ),
         // Jackpot only: golden burst, coin shower and the JACKPOT! shout.
         if (_jackpot.isAnimating)
           Positioned.fill(
@@ -316,6 +304,348 @@ class _WheelScreenState extends State<WheelScreen>
             ),
           ),
       ],
+    );
+  }
+
+  /// The locked wheel's line: claim today, or the countdown to that day.
+  String _unlockText(WheelUnlock u) {
+    if (u.claimToday) return "Claim today's daily bonus to unlock this free spin";
+    final at = u.at!;
+    final left = ServerClock.until(at);
+    if (left == Duration.zero) return 'Your free spin is ready to unlock: claim your daily bonus';
+    return 'Next free spin in ${rewardCountdown(at, now: ServerClock.now())}\n'
+        'on day ${u.day} of your daily bonus streak';
+  }
+
+  /// No wheel to spin right now.
+  Widget _empty() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.casino_outlined, color: AuraColors.textSecondary, size: 40),
+            const SizedBox(height: 12),
+            Text('No spins right now', style: AuraText.title.copyWith(fontSize: 18), textAlign: TextAlign.center),
+            const SizedBox(height: 6),
+            Text(
+              'Claim your daily bonus to unlock spins on spin days.',
+              style: AuraText.cardSub,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 14),
+            SecondaryButton(label: 'Refresh', onPressed: () => refreshWheelSpins(ref)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _content(List<WheelSpin> all) {
+    final list = [for (final s in all) if (!(s.free && _spent.contains(s.key))) s];
+    final spinnable = _shown(list);
+    // Nothing to spin: show the next free wheel, locked, with its countdown.
+    final unlock = spinnable == null ? ref.watch(nextWheelUnlockProvider).value : null;
+    if (spinnable == null && unlock == null) return _empty();
+    final locked = spinnable == null;
+    final shown = spinnable ?? WheelSpin(game: unlock!.game, trigger: 'daily_bonus_day');
+    final g = shown.game;
+    final segs = _Seg.of(g);
+    final me = _me(shown);
+    final canSpin = !locked && _canSpin(shown, list);
+    final blocked = me.blockReason;
+    final used = shown.free && _spent.contains(shown.key);
+    final String hint;
+    if (locked) {
+      hint = _unlockText(unlock!);
+    } else if (used) {
+      hint = 'Spin used';
+    } else if (blocked != null) {
+      hint = blockedText(blocked, cooldownUntil: me.cooldownUntil).text ?? 'Not available right now.';
+    } else {
+      hint = 'Land on a wedge to win tokens or gold';
+    }
+    final r = _result;
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: box.maxHeight),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 12),
+              if (list.length > 1) ...[
+                _WheelPicker(spins: list, selected: shown.key, enabled: !_busy, onPick: _select),
+                const SizedBox(height: 12),
+              ],
+              Center(
+                child: locked
+                    ? _LockedChip(day: unlock!.day)
+                    : _SpinInfoChip(spin: shown, limits: me, used: used),
+              ),
+              const SizedBox(height: 28),
+              Center(
+                child: SizedBox(
+                  width: 312,
+                  height: 324,
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([_controller, _lights]),
+                    builder: (context, _) {
+                      // Long, natural slow-down (most of the time is spent easing in).
+                      final t = Curves.easeOutQuart.transform(_controller.value);
+                      final angle = _fromAngle + (_toAngle - _fromAngle) * t;
+                      return Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Soft drop shadow under the whole wheel.
+                          Positioned(
+                            top: 12,
+                            child: Container(
+                              width: 300,
+                              height: 300,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.55),
+                                    blurRadius: 28,
+                                    offset: const Offset(0, 14),
+                                  ),
+                                  BoxShadow(
+                                    color: AuraColors.accentGlow.withValues(alpha: 0.25),
+                                    blurRadius: 40,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Gold rim + marquee bulbs (fixed).
+                          Positioned(
+                            top: 12,
+                            child: CustomPaint(
+                              size: const Size(300, 300),
+                              painter: _RimPainter(
+                                phase: _lights.value,
+                                spinning: _controller.isAnimating,
+                                jackpot: _jackpot.isAnimating,
+                              ),
+                            ),
+                          ),
+                          // The wedges (rotating).
+                          Positioned(
+                            top: 12 + 22,
+                            child: Transform.rotate(
+                              angle: angle,
+                              child: CustomPaint(
+                                size: const Size(256, 256),
+                                painter: _WheelPainter(segs: segs),
+                              ),
+                            ),
+                          ),
+                          // Centre hub: brass bezel around the SPIN button.
+                          Positioned(
+                            top: 12 + 150 - 50,
+                            child: _SpinButton(
+                              onTap: () => _spin(shown, list),
+                              enabled: canSpin,
+                              busy: _playing && !_controller.isAnimating,
+                              phase: _lights.value,
+                            ),
+                          ),
+                          // Flapper pointer: kicks back as each peg passes, then settles.
+                          Positioned(
+                            top: 0,
+                            child: Transform.rotate(
+                              angle: _flapperAngle(angle, segs.length),
+                              alignment: const Alignment(0, -0.62),
+                              child: CustomPaint(size: const Size(34, 44), painter: _PointerPainter()),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 26),
+              // Fixed height: the wheel stays put when the win shows.
+              SizedBox(
+                height: 46,
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    transitionBuilder: (c, a) => FadeTransition(
+                      opacity: a,
+                      child: ScaleTransition(scale: Tween(begin: 0.92, end: 1.0).animate(a), child: c),
+                    ),
+                    child: r != null
+                        ? _ResultBanner(key: ValueKey('r${r.playId}'), text: _resultText(r))
+                        : Text(hint, key: ValueKey(hint), style: AuraText.cardSub, textAlign: TextAlign.center),
+                  ),
+                ),
+              ),
+              if (locked && unlock!.claimToday)
+                SecondaryButton(
+                  label: 'Claim daily bonus',
+                  onPressed: () => Navigator.pushNamed(context, Routes.dailyRewards).then((_) => refreshWheelSpins(ref)),
+                ),
+              if (g.hasOdds)
+                TextButton(
+                  onPressed: () => _showOdds(g),
+                  child: Text('See odds', style: AuraText.cardSub.copyWith(color: AuraColors.accentGlow)),
+                ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Pointer deflection for wheel [angle]: pegs sit on the wedge borders; one
+  /// passing under the pointer pushes it aside, then it springs back.
+  static double _flapperAngle(double angle, int wedges) {
+    final sweep = 2 * math.pi / math.max(1, wedges);
+    // How far the nearest border has travelled past the pointer (0 → sweep).
+    final d = (angle - sweep / 2) % sweep;
+    const kick = 0.32; // fraction of a wedge the pointer stays pushed
+    if (d >= sweep * kick) return 0;
+    final f = 1 - d / (sweep * kick);
+    return -0.42 * f * f;
+  }
+}
+
+/// Loading: the wheel's outline shimmering where it will be.
+class _WheelSkeleton extends StatelessWidget {
+  const _WheelSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Shimmer(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SkeletonBox(width: 150, height: 30, radius: 99),
+            SizedBox(height: 28),
+            SkeletonBox(height: 300, shape: BoxShape.circle),
+            SizedBox(height: 26),
+            SkeletonBox(width: 220, height: 14, radius: 6),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The wheels on offer, when there is more than one: free spins first.
+class _WheelPicker extends StatelessWidget {
+  const _WheelPicker({required this.spins, required this.selected, required this.enabled, required this.onPick});
+  final List<WheelSpin> spins;
+  final String selected;
+  final bool enabled;
+  final ValueChanged<WheelSpin> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final s in spins)
+          GestureDetector(
+            onTap: enabled ? () => onPick(s) : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: s.key == selected ? AuraGradients.brand : null,
+                color: s.key == selected ? null : Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: Colors.white.withValues(alpha: s.key == selected ? 0.0 : 0.14)),
+              ),
+              child: Text(
+                s.game.name.isEmpty ? s.game.code : s.game.name,
+                style: TextStyle(
+                  fontFamily: AuraText.displayFamily,
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// "Free spin" / "100 Tokens per spin · 4 left today".
+/// "Locked · day N" over a wheel that isn't spinnable yet.
+class _LockedChip extends StatelessWidget {
+  const _LockedChip({required this.day});
+  final int day;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.lock_clock_rounded, size: 15, color: AuraColors.textSecondary),
+          const SizedBox(width: 6),
+          Text('Free spin · daily bonus day $day', style: AuraText.cardSub.copyWith(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpinInfoChip extends StatelessWidget {
+  const _SpinInfoChip({required this.spin, required this.limits, required this.used});
+  final WheelSpin spin;
+  final BonusGameLimits limits;
+  final bool used;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = spin.game;
+    final String text;
+    if (spin.free) {
+      text = used ? 'Free spin used' : 'Free spin';
+    } else {
+      final left = g.maxPlaysPerDay > 0 ? ' · ${limits.playsLeftToday} left today' : '';
+      text = g.cost.free ? 'Free$left' : '${bonusCostText(g.cost)} per spin$left';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      decoration: AuraGlass.decoration(radius: 99, shadow: false),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(spin.free ? Icons.card_giftcard_rounded : Icons.refresh, size: 15, color: AuraColors.accentGlow),
+          const SizedBox(width: 7),
+          Text(
+            text,
+            style: TextStyle(
+              fontFamily: AuraText.displayFamily,
+              color: AuraColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -353,42 +683,16 @@ class _ResultBanner extends StatelessWidget {
   }
 }
 
-class _FreeSpinsChip extends StatelessWidget {
-  const _FreeSpinsChip({required this.spinsLeft});
-  final int spinsLeft;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-      decoration: AuraGlass.decoration(radius: 99, shadow: false),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.refresh, size: 15, color: AuraColors.accentGlow),
-          const SizedBox(width: 7),
-          Text(
-            '$spinsLeft free spins left',
-            style: TextStyle(
-              fontFamily: AuraText.displayFamily,
-              color: AuraColors.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Centre hub: a brass bezel with rivets around a casino-style jewel
 /// button — deep red dome with a bevel and gloss, embossed gold SPIN, a
 /// breathing glow and a shine sweep while a spin is available.
 class _SpinButton extends StatefulWidget {
-  const _SpinButton({required this.onTap, required this.enabled, required this.phase});
+  const _SpinButton({required this.onTap, required this.enabled, required this.phase, this.busy = false});
   final VoidCallback onTap;
   final bool enabled;
+
+  /// Waiting for the server's draw.
+  final bool busy;
 
   /// 0 → 1, repeating (drives the glow and the shine).
   final double phase;
@@ -426,7 +730,14 @@ class _SpinButtonState extends State<_SpinButton> {
                 dimension: 72,
                 child: CustomPaint(
                   painter: _JewelPainter(on: on, pressed: _down, glow: on ? breathe : 0, shine: on ? widget.phase : -1),
-                  child: Center(child: _SpinLabel(on: on)),
+                  child: Center(
+                    child: widget.busy
+                        ? const SizedBox.square(
+                            dimension: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation(Color(0xFFFCD34D))),
+                          )
+                        : _SpinLabel(on: on),
+                  ),
                 ),
               ),
             ),
@@ -717,10 +1028,9 @@ class _RimPainter extends CustomPainter {
 }
 
 class _WheelPainter extends CustomPainter {
-  _WheelPainter({required this.segs, required this.colors});
+  _WheelPainter({required this.segs});
 
   final List<_Seg> segs;
-  final List<Color> colors;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -741,7 +1051,7 @@ class _WheelPainter extends CustomPainter {
 
     for (var i = 0; i < segCount; i++) {
       final start = startBase + sweep * i;
-      segPaint.color = colors[i % colors.length];
+      segPaint.color = segs[i].color;
       final path = Path()
         ..moveTo(center.dx, center.dy)
         ..arcTo(rect, start, sweep, false)
@@ -762,7 +1072,7 @@ class _WheelPainter extends CustomPainter {
       );
       canvas.drawPath(path, borderPaint);
 
-      _drawLabel(canvas, center, radius, start + sweep / 2, segs[i]);
+      _drawLabel(canvas, center, radius, start + sweep / 2, sweep, segs[i]);
     }
     // Pegs on the wedge borders (they flick the pointer as they pass).
     for (var i = 0; i < segCount; i++) {
@@ -790,23 +1100,28 @@ class _WheelPainter extends CustomPainter {
     Offset center,
     double radius,
     double midAngle,
+    double sweep,
     _Seg seg,
   ) {
     final color = seg.jackpot ? const Color(0xFFFDE68A) : Colors.white;
+    // The wedge's width where the label sits.
+    final maxW = math.max(24.0, math.min(radius * 0.5, 2 * radius * 0.62 * math.sin(sweep / 2) - 6));
     final amount = TextPainter(
       text: TextSpan(
         text: seg.amount,
         style: TextStyle(
           fontFamily: AuraText.displayFamily,
           color: color,
-          fontSize: 14,
+          fontSize: segs.length > 8 ? 12 : 14,
           fontWeight: FontWeight.w700,
           height: 1,
         ),
       ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout();
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: maxW);
     final unit = TextPainter(
       text: TextSpan(
         text: seg.unit,
@@ -818,7 +1133,9 @@ class _WheelPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-    )..layout();
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: maxW);
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
@@ -831,7 +1148,7 @@ class _WheelPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _WheelPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _WheelPainter old) => !listEquals(old.segs, segs);
 }
 
 /// Brass flapper pointer with a ruby inset and a pivot bolt.

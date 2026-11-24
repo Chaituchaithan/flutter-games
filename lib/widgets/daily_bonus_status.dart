@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/repositories/daily_bonus_repository.dart';
 import '../l10n/l10n.dart';
+import '../services/server_clock.dart';
 
 /// Watches the daily-bonus status and hands [builder] the line to show:
 /// "Day N ready" when claimable, else a live "Next in 5h 12m" countdown.
@@ -39,7 +40,7 @@ class _DailyBonusStatusBuilderState extends ConsumerState<DailyBonusStatusBuilde
     _scheduledFor = at;
     _reopen?.cancel();
     if (at == null) return;
-    final wait = at.difference(DateTime.now());
+    final wait = at.difference(ServerClock.now());
     _reopen = Timer(
       wait.isNegative ? Duration.zero : wait + const Duration(seconds: 2),
       () => ref.invalidate(dailyBonusStatusProvider),
@@ -50,7 +51,7 @@ class _DailyBonusStatusBuilderState extends ConsumerState<DailyBonusStatusBuilde
   void _scheduleTick(DateTime? at) {
     _tick?.cancel();
     if (at == null) return;
-    final left = at.difference(DateTime.now());
+    final left = at.difference(ServerClock.now());
     if (left.isNegative) return;
     final next = left.inHours >= 1
         ? Duration(milliseconds: left.inMilliseconds % 60000 + 1) // next minute boundary
@@ -62,7 +63,7 @@ class _DailyBonusStatusBuilderState extends ConsumerState<DailyBonusStatusBuilde
 
   /// "5h 12m" (an hour or more), else "12m 05s".
   static String _until(DateTime at) {
-    var d = at.difference(DateTime.now());
+    var d = at.difference(ServerClock.now());
     if (d.isNegative) d = Duration.zero;
     final h = d.inHours, m = d.inMinutes % 60, sec = d.inSeconds % 60;
     return h >= 1 ? '${h}h ${m}m' : '${m}m ${sec.toString().padLeft(2, '0')}s';

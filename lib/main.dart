@@ -17,9 +17,9 @@ import 'game/snakes/snakes_module.dart';
 import 'game/snooker/snooker_module.dart';
 import 'game/uno/uno_module.dart';
 
-/// Development build: every game, with a game picker on Home and the
-/// not-yet-built games shown as "Soon". Single-game apps: `main_chess.dart`,
-/// `main_ludo.dart`, `main_snakes.dart`.
+/// Every game, with a game picker on Home and the not-yet-built games shown
+/// as "Soon". Run with `--dart-define=ALL_GAMES=true`; the default is Ludo
+/// only. Single-game apps: `main_chess.dart`, `main_ludo.dart`, …
 final allGamesApp = AppProfile(
   appName: 'Aura Games',
   modules: [
@@ -43,4 +43,10 @@ final allGamesApp = AppProfile(
   showComingSoon: true,
 );
 
-void main() => runAuraApp(allGamesApp);
+/// What we're building now: Ludo only (no game bar on Home).
+final ludoOnlyApp = AppProfile(appName: 'Ludo', modules: [ludoModule]);
+
+/// `--dart-define=ALL_GAMES=true` → every game with the game bar (testing).
+const _allGames = bool.fromEnvironment('ALL_GAMES');
+
+void main() => runAuraApp(_allGames ? allGamesApp : ludoOnlyApp);

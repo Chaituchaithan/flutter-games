@@ -19,7 +19,7 @@ class _SlowGuestAuth extends StaticAuthService {
   final Completer<void> done;
 
   @override
-  Future<AuthResult> loginGuest() async {
+  Future<AuthResult> loginGuest({SignUpExtras extras = const SignUpExtras()}) async {
     await done.future;
     return const AuthResult(User.demo);
   }
@@ -32,7 +32,11 @@ class _MemTokens implements TokenStore {
   @override
   Future<String?> readRefresh() async => null;
   @override
-  Future<void> save({required String access, String? refresh}) async {}
+  Future<void> save({required String access, String? refresh, DateTime? expiresAt}) async {}
+  @override
+  Future<DateTime?> readExpiry() async => null;
+  @override
+  Future<String> deviceId() async => 'test-device';
   @override
   Future<String?> readProfile() async => null;
   @override

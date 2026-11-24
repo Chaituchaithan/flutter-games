@@ -7,6 +7,8 @@ import '../../app/game_area.dart';
 import '../../app/routes.dart';
 import '../../configs/games/games.dart';
 import '../../services/session.dart';
+import '../safety/report_sheets.dart';
+import '../profile/progress_ui.dart';
 import '../../widgets/aura.dart';
 
 /// Match result — Victory / Defeat / Draw (mockup `MATCH RESULT`).
@@ -31,7 +33,16 @@ class MatchResultScreen extends StatelessWidget {
     this.practice = false,
     this.subtitle,
     this.playAgain,
+    this.matchId,
+    this.opponentId,
   });
+
+  /// The online match's id (from `game.started`): shows "Report a problem
+  /// with this match" (12-safety.md §3). Null for local / practice games.
+  final String? matchId;
+
+  /// The opponent's user id: shows "Report player" (§1).
+  final String? opponentId;
 
   final MatchOutcome outcome;
   final int? youScore;
@@ -163,6 +174,8 @@ class MatchResultScreen extends StatelessWidget {
                       const SizedBox(height: 26),
                       if (!practice) ...[
                         Center(child: _RewardChip(text: reward ?? spec.reward)),
+                        // 08-progress: "+N XP · +16 rating" once the re-read lands.
+                        const PostMatchProgressLine(),
                         const SizedBox(height: 30),
                       ] else
                         const SizedBox(height: 8),
@@ -188,6 +201,23 @@ class MatchResultScreen extends StatelessWidget {
                         label: context.l10n.backToHome,
                         onPressed: () => Navigator.popUntil(context, ModalRoute.withName(Routes.home)),
                       ),
+                      if (!practice && (matchId != null || opponentId != null)) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          children: [
+                            if (opponentId != null)
+                              TextButton.icon(
+                                onPressed: () => showReportPlayerSheet(context,
+                                    playerId: opponentId!, playerName: oppName, matchId: matchId),
+                                icon: const Icon(Icons.report_outlined, size: 18),
+                                label: const Text('Report player'),
+                                style: TextButton.styleFrom(foregroundColor: AuraColors.textSecondary),
+                              ),
+                            if (matchId != null) ReportMatchButton(matchId: matchId!),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

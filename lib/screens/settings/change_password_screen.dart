@@ -55,6 +55,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     if (!_validate()) return;
     setState(() => _saving = true);
     try {
+      // Sessions all end, this one too: Log in opens with the email filled in.
+      final email = ref.read(currentUserProvider).email;
       await ref.read(sessionProvider.notifier).changePassword(currentPassword: _current.text, newPassword: _new.text);
       if (!mounted) return;
       await showAuraDialog(
@@ -65,12 +67,18 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         primaryLabel: context.l10n.logInLink,
         tone: AuraDialogTone.success,
       );
-      if (mounted) Navigator.pushNamedAndRemoveUntil(context, Routes.login, (r) => false);
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, Routes.login, (r) => false,
+            arguments: {if (email.isNotEmpty) 'email': email});
+      }
     } on AppException catch (e) {
       if (!mounted) return;
       switch (e.statusCode) {
-        case 401:
+        // INVALID_CREDENTIALS = wrong current password (not a session problem).
+        case 401 when e.code == ApiErrorCode.invalidCredentials:
           setState(() => _currentError = context.l10n.currentPasswordWrong);
+        case 400 when e.isValidation:
+          setState(() => _newError = e.message);
         case 429:
           showAuraToast(context, context.l10n.tooManyAttempts, kind: AuraToastKind.error);
         default:

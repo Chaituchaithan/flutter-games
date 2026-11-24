@@ -9,6 +9,7 @@ import '../../widgets/aura.dart' show AuraColors;
 @immutable
 class Friend {
   const Friend({
+    this.userId,
     required this.name,
     required this.level,
     required this.status,
@@ -16,6 +17,8 @@ class Friend {
     required this.color,
   });
 
+  /// The player's id (null for decorative rows).
+  final String? userId;
   final String name;
   final int level;
   final String status;
@@ -23,6 +26,7 @@ class Friend {
   final Color color;
 
   factory Friend.fromJson(Map<String, dynamic> json) => Friend(
+        userId: json['user_id'] as String?,
         name: json['name'] as String? ?? '',
         level: (json['level'] as num?)?.toInt() ?? 1,
         status: json['status'] as String? ?? '',

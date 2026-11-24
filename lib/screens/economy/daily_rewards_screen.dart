@@ -7,17 +7,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../data/models/daily_bonus.dart';
 import '../../data/repositories/daily_bonus_repository.dart';
-import '../../data/repositories/store_repository.dart';
+import '../../data/models/rewards.dart' show BonusGameOffer;
 import '../../services/app_exception.dart';
+import '../../services/rewards_service.dart';
+import '../../services/server_clock.dart';
 import '../../state/async_view.dart';
 import '../system/loading_skeleton_screen.dart';
 import '../../widgets/aura.dart';
+import 'rewards_ui.dart';
 
 /// Daily rewards / streak screen, driven by the daily-bonus service:
 /// `GET /sensitive/daily-bonus/status` (streak, today's/next reward, when the
 /// next claim opens) and `POST /sensitive/daily-bonus/claim`.
-/// The status only describes the next reward, so other days show their state
-/// (claimed / locked) without an amount. See docs/SERVICES_AND_REALTIME.md.
+/// The calendar shows the 7-day block of the cycle (30 days today) holding the
+/// next reward, with each day's amount from `rewards[]` (07-rewards.md §2).
+/// A spin-day claim opens the daily spin with the claim's trigger.
 ///
 /// Look: a glowing reward hero (rotating light rays behind a floating chest
 /// while the reward is ready), a flickering streak flame, a 7-day path with a
@@ -57,7 +61,7 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
       if (!mounted) return;
       final s = ref.read(dailyBonusStatusProvider).asData?.value;
       final at = s?.nextClaimAt;
-      if (s != null && !s.canClaim && at != null && DateTime.now().isAfter(at)) {
+      if (s != null && !s.canClaim && at != null && !ServerClock.now().isBefore(at)) {
         ref.invalidate(dailyBonusStatusProvider);
       } else {
         setState(() {});
@@ -96,50 +100,84 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
     super.dispose();
   }
 
+  /// The latest spin-day claim's free spin, until it is played (only the
+  /// latest claim's spin can be played).
+  BonusGameOffer? _spinOffer;
+
+  /// Claims (by `total_claims`) whose spin was played or refused.
+  final _spinDone = <int>{};
+
+  /// The spin to offer: from this session's claim, else from the status when
+  /// the last claimed day is a spin day.
+  BonusGameOffer? _offerFor(DailyBonusStatus s) {
+    if (_spinDone.contains(s.totalClaims)) return null;
+    if (_spinOffer != null) return _spinOffer;
+    final last = s.currentStreak > 0 ? s.rewardFor(s.currentStreak) : null;
+    final id = last?.bonusGameId;
+    if (id == null || s.lastClaimedAt == null) return null;
+    // No trigger_ref: the latest claim.
+    return BonusGameOffer(bonusGameId: id, code: '$id', trigger: 'daily_bonus_day');
+  }
+
+  Future<void> _openSpin(int claimNo, BonusGameOffer offer) async {
+    final played = await openBonusGame(context, offer);
+    if (!mounted) return;
+    if (played == true) {
+      setState(() {
+        _spinDone.add(claimNo);
+        _spinOffer = null;
+      });
+      ref.invalidate(dailyBonusStatusProvider);
+    }
+  }
+
   Future<void> _claim(DailyBonusStatus s) async {
     if (_claiming || !s.canClaim) return;
     setState(() => _claiming = true);
     try {
       final paid = await ref.read(dailyBonusSourceProvider).claim();
       if (!mounted) return;
-      // What the server actually paid (falls back to the shown reward).
-      final nothing = paid.tokens == 0 && paid.gold == 0 && paid.powerUpQuantity == 0;
-      final label = nothing
-          ? rewardLabel(
-              context,
-              tokens: s.nextReward.tokens,
-              gold: s.nextReward.gold,
-              powerUps: s.nextReward.powerUpQuantity,
-            )
-          : rewardLabel(context, tokens: paid.tokens, gold: paid.gold, powerUps: paid.powerUpQuantity);
       final streak = paid.newStreak > 0 ? context.l10n.dayStreakSuffix(paid.newStreak) : '';
-      _burstGold = (nothing ? s.nextReward.gold : paid.gold) > 0;
-      _burst.forward(from: 0);
-      showAuraToast(
-        context,
-        context.l10n.claimedReward('$label$streak'),
-        kind: _burstGold ? AuraToastKind.gold : AuraToastKind.success,
-      );
+      final nothing = paid.tokens == 0 && paid.gold == 0 && paid.powerUpQuantity == 0;
+      if (!paid.granted || nothing) {
+        // A switched-off day (or a spin-only day): the streak still moved on.
+        showAuraToast(context, 'Day ${paid.newStreak > 0 ? paid.newStreak : s.nextReward.dayNumber} checked in', kind: AuraToastKind.success);
+      } else {
+        // What the server actually paid.
+        final label = rewardLabel(context, tokens: paid.tokens, gold: paid.gold, powerUps: paid.powerUpQuantity);
+        final boost = paid.boost;
+        final x = boost == null ? '' : ' · x${boost == boost.roundToDouble() ? boost.toInt() : boost}!';
+        _burstGold = paid.gold > 0;
+        _burst.forward(from: 0);
+        showAuraToast(
+          context,
+          context.l10n.claimedReward('$label$streak$x'),
+          kind: _burstGold ? AuraToastKind.gold : AuraToastKind.success,
+        );
+      }
+      // A spin day: open the daily spin at once, with exactly the claim's trigger.
+      final spin = paid.bonusGame;
+      if (spin != null) {
+        _spinOffer = spin;
+        unawaited(_openSpin(paid.totalClaims, spin));
+      }
     } on AppException catch (e) {
-      if (!mounted) return;
-      showAuraToast(
-        context,
-        e.statusCode == 409 ? context.l10n.alreadyClaimed : e.message,
-        kind: e.statusCode == 409 ? AuraToastKind.info : AuraToastKind.error,
-      );
+      // 409 (already claimed): quietly show the countdown from the status.
+      if (mounted) showRewardIssue(context, dailyClaimIssue(e));
     } on Object catch (_) {
       if (mounted) showAuraToast(context, "Couldn't claim your reward. Try again.", kind: AuraToastKind.error);
     } finally {
       // Fresh streak/next reward and balance either way.
       ref.invalidate(dailyBonusStatusProvider);
-      ref.invalidate(walletProvider);
+      applyRewardToWallet(ref);
       if (mounted) setState(() => _claiming = false);
     }
   }
 
   /// "23h 41m" / "12m" until [at].
   String _until(DateTime at) {
-    final d = at.difference(DateTime.now());
+    // Server time vs the server's clock (the phone's clock can be wrong).
+    final d = ServerClock.until(at);
     if (d.inMinutes < 1) return context.l10n.lessThanMinute;
     final h = d.inHours, m = d.inMinutes % 60;
     return h > 0 ? context.l10n.durationHm(h, m) : context.l10n.durationM(m);
@@ -181,36 +219,69 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
   Widget _content(DailyBonusStatus s) {
     final reward = s.nextReward;
     final waitFor = !s.canClaim && s.nextClaimAt != null ? _until(s.nextClaimAt!) : null;
+    // The 7-day block of the cycle that holds the next reward (the last
+    // block ends on the cycle's last day).
+    final cycle = math.max(s.cycleLength, reward.dayNumber);
+    var first = ((reward.dayNumber - 1) ~/ 7) * 7 + 1;
+    if (first + 6 > cycle) first = math.max(1, cycle - 6);
+    final claimedInBlock = (reward.dayNumber - first).clamp(0, 7);
+    final known = s.rewards.isNotEmpty;
+    final spin = _offerFor(s);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 4),
-        _RewardHero(reward: reward, ready: s.canClaim, waitFor: waitFor, ambient: _ambient),
+        _RewardHero(reward: reward, ready: s.canClaim, waitFor: waitFor, ambient: _ambient, cycle: cycle),
         const SizedBox(height: 14),
-        _StreakCard(streak: s.currentStreak, filled: s.claimedInCycle, ambient: _ambient),
+        _StreakCard(streak: s.currentStreak, filled: claimedInBlock, ambient: _ambient),
+        if (spin != null) ...[
+          const SizedBox(height: 14),
+          AuraCard(
+            onTap: () => _openSpin(s.totalClaims, spin),
+            child: Row(
+              children: [
+                const Icon(Icons.casino_rounded, color: AuraColors.amber, size: 30),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text('Your lucky spin is ready', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                ),
+                ClaimChip(label: 'Spin', onTap: () => _openSpin(s.totalClaims, spin)),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 22),
         Row(
           children: [
-            Expanded(child: SectionBar(context.l10n.thisWeek)),
-            Text(context.l10n.claimedOfWeek(s.claimedInCycle), style: AuraText.cardSub.copyWith(fontSize: 12)),
+            Expanded(child: SectionBar(first > 1 ? 'Days $first–${first + 6}' : context.l10n.thisWeek)),
+            Text(
+              known ? context.l10n.claimedOfBlock(claimedInBlock, 7) : context.l10n.claimedOfWeek(s.claimedInCycle),
+              style: AuraText.cardSub.copyWith(fontSize: 12),
+            ),
           ],
         ),
         const SizedBox(height: 12),
         _WeekGrid(
           ambient: _ambient,
           days: [
-            for (var d = 1; d <= 7; d++)
-              _Day(
-                day: d,
-                state: d < reward.dayNumber
-                    ? _DayState.claimed
-                    : d == reward.dayNumber
-                    ? (s.canClaim ? _DayState.today : _DayState.next)
-                    : _DayState.locked,
-                value: d == reward.dayNumber ? formatAmount(reward.gold > 0 ? reward.gold : reward.tokens) : null,
-                gold: reward.gold > 0 || reward.tokens == 0,
-                mega: d == 7,
-              ),
+            for (var d = first; d < first + 7; d++)
+              () {
+                final r = s.rewardFor(d) ?? (d == reward.dayNumber ? reward : null);
+                final amount = r == null ? 0 : (r.gold > 0 ? r.gold : r.tokens);
+                return _Day(
+                  day: d,
+                  state: d < reward.dayNumber
+                      ? _DayState.claimed
+                      : d == reward.dayNumber
+                      ? (s.canClaim ? _DayState.today : _DayState.next)
+                      : _DayState.locked,
+                  value: r != null && r.isEnabled && amount > 0 ? formatAmount(amount) : null,
+                  gold: r == null || r.gold > 0 || r.tokens == 0,
+                  mega: known ? (r?.isMilestone ?? false) : d == 7,
+                  spin: r?.isSpinDay ?? false,
+                  disabled: r != null && !r.isEnabled,
+                );
+              }(),
           ],
         ),
         const SizedBox(height: 22),
@@ -235,8 +306,11 @@ class _DailyRewardsScreenState extends ConsumerState<DailyRewardsScreen> with Ti
 // ── Hero: today's (or the next) reward ─────────────────────────────────────
 
 class _RewardHero extends StatelessWidget {
-  const _RewardHero({required this.reward, required this.ready, required this.ambient, this.waitFor});
+  const _RewardHero({required this.reward, required this.ready, required this.ambient, this.waitFor, this.cycle = 7});
   final DailyReward reward;
+
+  /// Days in the cycle.
+  final int cycle;
   final bool ready;
   final String? waitFor;
   final Animation<double> ambient;
@@ -246,6 +320,9 @@ class _RewardHero extends StatelessWidget {
   String _extras(BuildContext context) => [
     if (_gold && reward.tokens > 0) context.l10n.tokensAmount(formatAmount(reward.tokens)),
     if (reward.powerUpId != null && reward.powerUpQuantity > 0) context.l10n.powerUpCount(reward.powerUpQuantity),
+    if (reward.rubies > 0) '${reward.rubies} rubies',
+    if (reward.isSpinDay) 'a lucky spin',
+    if (reward.nextBonusMultiplier != null) 'x${reward.nextBonusMultiplier} next bonus',
   ].join(' + ');
 
   @override
@@ -296,7 +373,7 @@ class _RewardHero extends StatelessWidget {
                         color: ready ? AuraColors.green : AuraColors.accentGlow,
                       ),
                       const Spacer(),
-                      _Pill(text: context.l10n.dayOfSeven(reward.dayNumber), color: Colors.white),
+                      _Pill(text: context.l10n.dayOfCycle(reward.dayNumber, cycle), color: Colors.white),
                     ],
                   ),
                   const Spacer(),
@@ -632,9 +709,23 @@ class _StreakCard extends StatelessWidget {
 enum _DayState { claimed, today, next, locked }
 
 class _Day {
-  const _Day({required this.day, required this.state, this.value, this.gold = true, this.mega = false});
+  const _Day({
+    required this.day,
+    required this.state,
+    this.value,
+    this.gold = true,
+    this.mega = false,
+    this.spin = false,
+    this.disabled = false,
+  });
   final int day;
   final _DayState state;
+
+  /// A spin day (the claim unlocks the daily spin).
+  final bool spin;
+
+  /// A switched-off day: in the calendar, pays nothing (greyed out).
+  final bool disabled;
 
   /// Reward amount; null when the service hasn't said (only the next reward
   /// is known) — the tile then shows a gift.
@@ -730,6 +821,8 @@ class _DayTile extends StatelessWidget {
           )
         : known
         ? CurrencyGlyph(kind: day.gold ? Currency.gold : Currency.gems, size: day.mega ? 34 : 30)
+        : day.spin
+        ? Icon(Icons.casino_rounded, size: day.mega ? 34 : 28, color: AuraColors.amber)
         : Icon(
             day.mega ? Icons.redeem_rounded : Icons.card_giftcard_rounded,
             size: day.mega ? 34 : 28,
@@ -748,6 +841,10 @@ class _DayTile extends StatelessWidget {
           )
         : isClaimed
         ? Text(context.l10n.claimed, style: TextStyle(color: AuraColors.green.withValues(alpha: 0.9), fontSize: 11))
+        : day.disabled
+        ? Text('—', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12))
+        : day.spin
+        ? const Text('Spin', style: TextStyle(color: AuraColors.amber, fontSize: 12, fontWeight: FontWeight.w700))
         : locked
         ? Icon(Icons.lock_rounded, size: 12, color: Colors.white.withValues(alpha: 0.4))
         : const SizedBox.shrink();
@@ -816,7 +913,10 @@ class _DayTile extends StatelessWidget {
       ),
     );
 
-    if (!isToday) return DecoratedBox(decoration: decoration, child: content);
+    if (!isToday) {
+      final tile = DecoratedBox(decoration: decoration, child: content);
+      return day.disabled ? Opacity(opacity: 0.45, child: tile) : tile;
+    }
 
     // Today: a pulsing glow on an opaque base (so it never shows through the
     // translucent fill).

@@ -1,96 +1,185 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../data/models/wallet.dart';
+import '../../services/app_exception.dart';
+import '../../services/wallet_api.dart';
+import '../../services/wallet_store.dart';
 import '../../widgets/aura.dart';
+import '../match/match_detail_screen.dart';
 
-/// Transactions history. See docs/DESIGN_SPEC.md.
-class TransactionsScreen extends StatelessWidget {
+/// Wallet / History (docs/services/03-wallet.md §2): the balances, then the
+/// ledger newest first with an All / Tokens / Gold filter, grouped by day,
+/// "Load more" at the end, pull to refresh from the top.
+class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
 
-  static const List<_Txn> _txns = [
-    _Txn(title: 'Welcome pack', subtitle: 'Bonus · Today 09:12', amount: '5,000', earn: true),
-    _Txn(title: 'Online Play stake', subtitle: 'Match #4821 · Today 09:40', amount: '200', earn: false),
-    _Txn(title: 'Victory payout', subtitle: 'Match #4821 · Today 09:46', amount: '800', earn: true),
-    _Txn(title: 'Daily bonus', subtitle: 'Day 2 · Yesterday', amount: '800', earn: true),
-    _Txn(title: 'Double XP', subtitle: 'Boost · Yesterday', amount: '500', earn: false),
-    _Txn(title: 'Lucky wheel', subtitle: 'Spin · Yesterday', amount: '200', earn: true),
-    _Txn(title: 'Gold pack · Stack', subtitle: '\$4.99 · Mon', amount: '1,200', earn: true, gold: true),
-  ];
+  @override
+  ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
+}
+
+class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
+  static const _filters = <WalletCurrency?>[null, WalletCurrency.token, WalletCurrency.gold];
+
+  late LedgerPager _pager;
+  int _filter = 0;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _pager = LedgerPager(ref.read(walletApiProvider));
+    _reload();
+  }
+
+  Future<void> _run(Future<void> Function() load) async {
+    setState(() => _error = null);
+    try {
+      await load();
+    } on AppException catch (e) {
+      _error = e.message;
+    } on Object {
+      _error = 'Something went wrong. Try again.';
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _reload() => _run(_pager.reload);
+
+  Future<void> _refresh() async {
+    await Future.wait([_reload(), ref.read(walletProvider.notifier).refresh(force: true)]);
+  }
+
+  void _setFilter(int i) {
+    if (i == _filter) return;
+    _filter = i;
+    _pager.currency = _filters[i];
+    _reload();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AuraScaffold(
-      appBar: const AuraAppBar(title: 'Transactions'),
-      scroll: true,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 4),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: const [
-                Expanded(
-                  child: _SummaryCard(
-                    label: 'EARNED · 7D',
-                    amount: '+6,600',
-                    color: AuraColors.green,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _SummaryCard(
-                    label: 'SPENT · 7D',
-                    amount: '−200',
-                    color: AuraColors.danger,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          const SectionBar(
-            'Recent activity',
-            trailing: Text(
-              'Export',
-              style: TextStyle(
-                color: AuraColors.accentGlow,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final t in _txns) ...[
-            _TxnRow(txn: t),
-            const SizedBox(height: 10),
+    // A new session (sign-in / sign-out) swaps the wallet API: start over.
+    ref.listen(walletApiProvider, (_, api) {
+      _pager = LedgerPager(api, currency: _filters[_filter]);
+      _reload();
+    });
+    final wallet = ref.watch(walletProvider).value;
+    final rows = <Widget>[
+      const SizedBox(height: 4),
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _BalanceCard(label: 'TOKENS', kind: Currency.gems, amount: wallet?.gems ?? '—')),
+            const SizedBox(width: 12),
+            Expanded(child: _BalanceCard(label: 'GOLD', kind: Currency.gold, amount: wallet?.gold ?? '—')),
           ],
-          const SizedBox(height: 10),
-        ],
+        ),
+      ),
+      const SizedBox(height: 16),
+      SegmentedTabs(labels: const ['All', 'Tokens', 'Gold'], index: _filter, onChanged: _setFilter),
+      const SizedBox(height: 18),
+      ..._history(),
+      const SizedBox(height: 20),
+    ];
+    return AuraScaffold(
+      appBar: const AuraAppBar(title: 'Wallet'),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        color: AuraColors.accentGlow,
+        child: ListView(physics: const AlwaysScrollableScrollPhysics(), children: rows),
       ),
     );
   }
+
+  List<Widget> _history() {
+    final p = _pager;
+    if (!p.loaded) {
+      if (_error != null) return [_Message(text: _error!, onRetry: _reload)];
+      return const [_Spinner()];
+    }
+    if (p.isEmpty) return const [_Message(text: 'No history yet.')];
+    final out = <Widget>[];
+    String? day;
+    for (final e in p.items) {
+      final d = _dayLabel(e.createdAt);
+      if (d != day) {
+        day = d;
+        if (out.isNotEmpty) out.add(const SizedBox(height: 8));
+        out
+          ..add(SectionBar(d))
+          ..add(const SizedBox(height: 12));
+      }
+      out
+        ..add(_EntryRow(key: ValueKey(e.entryId), entry: e))
+        ..add(const SizedBox(height: 10));
+    }
+    if (_error != null) {
+      out.add(_Message(text: _error!, onRetry: () => _run(_pager.loadMore)));
+    } else if (p.loading) {
+      out.add(const _Spinner());
+    } else if (p.hasMore) {
+      out.add(SecondaryButton(label: 'Load more', onPressed: () => _run(_pager.loadMore)));
+    }
+    return out;
+  }
+
+  static String _dayLabel(DateTime? t) {
+    if (t == null) return 'Earlier';
+    final local = t.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(local.year, local.month, local.day);
+    final diff = today.difference(day).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    return DateFormat(local.year == now.year ? 'EEE d MMM' : 'd MMM y').format(local);
+  }
 }
 
-class _Txn {
-  const _Txn({
-    required this.title,
-    required this.subtitle,
-    required this.amount,
-    required this.earn,
-    this.gold = false,
-  });
-  final String title;
-  final String subtitle;
-  final String amount;
-  final bool earn;
-  final bool gold;
+class _Spinner extends StatelessWidget {
+  const _Spinner();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation(AuraColors.accentGlow)),
+          ),
+        ),
+      );
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.label, required this.amount, required this.color});
+class _Message extends StatelessWidget {
+  const _Message({required this.text, this.onRetry});
+  final String text;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          children: [
+            Text(text, style: AuraText.cardSub, textAlign: TextAlign.center),
+            if (onRetry != null) ...[
+              const SizedBox(height: 12),
+              SecondaryButton(label: 'Retry', onPressed: onRetry!),
+            ],
+          ],
+        ),
+      );
+}
+
+class _BalanceCard extends StatelessWidget {
+  const _BalanceCard({required this.label, required this.kind, required this.amount});
   final String label;
+  final Currency kind;
   final String amount;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +191,7 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const CurrencyGlyph(kind: Currency.gems, size: 18),
+              CurrencyGlyph(kind: kind, size: 18),
               const SizedBox(width: 8),
               Flexible(
                 child: FittedBox(
@@ -112,7 +201,7 @@ class _SummaryCard extends StatelessWidget {
                     amount,
                     style: TextStyle(
                       fontFamily: AuraText.displayFamily,
-                      color: color,
+                      color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                     ),
@@ -127,30 +216,47 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _TxnRow extends StatelessWidget {
-  const _TxnRow({required this.txn});
-  final _Txn txn;
+class _EntryRow extends StatelessWidget {
+  const _EntryRow({super.key, required this.entry});
+  final LedgerEntry entry;
+
+  static IconData _icon(LedgerEntry e) => switch (e.kind) {
+        'signup_grant' || 'opening_balance' || 'welcome_bonus' => Icons.card_giftcard_rounded,
+        'entry_fee' || 'match_stake' || 'payout' || 'match_payout' => Icons.sports_esports_rounded,
+        'refund' || 'match_refund' => Icons.undo_rounded,
+        'buyin' || 'fee' || 'prize' => Icons.emoji_events_rounded,
+        'transfer' => e.credit ? Icons.call_received_rounded : Icons.call_made_rounded,
+        'gift' => Icons.redeem_rounded,
+        'purchase' || 'iap_token_pack' || 'iap_gold_pack' => Icons.shopping_bag_rounded,
+        'daily_bonus' || 'quest_reward' || 'achievement_reward' || 'inbox_reward' || 'referral_reward' =>
+          Icons.star_rounded,
+        'minigame_stake' || 'minigame_prize' => Icons.casino_rounded,
+        'adjustment' => Icons.tune_rounded,
+        _ => e.credit ? Icons.arrow_upward : Icons.arrow_downward,
+      };
 
   @override
   Widget build(BuildContext context) {
-    final earn = txn.earn;
-    final amtColor = earn ? AuraColors.green : AuraColors.danger;
+    final e = entry;
+    final color = e.credit ? AuraColors.green : AuraColors.danger;
+    final time = e.createdAt == null ? null : DateFormat.Hm().format(e.createdAt!.toLocal());
+    final sub = [?e.detail, ?time].join(' · ');
     return AuraCard(
       padding: const EdgeInsets.all(12),
+      // A match row opens that match (08-progress-and-history.md §6).
+      onTap: e.matchId == null
+          ? null
+          : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchDetailScreen(matchId: e.matchId!))),
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: (earn ? AuraColors.green : AuraColors.danger).withValues(alpha: 0.16),
+              color: color.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              earn ? Icons.arrow_upward : Icons.arrow_downward,
-              color: earn ? AuraColors.green : AuraColors.danger,
-              size: 22,
-            ),
+            child: Icon(_icon(e), color: color, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -158,7 +264,7 @@ class _TxnRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  txn.title,
+                  e.label,
                   style: TextStyle(
                     fontFamily: AuraText.displayFamily,
                     color: Colors.white,
@@ -166,8 +272,10 @@ class _TxnRow extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(txn.subtitle, style: AuraText.cardSub),
+                if (sub.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(sub, style: AuraText.cardSub, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
               ],
             ),
           ),
@@ -175,13 +283,15 @@ class _TxnRow extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CurrencyGlyph(kind: txn.gold ? Currency.gold : Currency.gems, size: 14),
-              const SizedBox(width: 5),
+              if (e.currency != null) ...[
+                CurrencyGlyph(kind: e.currency!.currency, size: 14),
+                const SizedBox(width: 5),
+              ],
               Text(
-                '${earn ? '+' : '−'}${txn.amount}',
+                e.signedAmount,
                 style: TextStyle(
                   fontFamily: AuraText.displayFamily,
-                  color: amtColor,
+                  color: color,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),

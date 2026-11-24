@@ -470,7 +470,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String powerUpCount(int count) {
-    return '$count× पावर-अप';
+    return '$count× बूस्ट';
   }
 
   @override
@@ -484,6 +484,16 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String dayOfSeven(int day) {
     return 'दिन $day / 7';
+  }
+
+  @override
+  String dayOfCycle(int day, int total) {
+    return 'दिन $day / $total';
+  }
+
+  @override
+  String claimedOfBlock(int count, int total) {
+    return '$count/$total लिए गए';
   }
 
   @override
@@ -1584,6 +1594,19 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get inviteFriendsTitle => 'दोस्तों को बुलाएं';
+
+  @override
+  String get referralHaveCode => 'क्या आपके पास दोस्त का कोड है?';
+
+  @override
+  String get referralCodeHint => 'दोस्त का कोड';
+
+  @override
+  String get referralApply => 'लागू करें';
+
+  @override
+  String get referralApplied =>
+      'कोड लागू हो गया। आपकी पहली खरीदारी के बाद दोनों को इनाम मिलेगा।';
 
   @override
   String get yourTurnTapDice => 'आपकी बारी · डाइस पर टैप करें';

@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../configs/games/games.dart';
 
@@ -19,6 +20,10 @@ class OnlineSide {
   final Widget Function(double size) icon;
 }
 
+/// A game's stake tiers for the shared online screens: null = the app's
+/// default tiers; a list = only these (e.g. the server's catalogue tiers).
+typedef OnlineStakeTiers = List<int>? Function(WidgetRef ref, {required int players, required bool tokens, required bool friends});
+
 /// Everything the shared app needs to know about one game. Each game folder
 /// (`lib/game/<game>/`) exports exactly one module; an app ships the modules
 /// listed in its [AppProfile] and nothing else, so games never reference each
@@ -31,6 +36,11 @@ class GameModule {
     this.onlineRoute,
     this.demoBoardRoute,
     this.onlineSides = const [],
+    this.onlinePlayerCounts = const [2],
+    this.friendsPlayerCounts = const [2],
+    this.onlineFreePlay = false,
+    this.onlineStakeTiers,
+    this.roomCodeLength = 6,
   });
 
   /// Identity, ports, players (from `lib/configs/games/<game>/`).
@@ -51,6 +61,21 @@ class GameModule {
 
   /// Online Play "Choose your side" options (empty = no side step).
   final List<OnlineSide> onlineSides;
+
+  /// Quick-match sizes offered by Online Play (one = no "How many players?" step).
+  final List<int> onlinePlayerCounts;
+
+  /// Seats a friends room can have (one = no seat picker).
+  final List<int> friendsPlayerCounts;
+
+  /// Online Play offers a free (no stake) match.
+  final bool onlineFreePlay;
+
+  /// The game's own stake tiers (null = the app's default tiers).
+  final OnlineStakeTiers? onlineStakeTiers;
+
+  /// Characters in a friends-room code (Chess 6, Ludo 8).
+  final int roomCodeLength;
 
   GameId get id => config.id;
 }

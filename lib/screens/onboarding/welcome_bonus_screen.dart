@@ -1,95 +1,252 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
+import '../../data/models/daily_bonus.dart' show formatAmount;
+import '../../data/models/rewards.dart';
+import '../../data/repositories/rewards_repository.dart';
+import '../../services/app_exception.dart';
+import '../../services/rewards_service.dart';
+import '../../state/async_view.dart';
 import '../../widgets/aura.dart';
+import '../economy/rewards_ui.dart';
+import '../../services/server_clock.dart';
 
-/// Welcome bonus — starter pack. See docs/DESIGN_SPEC.md.
-class WelcomeBonusScreen extends StatelessWidget {
+/// Welcome bonus sheet (07-rewards.md §1): what the welcome grant pays now,
+/// the claim deadline, then the free Welcome-wheel spin. Shown once after
+/// sign-up or guest create while something is claimable; amounts come from
+/// `GET /welcome-bonus/me`, never from the app.
+class WelcomeBonusScreen extends ConsumerStatefulWidget {
   const WelcomeBonusScreen({super.key});
 
   @override
+  ConsumerState<WelcomeBonusScreen> createState() => _WelcomeBonusScreenState();
+}
+
+class _WelcomeBonusScreenState extends ConsumerState<WelcomeBonusScreen> {
+  bool _claiming = false;
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    // The expiry / next-part countdown.
+    _tick = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  void _close() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+    } else {
+      nav.pushNamedAndRemoveUntil(Routes.home, (r) => false);
+    }
+  }
+
+  Future<void> _spin(BonusGameOffer spin) async {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      unawaited(nav.pushReplacementNamed(
+        Routes.bonusGame,
+        arguments: {'code': spin.code, 'trigger': spin.trigger, 'triggerRef': spin.triggerRef},
+      ));
+    } else {
+      unawaited(nav.pushNamedAndRemoveUntil(Routes.home, (r) => false));
+      unawaited(openBonusGame(context, spin));
+    }
+  }
+
+  Future<void> _claim(WelcomeBonus w) async {
+    if (_claiming) return;
+    setState(() => _claiming = true);
+    try {
+      final c = await ref.read(rewardsApiProvider).claimWelcome();
+      if (!mounted) return;
+      applyRewardToWallet(ref, balances: c.balances);
+      final what = rewardSummary(tokens: c.credited.tokens, gold: c.credited.gold, powerUps: c.credited.powerUpQty);
+      if (what.isNotEmpty) showAuraToast(context, 'Claimed $what', kind: AuraToastKind.gold);
+      ref.invalidate(welcomeBonusProvider);
+      // The free spin comes straight after the claim.
+      final spin = w.freeSpin;
+      if (spin != null && spin.available) {
+        await _spin(spin);
+      } else {
+        _close();
+      }
+    } on AppException catch (e) {
+      if (!mounted) return;
+      final issue = showRewardIssue(context, welcomeClaimIssue(e, nextDueAt: w.nextDueAt));
+      ref.invalidate(welcomeBonusProvider);
+      if (issue.kind == RewardIssueKind.alreadyDone || issue.kind == RewardIssueKind.gone) _close();
+    } finally {
+      if (mounted) setState(() => _claiming = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return AuraScaffold(
-      scroll: false,
-      glowColor: AuraColors.amber,
-      glowAlignment: const Alignment(0, -0.6),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                const SizedBox(height: 24),
-                const Center(
-                  child: Text(
-                    'WELCOME GIFT',
-                    style: TextStyle(
-                      color: AuraColors.amber,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2,
-                    ),
+    final bonus = ref.watch(welcomeBonusProvider);
+    return BusyGuard(
+      busy: _claiming,
+      child: AuraScaffold(
+        scroll: false,
+        glowColor: AuraColors.amber,
+        glowAlignment: const Alignment(0, -0.6),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: bonus.when(
+                  loading: () => SizedBox(height: constraints.maxHeight, child: const Center(child: CircularProgressIndicator())),
+                  error: (_, _) => SizedBox(
+                    height: constraints.maxHeight,
+                    child: ErrorRetry(onRetry: () => ref.invalidate(welcomeBonusProvider)),
+                  ),
+                  data: (w) => _content(w),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _content(WelcomeBonus? w) {
+    final grant = w?.grant;
+    final now = w?.claimableNow ?? const WelcomeAmounts();
+    final live = w != null && w.isLive && !now.isEmpty;
+    final spin = w?.freeSpin;
+    final spinOpen = spin != null && spin.available;
+    // Fall back to the grant's totals when nothing is due right now.
+    final tokens = live ? now.tokens : (grant?.tokensTotal ?? 0);
+    final gold = live ? now.gold : (grant?.goldTotal ?? 0);
+    final powerUps = live ? now.powerUpQty : (grant?.powerUpQty ?? 0);
+    final String headline;
+    final String body;
+    if (w == null) {
+      headline = 'Welcome!';
+      body = "There's no welcome bonus on this account.";
+    } else if (grant!.status == 'blocked') {
+      headline = 'Welcome!';
+      body = grant.blockedReason == 'device_dupe'
+          ? 'This device already received a welcome bonus.'
+          : "The welcome bonus isn't available for this account.";
+    } else if (grant.status == 'expired') {
+      headline = 'Welcome!';
+      body = 'This welcome bonus has expired.';
+    } else if (live) {
+      headline = "You're all set!";
+      body = "Here's your starter pack to jump straight into the action.";
+    } else if (spinOpen) {
+      headline = 'One more gift!';
+      body = 'Your free Welcome-wheel spin is waiting.';
+    } else {
+      headline = "You're all set!";
+      body = 'Your welcome bonus has been paid.';
+    }
+    final notes = <String>[
+      if (live && grant!.status == 'pending' && grant.expiresAt != null && grant.expiresAt!.isAfter(ServerClock.now()))
+        'Claim within ${rewardCountdown(grant.expiresAt!)}',
+      if (w != null && w.nextDueAt != null && w.nextDueAt!.isAfter(ServerClock.now()))
+        'Next part in ${rewardCountdown(w.nextDueAt!)}',
+      if (w != null && w.waitingForFirstMatch) 'Play a match to unlock the rest',
+    ];
+    final showTiles = w != null && (grant!.status != 'blocked' && grant.status != 'expired');
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 24),
+        const Center(
+          child: Text(
+            'WELCOME GIFT',
+            style: TextStyle(color: AuraColors.amber, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 2),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const Center(child: _StarBadge(size: 150)),
+        const SizedBox(height: 28),
+        Text(headline, textAlign: TextAlign.center, style: AuraText.headline.copyWith(fontSize: 31)),
+        const SizedBox(height: 10),
+        Text(body, textAlign: TextAlign.center, style: AuraText.body.copyWith(color: AuraColors.textSecondary)),
+        const SizedBox(height: 28),
+        if (showTiles)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (tokens > 0 || (gold == 0 && powerUps == 0))
+                Expanded(
+                  child: _RewardTile(
+                    glyph: const CurrencyGlyph(kind: Currency.gems, size: 26),
+                    amount: '+${formatAmount(tokens)}',
+                    label: 'Tokens',
                   ),
                 ),
-                const SizedBox(height: 24),
-                const Center(child: _StarBadge(size: 150)),
-                const SizedBox(height: 28),
-                Text("You're all set!",
-                    textAlign: TextAlign.center,
-                    style: AuraText.headline.copyWith(fontSize: 31)),
-                const SizedBox(height: 10),
-                Text(
-                  "Here's your starter pack to jump straight into the action.",
-                  textAlign: TextAlign.center,
-                  style: AuraText.body.copyWith(color: AuraColors.textSecondary),
+              if (gold > 0) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _RewardTile(
+                    glyph: const CurrencyGlyph(kind: Currency.gold, size: 26),
+                    amount: '+${formatAmount(gold)}',
+                    label: 'Gold',
+                  ),
                 ),
-                const SizedBox(height: 28),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Expanded(
-                      child: _RewardTile(
-                        glyph: CurrencyGlyph(kind: Currency.gems, size: 26),
-                        amount: '+5,000',
-                        label: 'Tokens',
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: _RewardTile(
-                        glyph: CurrencyGlyph(kind: Currency.gold, size: 26),
-                        amount: '+1,000',
-                        label: 'Gold',
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: _RewardTile(
-                        glyph: Icon(Icons.refresh, color: AuraColors.accentGlow, size: 26),
-                        amount: '+3',
-                        label: 'Spins',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                GradientButton(
-                  label: 'Claim & Play',
-                  onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                      context, Routes.home, (r) => false),
-                ),
-                const SizedBox(height: 24),
               ],
-              ),
-            ),
-          );
-        },
-      ),
+              if (powerUps > 0) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _RewardTile(
+                    glyph: const Icon(Icons.bolt_rounded, color: AuraColors.accentGlow, size: 26),
+                    amount: '+$powerUps',
+                    label: 'Boosts',
+                  ),
+                ),
+              ],
+              if (spin != null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _RewardTile(
+                    glyph: const Icon(Icons.refresh, color: AuraColors.accentGlow, size: 26),
+                    amount: spinOpen ? '+1' : '✓',
+                    label: 'Free spin',
+                  ),
+                ),
+              ],
+            ],
+          ),
+        if (notes.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text(notes.join('  ·  '), textAlign: TextAlign.center, style: AuraText.cardSub),
+        ],
+        const SizedBox(height: 28),
+        if (live)
+          GradientButton(label: 'Claim', loading: _claiming, onPressed: () => _claim(w))
+        else if (spinOpen)
+          GradientButton(label: 'Spin the wheel', onPressed: () => _spin(spin))
+        else
+          GradientButton(label: 'Continue', onPressed: _close),
+        if (live || spinOpen) ...[
+          const SizedBox(height: 10),
+          TextButton(
+            onPressed: _claiming ? null : _close,
+            child: const Text('Later', style: TextStyle(color: AuraColors.textSecondary)),
+          ),
+        ],
+        const SizedBox(height: 24),
+      ],
     );
   }
 }

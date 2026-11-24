@@ -309,7 +309,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'For your security you’ve been signed out on all devices. Log in with your new password.';
 
   @override
-  String get currentPasswordWrong => 'Current password is incorrect';
+  String get currentPasswordWrong => 'Your current password is incorrect.';
 
   @override
   String get tooManyAttempts =>
@@ -470,7 +470,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String powerUpCount(int count) {
-    return '$count× power-up';
+    return '$count× boost';
   }
 
   @override
@@ -484,6 +484,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String dayOfSeven(int day) {
     return 'DAY $day / 7';
+  }
+
+  @override
+  String dayOfCycle(int day, int total) {
+    return 'DAY $day / $total';
+  }
+
+  @override
+  String claimedOfBlock(int count, int total) {
+    return '$count/$total claimed';
   }
 
   @override
@@ -1602,6 +1612,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get inviteFriendsTitle => 'Invite friends';
+
+  @override
+  String get referralHaveCode => 'Have a friend\'s code?';
+
+  @override
+  String get referralCodeHint => 'Friend\'s code';
+
+  @override
+  String get referralApply => 'Apply';
+
+  @override
+  String get referralApplied =>
+      'Code applied. You both get a reward after your first purchase.';
 
   @override
   String get yourTurnTapDice => 'YOUR TURN · tap the dice';

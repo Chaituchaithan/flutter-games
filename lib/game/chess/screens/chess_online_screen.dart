@@ -131,7 +131,9 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
     final shared = appSocket.client;
     // Identity = the socket username (test1/test2) — matches what the server
     // knows us as, so colour assignment + own-move dedup are correct.
-    if (shared != null && appSocket.isConnected) {
+    // Only when the shared socket is on the Chess server (after login it may
+    // be on Ludo's, the live one).
+    if (shared != null && appSocket.isConnected && appSocket.game?.id == GameId.chess) {
       // Reuse the app-wide socket authenticated at login (single connection).
       final session = ChessSession(socket: shared, userId: appSocket.username)..addListener(_onSession);
       _session = session;
@@ -146,12 +148,11 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
       if (mounted) setState(() => _noAuth = true);
       return;
     }
-    // Native sends the token as a Bearer header; through the web proxy it rides
-    // as a query param instead (browsers can't set WS headers).
+    // The token goes in the auth.login frame, never in the URL.
     final socket = SocketClient(
-      url: Uri.parse(chessEndpoints.socketUrlWithToken(token)),
-      headers: chessEndpoints.socketHeaders(token),
+      url: Uri.parse(chessEndpoints.socketUrl),
       requestTimeout: NetworkConfig.socketRequestTimeout,
+      reauth: appSocket.freshToken,
     );
     final session = ChessSession(socket: socket, userId: appSocket.username)..addListener(_onSession);
     _socket = socket;
@@ -184,7 +185,7 @@ class _ChessOnlineScreenState extends ConsumerState<ChessOnlineScreen> {
           await session.joinRoom(widget.joinCode ?? '');
       }
     } on Object catch (e) {
-      session.lastError = '$e';
+      session.lastError = socketErrorText(e, fallback: 'Something went wrong. Please try again.');
       if (mounted) setState(() {});
     }
   }

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../utils/uuid.dart';
+
 /// Best-effort persistence for the auth token pair (access + refresh). Every
 /// call is guarded so a missing platform channel (e.g. in unit tests) degrades
 /// to a no-op / null instead of throwing. See docs/SERVICES_AND_REALTIME.md.
@@ -11,6 +13,13 @@ class TokenStore {
   static const _accessKey = 'aura.auth.access';
   static const _refreshKey = 'aura.auth.refresh';
 
+  /// A stable id for this install (sign-up / guest `device_id`): a UUID made
+  /// once and kept across log-outs ([clear] leaves it).
+  static const _deviceKey = 'aura.device.id';
+
+  /// Access-token expiry (`now + expires_in`, ISO 8601 UTC).
+  static const _expiryKey = 'aura.auth.expiry';
+
   /// Display-only copy of the signed-in player (name, level, avatar…) so the
   /// app shows it instantly on the next start. Never balances, email or DOB.
   static const _profileKey = 'aura.profile.cache';
@@ -18,9 +27,27 @@ class TokenStore {
   Future<String?> readAccess() => _read(_accessKey);
   Future<String?> readRefresh() => _read(_refreshKey);
 
-  Future<void> save({required String access, String? refresh}) async {
+  Future<DateTime?> readExpiry() async => DateTime.tryParse(await _read(_expiryKey) ?? '');
+
+  /// Store the pair together (the refresh token is single use: an old one
+  /// left behind would be dead).
+  Future<void> save({required String access, String? refresh, DateTime? expiresAt}) async {
     await _write(_accessKey, access);
     if (refresh != null) await _write(_refreshKey, refresh);
+    if (expiresAt != null) {
+      await _write(_expiryKey, expiresAt.toUtc().toIso8601String());
+    } else {
+      await _delete(_expiryKey);
+    }
+  }
+
+  /// This install's device id, created on first use.
+  Future<String> deviceId() async {
+    final saved = await _read(_deviceKey);
+    if (saved != null && saved.isNotEmpty) return saved;
+    final id = newUuidV4();
+    await _write(_deviceKey, id);
+    return id;
   }
 
   Future<String?> readProfile() => _read(_profileKey);
@@ -31,6 +58,7 @@ class TokenStore {
   Future<void> clear() async {
     await _delete(_accessKey);
     await _delete(_refreshKey);
+    await _delete(_expiryKey);
     await _delete(_profileKey);
   }
 

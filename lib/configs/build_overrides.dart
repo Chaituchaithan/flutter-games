@@ -10,6 +10,10 @@ abstract final class BuildOverrides {
   /// `dev` (default) · `staging` · `prod`.
   static const env = String.fromEnvironment('APP_ENV');
 
+  /// Server IP/host for the dev environment (e.g. a teammate's machine),
+  /// replacing the default LAN server's host. Ports stay the same.
+  static const serverHost = String.fromEnvironment('SERVER_HOST');
+
   /// Full REST base, e.g. `http://10.0.2.2:3000/api/v1` (wins over everything).
   static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 
@@ -21,9 +25,6 @@ abstract final class BuildOverrides {
 
   /// `true` / `false` — overrides the realtime-socket master switch.
   static const socketEnabled = String.fromEnvironment('SOCKET_ENABLED');
-
-  /// Fallback identity for the socket `auth.login` (dev testing).
-  static const socketUsername = String.fromEnvironment('SOCKET_USERNAME', defaultValue: 'test1');
 
   /// Starting game (`chess`, `ludo`, `snakesLadders`, …) — build one game only.
   static const game = String.fromEnvironment('GAME');

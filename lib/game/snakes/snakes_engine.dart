@@ -29,6 +29,63 @@ class SnakesRules {
   }
 }
 
+/// A board: its size (the finish square), snakes, ladders and, on venom
+/// boards, the venom squares. The offline game plays [classic]; online games
+/// build one from the server's board (snake-and-ladder.md "The board").
+@immutable
+class SnakesLayout {
+  const SnakesLayout({
+    required this.size,
+    required this.snakes,
+    required this.ladders,
+    this.venom = const {},
+    this.multipliers = const {},
+  });
+
+  /// The offline board.
+  static const classic = SnakesLayout(size: SnakesRules.finish, snakes: SnakesRules.snakes, ladders: SnakesRules.ladders);
+
+  /// The finish square (50 or 100).
+  final int size;
+
+  /// Head → tail.
+  final Map<int, int> snakes;
+
+  /// Bottom → top.
+  final Map<int, int> ladders;
+
+  /// Squares that cost the next turn.
+  final Set<int> venom;
+
+  /// Ladder bottom → multiplier (Royale boards).
+  final Map<int, int> multipliers;
+
+  /// Rows of 10 squares.
+  int get rows => (size + 9) ~/ 10;
+
+  /// Board cell (column 0..9 from the left, row 0.. from the TOP) of square
+  /// 1..[size]: the first row runs left→right from the bottom-left, the next
+  /// right→left, and so on.
+  (int col, int row) cellOf(int square) {
+    final i = square - 1;
+    final fromBottom = i ~/ 10;
+    final c = i % 10;
+    return (fromBottom.isEven ? c : 9 - c, rows - 1 - fromBottom);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is SnakesLayout &&
+      other.size == size &&
+      mapEquals(other.snakes, snakes) &&
+      mapEquals(other.ladders, ladders) &&
+      setEquals(other.venom, venom) &&
+      mapEquals(other.multipliers, multipliers);
+
+  @override
+  int get hashCode => Object.hash(size, snakes.length, ladders.length, venom.length);
+}
+
 /// How a move ends after the walk.
 enum SnakesJump { none, ladder, snake }
 
@@ -63,13 +120,16 @@ class SnakesMove {
 /// Game state + turn flow. [roll] produces a [SnakesMove] the board animates;
 /// [finishMove] commits it and passes (or keeps, on a 6) the turn.
 class SnakesGame extends ChangeNotifier {
-  SnakesGame({required this.players, math.Random? rng})
+  SnakesGame({required this.players, math.Random? rng, this.layout = SnakesLayout.classic})
     : assert(players >= 2 && players <= 4),
       _rng = rng ?? math.Random(),
       positions = List.filled(players, 0);
 
   final int players;
   final math.Random _rng;
+
+  /// The board played on.
+  final SnakesLayout layout;
 
   /// Square per player (0 = not on the board yet).
   final List<int> positions;
@@ -102,16 +162,16 @@ class SnakesGame extends ChangeNotifier {
     moveCount++;
     final from = positions[turn];
     final target = from + v;
-    final steps = target > SnakesRules.finish ? <int>[] : [for (var s = from + 1; s <= target; s++) s];
+    final steps = target > layout.size ? <int>[] : [for (var s = from + 1; s <= target; s++) s];
     var jump = SnakesJump.none;
     int? jumpTo;
     if (steps.isNotEmpty) {
-      if (SnakesRules.ladders.containsKey(target)) {
+      if (layout.ladders.containsKey(target)) {
         jump = SnakesJump.ladder;
-        jumpTo = SnakesRules.ladders[target];
-      } else if (SnakesRules.snakes.containsKey(target)) {
+        jumpTo = layout.ladders[target];
+      } else if (layout.snakes.containsKey(target)) {
         jump = SnakesJump.snake;
-        jumpTo = SnakesRules.snakes[target];
+        jumpTo = layout.snakes[target];
       }
     }
     pending = SnakesMove(player: turn, roll: v, from: from, steps: steps, jump: jump, jumpTo: jumpTo);
@@ -132,7 +192,7 @@ class SnakesGame extends ChangeNotifier {
       SnakesJump.none => '$who rolled ${m.roll} → ${m.to}',
     };
     pending = null;
-    if (m.to == SnakesRules.finish) {
+    if (m.to == layout.size) {
       winner = m.player;
     } else if (m.roll != 6) {
       turn = (turn + 1) % players;

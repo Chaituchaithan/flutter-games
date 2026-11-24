@@ -6,15 +6,28 @@ import 'package:flutter/material.dart';
 import 'package:snakeladder/widgets/aura.dart';
 
 /// Show the level-up celebration as a full-screen tap-to-dismiss overlay
-/// (mockup `levelUp`). Fire this when the player levels up.
-Future<void> showLevelUp(BuildContext context, {int level = 8, String rank = 'Platinum I'}) {
+/// (mockup `levelUp`). Levels are per game (08-progress-and-history.md):
+/// [gameName] names the game. [onReward] adds a "Claim your level reward"
+/// button (the `level_up` bonus game, 07-rewards.md §5); the overlay closes
+/// first, then it runs.
+Future<void> showLevelUp(BuildContext context, {int level = 8, String? gameName, String? rewardLabel, VoidCallback? onReward}) {
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Level up',
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (_, _, _) => _LevelUpOverlay(level: level, rank: rank),
+    pageBuilder: (ctx, _, _) => _LevelUpOverlay(
+      level: level,
+      gameName: gameName,
+      rewardLabel: rewardLabel,
+      onReward: onReward == null
+          ? null
+          : () {
+              Navigator.of(ctx).maybePop();
+              onReward();
+            },
+    ),
     transitionBuilder: (ctx, anim, _, child) => FadeTransition(
       opacity: anim,
       child: Transform.scale(scale: 0.96 + 0.04 * anim.value, child: child),
@@ -23,9 +36,11 @@ Future<void> showLevelUp(BuildContext context, {int level = 8, String rank = 'Pl
 }
 
 class _LevelUpOverlay extends StatelessWidget {
-  const _LevelUpOverlay({required this.level, required this.rank});
+  const _LevelUpOverlay({required this.level, this.gameName, this.rewardLabel, this.onReward});
   final int level;
-  final String rank;
+  final String? gameName;
+  final String? rewardLabel;
+  final VoidCallback? onReward;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +58,9 @@ class _LevelUpOverlay extends StatelessWidget {
               stops: [0.0, 0.7],
             ),
           ),
-          child: Center(child: _LevelUpContent(level: level, rank: rank)),
+          child: Center(
+            child: _LevelUpContent(level: level, gameName: gameName, rewardLabel: rewardLabel, onReward: onReward),
+          ),
         ),
       ),
     );
@@ -52,9 +69,11 @@ class _LevelUpOverlay extends StatelessWidget {
 
 /// Level-up celebration content. Routed fallback wraps this in [LevelUpScreen].
 class _LevelUpContent extends StatelessWidget {
-  const _LevelUpContent({this.level = 8, this.rank = 'Platinum I'});
+  const _LevelUpContent({this.level = 8, this.gameName, this.rewardLabel, this.onReward});
   final int level;
-  final String rank;
+  final String? gameName;
+  final String? rewardLabel;
+  final VoidCallback? onReward;
 
   @override
   Widget build(BuildContext context) {
@@ -78,21 +97,24 @@ class _LevelUpContent extends StatelessWidget {
             const SizedBox(height: 26),
             Text('Level $level reached',
                 style: AuraText.headline.copyWith(fontSize: 32), textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            Text(
-              'New rank: $rank',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 14.5),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: const [
-                Expanded(child: _RewardTile(glyph: CurrencyGlyph(kind: Currency.gems, size: 24), amount: '+1,500', label: 'Tokens')),
-                SizedBox(width: 10),
-                Expanded(child: _RewardTile(glyph: CurrencyGlyph(kind: Currency.gold, size: 24), amount: '+200', label: 'Gold')),
-                SizedBox(width: 10),
-                Expanded(child: _RewardTile(glyph: Icon(Icons.filter_frames, color: Colors.white, size: 24), amount: 'Frame', label: 'Platinum')),
-              ],
-            ),
+            if (gameName != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'in $gameName',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 14.5),
+              ),
+            ],
+            if (onReward != null) ...[
+              const SizedBox(height: 24),
+              _RewardTile(
+                glyph: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 24),
+                amount: rewardLabel ?? 'Level reward',
+                label: 'A free bonus game',
+              ),
+              const SizedBox(height: 14),
+              GradientButton(label: 'Claim your level reward', onPressed: onReward!),
+            ],
             const SizedBox(height: 26),
             Text(
               'Tap anywhere to continue',

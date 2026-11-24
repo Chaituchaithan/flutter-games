@@ -7,9 +7,14 @@ import '../../widgets/aura.dart';
 import '../../app/main_shell.dart';
 import '../../app/routes.dart';
 import '../store/store_screen.dart';
+import '../store/restore_purchases.dart';
+import '../../configs/configs.dart';
+import '../../services/account_store.dart';
+import '../../services/app_prefs.dart';
 import '../../services/session.dart';
 import 'package:snakeladder/screens/profile/level_up_screen.dart';
 import '../onboarding/language_screen.dart';
+import '../social/blocked_players_screen.dart';
 
 /// Settings — standalone screen. See docs/DESIGN_SPEC.md.
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -22,9 +27,36 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _sound = true;
   bool _music = true;
-  bool _notifications = true;
+
+  Future<void> _setSound(bool v) async {
+    setState(() => _sound = v);
+    try {
+      await ref.read(accountStoreProvider.notifier).setPreferences({'sound': v});
+    } on Object catch (_) {
+      if (mounted) setState(() => _sound = !v);
+    }
+  }
 
   Future<void> _confirmLogout() async {
+    // A guest has no email or password: logging out loses the account.
+    if (ref.read(currentUserProvider).isGuest) {
+      final save = await showAuraDialog(
+        context,
+        icon: Icons.warning_amber_rounded,
+        title: 'Log out of a guest account?',
+        body: "You're playing as a guest. Log out and your progress is lost. Save your progress first?",
+        primaryLabel: 'Save your progress',
+        secondaryLabel: 'Log out anyway',
+        destructive: true,
+      );
+      if (!mounted || save == null) return;
+      if (save) {
+        Navigator.pushNamed(context, Routes.register, arguments: {'saveProgress': true});
+        return;
+      }
+      await _logOut();
+      return;
+    }
     final ok = await showAuraDialog(
       context,
       icon: Icons.logout_rounded,
@@ -34,13 +66,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       secondaryLabel: context.l10n.stay,
       destructive: true,
     );
-    if (ok == true && mounted) {
-      // Capture the navigator first: logging out must always end on Login,
-      // even if this screen was closed while the request was running.
-      final nav = Navigator.of(context);
-      await ref.read(sessionProvider.notifier).signOut();
-      nav.pushNamedAndRemoveUntil(Routes.login, (r) => false);
-    }
+    if (ok == true && mounted) await _logOut();
+  }
+
+  /// Log out, then the Welcome screen (Log in · Play as guest · Sign up).
+  Future<void> _logOut() async {
+    // Capture the navigator first: logging out must always end there, even if
+    // this screen was closed while the request was running.
+    final nav = Navigator.of(context);
+    await ref.read(sessionProvider.notifier).signOut();
+    nav.pushNamedAndRemoveUntil(Routes.login, (r) => false);
+  }
+
+  /// Debug builds only: the dev server's host (00-conventions.md "Servers").
+  Future<void> _editServerHost() async {
+    final prefs = ref.read(appPrefsProvider);
+    final controller = TextEditingController(text: AppConfig.server.host);
+    final host = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Server host'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(hintText: '192.168.0.235'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, ''), child: const Text('Use default')),
+          TextButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (host == null || !mounted) return;
+    await prefs.set(AppConfig.serverHostPrefKey, host);
+    if (!mounted) return;
+    showAuraToast(context, 'Saved. Restart the app to use ${host.isEmpty ? 'the default server' : host}.',
+        kind: AuraToastKind.info);
   }
 
   // ── Demo-state triggers (mockup's DEMO STATES section) ──
@@ -113,15 +176,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 10),
           _GroupCard(
             children: [
-              _ToggleRow(label: context.l10n.soundEffects, value: _sound, onChanged: (v) => setState(() => _sound = v)),
+              // Saved with the game preferences (02-profile-and-sessions.md §7).
+              _ToggleRow(
+                label: context.l10n.soundEffects,
+                value: ref.watch(accountStoreProvider)?.preferences.sound ?? _sound,
+                onChanged: _setSound,
+              ),
               const _RowDivider(),
               _ToggleRow(label: context.l10n.music, value: _music, onChanged: (v) => setState(() => _music = v)),
               const _RowDivider(),
-              _ToggleRow(
+              // Push switch, the seven toggles and quiet hours (10-inbox-and-notifications.md §3).
+              _NavRow(
                 label: context.l10n.notifications,
-                value: _notifications,
-                onChanged: (v) => setState(() => _notifications = v),
+                onTap: () => Navigator.pushNamed(context, Routes.notificationSettings),
               ),
+              const _RowDivider(),
+              _NavRow(label: 'Game settings', onTap: () => Navigator.pushNamed(context, Routes.gameSettings)),
               const _RowDivider(),
               _NavRow(
                 label: context.l10n.languageTitle,
@@ -148,19 +218,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               _NavRow(label: context.l10n.editProfile, onTap: () => Navigator.pushNamed(context, Routes.editProfile)),
               const _RowDivider(),
-              // Guests have no password to change.
-              if (!ref.watch(currentUserProvider).isGuest) ...[
+              _NavRow(label: 'Account', onTap: () => Navigator.pushNamed(context, Routes.account)),
+              const _RowDivider(),
+              _NavRow(label: 'Privacy', onTap: () => Navigator.pushNamed(context, Routes.privacy)),
+              const _RowDivider(),
+              _NavRow(label: 'Addresses', onTap: () => Navigator.pushNamed(context, Routes.addresses)),
+              const _RowDivider(),
+              _NavRow(label: 'Signed-in devices', onTap: () => Navigator.pushNamed(context, Routes.sessions)),
+              const _RowDivider(),
+              // Guests have no email or password: offer to save the account.
+              if (ref.watch(currentUserProvider).isGuest) ...[
+                _NavRow(
+                  label: 'Save your progress',
+                  onTap: () => Navigator.pushNamed(context, Routes.register, arguments: {'saveProgress': true}),
+                ),
+                const _RowDivider(),
+              ] else ...[
                 _NavRow(label: context.l10n.changePassword, onTap: () => Navigator.pushNamed(context, Routes.changePassword)),
                 const _RowDivider(),
+                if (ref.watch(sessionProvider) != null && !ref.watch(currentUserProvider).emailVerified) ...[
+                  _NavRow(label: 'Verify email', onTap: () => Navigator.pushNamed(context, Routes.otp)),
+                  const _RowDivider(),
+                ],
               ],
               _NavRow(label: context.l10n.friendsAndBlocked, onTap: () => Navigator.pushNamed(context, Routes.friends)),
               const _RowDivider(),
+              _NavRow(
+                label: 'Blocked players',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BlockedPlayersScreen())),
+              ),
+              const _RowDivider(),
               _NavRow(label: context.l10n.transactionsReceipts, onTap: () => Navigator.pushNamed(context, Routes.transactions)),
+              const _RowDivider(),
+              // 11-store.md §3e: everything is owned on the account.
+              _NavRow(label: 'Restore purchases', onTap: () => restorePurchasesWithToast(context, ref)),
               const _RowDivider(),
               _NavRow(
                 label: context.l10n.inviteFriends,
                 onTap: () => Navigator.pushNamed(context, Routes.referral),
               ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Safety (docs/services/12-safety.md): my reports, limits help.
+          const SectionHeader('Safety'),
+          const SizedBox(height: 10),
+          _GroupCard(
+            children: [
+              _NavRow(label: 'My reports', onTap: () => Navigator.pushNamed(context, Routes.myReports)),
+              const _RowDivider(),
+              _NavRow(label: 'Responsible gaming', onTap: () => Navigator.pushNamed(context, Routes.responsibleGaming)),
             ],
           ),
           const SizedBox(height: 20),
@@ -204,12 +311,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _NavRow(label: 'Maintenance screen', onTap: () => Navigator.pushNamed(context, Routes.maintenance)),
                 const _RowDivider(),
                 _NavRow(label: 'Force-update screen', onTap: () => Navigator.pushNamed(context, Routes.forceUpdate)),
+                const _RowDivider(),
+                _NavRow(label: 'Server', trailingText: AppConfig.server.host, onTap: _editServerHost),
               ],
             ),
           ],
           const SizedBox(height: 20),
           _LogoutRow(onTap: _confirmLogout),
           const SizedBox(height: 12),
+          // Guests have no password, so they can't delete (§12): Log out
+          // already ends a guest's account.
+          if (!ref.watch(currentUserProvider).isGuest)
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.pushNamed(context, Routes.deleteAccount),
+                child: const Text('Delete account', style: TextStyle(color: AuraColors.textSecondary, fontSize: 13)),
+              ),
+            ),
         ],
       ),
     );

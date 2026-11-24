@@ -1,18 +1,37 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/routes.dart';
 import '../../data/models/friend.dart';
+import '../../data/models/social.dart';
 import '../../data/repositories/friends_repository.dart';
+import '../../data/repositories/referral_repository.dart';
+import '../../services/app_exception.dart';
+import '../../services/social_api.dart';
+import '../../services/social_store.dart';
 import '../../widgets/aura.dart';
+import '../../widgets/player_avatar.dart';
 import '../system/loading_skeleton_screen.dart';
+import 'blocked_players_screen.dart';
+import 'gifts_screen.dart';
+import 'lobby_chat_screen.dart';
 import 'player_profile_screen.dart';
 
-/// Friends & social — Friends / Requests / Find tabs.
-/// Reads via `friendsRepositoryProvider` (static source today; live API when
-/// remote sources are switched on). Mirrors the mockup's `isSocial` screen.
+/// Friends & social (docs/services/09-social.md): Friends (online first, then
+/// by name, green dot), Requests (incoming, Accept / Decline) and Find (no
+/// player search exists on the server: invite code, gifts, lobby chat,
+/// blocked players, and demo suggestions offline).
+///
+/// Re-reads everything on open and on resume; who is online every 30 s while
+/// the screen is open and in the foreground. Names come from the
+/// [PlayerNameCache] (lists carry ids only).
 class FriendsScreen extends ConsumerStatefulWidget {
   const FriendsScreen({super.key});
+
+  /// Friends-online poll while open (§2b).
+  static const onlinePoll = Duration(seconds: 30);
 
   @override
   ConsumerState<FriendsScreen> createState() => _FriendsScreenState();
@@ -20,47 +39,88 @@ class FriendsScreen extends ConsumerStatefulWidget {
 
 class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   int _tab = 0;
+  Timer? _poll;
+  AppLifecycleListener? _life;
 
-  void _openProfile(Friend f) {
+  @override
+  void initState() {
+    super.initState();
+    // Fresh lists on open (the provider may hold an older read).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ref.read(friendsProvider).hasValue) ref.read(friendsProvider.notifier).refresh();
+    });
+    _poll = Timer.periodic(FriendsScreen.onlinePoll, (_) {
+      final st = WidgetsBinding.instance.lifecycleState;
+      if (mounted && (st == null || st == AppLifecycleState.resumed)) ref.read(friendsProvider.notifier).refreshOnline();
+    });
+    _life = AppLifecycleListener(onResume: () {
+      if (mounted) ref.read(friendsProvider.notifier).refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    _life?.dispose();
+    super.dispose();
+  }
+
+  String _name(String id) => ref.read(playerNameCacheProvider)[id]?.name ?? 'Player';
+
+  void _openProfile(String userId, {bool online = false}) {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => PlayerProfileScreen(
-        name: f.name,
-        color: f.color,
-        level: f.level,
-        online: f.online,
-      ),
+      builder: (_) => PlayerProfileScreen(userId: userId, name: _name(userId), online: online),
     ));
   }
 
-  void _challenge(Friend f) {
-    ref.read(friendsRepositoryProvider).challenge(f.name);
-    showAuraToast(context, 'Challenge sent to ${f.name}', kind: AuraToastKind.success);
+  /// Invites go through a private room and its code (Play with Friends).
+  void _challenge() => Navigator.pushNamed(context, Routes.playFriends);
+
+  Future<void> _accept(FriendRequest r) async {
+    final name = _name(r.fromUserId);
+    try {
+      await ref.read(friendsProvider.notifier).accept(r);
+      if (mounted) showAuraToast(context, "You're now friends with $name", kind: AuraToastKind.success);
+    } on AppException catch (e) {
+      if (mounted) showAuraToast(context, socialErrorText(e, SocialOp.answerRequest), kind: AuraToastKind.error);
+    }
   }
 
-  void _add(Friend f) {
-    ref.read(friendsRepositoryProvider).add(f.name);
-    showAuraToast(context, 'Friend request sent to ${f.name}');
+  Future<void> _decline(FriendRequest r) async {
+    final name = _name(r.fromUserId);
+    try {
+      await ref.read(friendsProvider.notifier).decline(r);
+      if (mounted) showAuraToast(context, 'Request from $name declined', kind: AuraToastKind.info);
+    } on AppException catch (e) {
+      if (mounted) showAuraToast(context, socialErrorText(e, SocialOp.answerRequest), kind: AuraToastKind.error);
+    }
   }
 
-  void _accept(Friend f) {
-    ref.read(friendsRepositoryProvider).accept(f.name);
-    ref.invalidate(friendRequestsProvider);
-    showAuraToast(context, "You're now friends with ${f.name}", kind: AuraToastKind.success);
-  }
-
-  void _decline(Friend f) {
-    ref.read(friendsRepositoryProvider).decline(f.name);
-    ref.invalidate(friendRequestsProvider);
-    showAuraToast(context, 'Request from ${f.name} declined', kind: AuraToastKind.info);
+  Future<void> _addSuggested(Friend f) async {
+    final id = f.userId;
+    if (id == null) return;
+    try {
+      await ref.read(friendsProvider.notifier).add(id);
+      if (mounted) showAuraToast(context, 'Friend request sent to ${f.name}');
+    } on AppException catch (e) {
+      if (mounted) showAuraToast(context, socialErrorText(e, SocialOp.friendRequest), kind: AuraToastKind.error);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final friends = ref.watch(friendsListProvider);
-    final onlineCount = friends.maybeWhen(
-      data: (list) => list.where((f) => f.online).length,
-      orElse: () => 0,
-    );
+    final friends = ref.watch(friendsProvider);
+    final names = ref.watch(playerNameCacheProvider);
+    final blocked = ref.watch(blockListProvider);
+    final s = friends.value;
+    final onlineCount = s == null ? 0 : s.friends.where((f) => s.online.contains(f.userId)).length;
+    final requests = s?.incomingTotal ?? 0;
+    if (s != null) {
+      final ids = [for (final f in s.friends) f.userId, for (final r in s.incoming) r.fromUserId];
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(playerNameCacheProvider.notifier).ensure(ids);
+      });
+    }
 
     return AuraScaffold(
       appBar: AuraAppBar(
@@ -91,15 +151,15 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
         children: [
           const SizedBox(height: 4),
           SegmentedTabs(
-            labels: const ['Friends', 'Requests', 'Find'],
+            labels: ['Friends', requests > 0 ? 'Requests ($requests)' : 'Requests', 'Find'],
             index: _tab,
             onChanged: (i) => setState(() => _tab = i),
           ),
           const SizedBox(height: 16),
           switch (_tab) {
-            1 => _requestsTab(),
+            1 => _requestsTab(friends, names, blocked),
             2 => _findTab(),
-            _ => _friendsTab(friends),
+            _ => _friendsTab(friends, names),
           },
           const SizedBox(height: 10),
         ],
@@ -107,38 +167,61 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     );
   }
 
-  Widget _friendsTab(AsyncValue<List<Friend>> friends) {
-    return _AsyncFriends(
-      value: friends,
-      onRetry: () => ref.invalidate(friendsListProvider),
-      rowBuilder: (f) => _FriendRow(
-        friend: f,
-        onTap: () => _openProfile(f),
-        trailing: f.online
-            ? _ChallengeButton(onTap: () => _challenge(f))
-            : const Icon(Icons.chevron_right, color: AuraColors.textSecondary, size: 22),
-      ),
+  Widget _friendsTab(AsyncValue<FriendsState> friends, Map<String, UserCard> names) {
+    return _AsyncList<FriendLink>(
+      value: friends.whenData((s) => s.sorted((id) => names[id]?.name ?? '')),
+      onRetry: () => ref.invalidate(friendsProvider),
+      emptyLabel: 'No friends yet. Add players from their profile.',
+      rowBuilder: (f) {
+        final online = friends.value?.online.contains(f.userId) ?? false;
+        final card = names[f.userId];
+        return _PlayerRow(
+          name: card?.name ?? 'Player',
+          avatarUrl: card?.avatarUrl,
+          online: online,
+          status: online ? 'Online' : 'Offline',
+          onTap: () => _openProfile(f.userId, online: online),
+          trailing: online
+              ? _PillButton(label: 'Challenge', primary: true, onTap: _challenge)
+              : const Icon(Icons.chevron_right, color: AuraColors.textSecondary, size: 22),
+        );
+      },
     );
   }
 
-  Widget _requestsTab() {
-    return _AsyncFriends(
-      value: ref.watch(friendRequestsProvider),
-      onRetry: () => ref.invalidate(friendRequestsProvider),
+  Widget _requestsTab(AsyncValue<FriendsState> friends, Map<String, UserCard> names, Map<String, BlockedUser> blocked) {
+    return _AsyncList<FriendRequest>(
+      value: friends.whenData((s) => withoutBlocked(s.incoming, blocked, (r) => r.fromUserId)),
+      onRetry: () => ref.invalidate(friendsProvider),
       emptyLabel: 'No pending requests',
-      rowBuilder: (f) => _FriendRow(
-        friend: f,
-        onTap: () => _openProfile(f),
-        trailing: _RequestActions(onAccept: () => _accept(f), onDecline: () => _decline(f)),
-      ),
+      rowBuilder: (r) {
+        final card = names[r.fromUserId];
+        return _PlayerRow(
+          name: card?.name ?? 'Player',
+          avatarUrl: card?.avatarUrl,
+          online: false,
+          status: 'Wants to be friends',
+          onTap: () => _openProfile(r.fromUserId),
+          trailing: _RequestActions(onAccept: () => _accept(r), onDecline: () => _decline(r)),
+        );
+      },
     );
   }
 
   Widget _findTab() {
+    final code = ref.watch(referralCodeProvider).value?.code;
+    final playersOnline = ref.watch(onlineCountProvider).value;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AuraTextField(hint: 'Search by name or code', icon: Icons.search),
+        Text(
+          'Add friends from their profile: tap a player in a game room, a match result or the leaderboard.',
+          style: AuraText.cardSub,
+        ),
+        if (playersOnline != null) ...[
+          const SizedBox(height: 6),
+          Text('$playersOnline players online', style: AuraText.cardSub.copyWith(color: AuraColors.green)),
+        ],
         const SizedBox(height: 12),
         AuraCard(
           onTap: () => Navigator.pushNamed(context, Routes.referral),
@@ -167,9 +250,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Invite & earn 2,000 Tokens', style: AuraText.cardTitle.copyWith(fontSize: 14.5)),
+                    Text('Invite friends', style: AuraText.cardTitle.copyWith(fontSize: 14.5)),
                     const SizedBox(height: 2),
-                    Text('Share your code NOVA-7K2Q', style: AuraText.cardSub.copyWith(fontSize: 11.5)),
+                    Text(code == null ? 'Share your invite code' : 'Share your code $code',
+                        style: AuraText.cardSub.copyWith(fontSize: 11.5)),
                   ],
                 ),
               ),
@@ -177,72 +261,115 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 18),
-        const SectionBar('Suggested'),
-        const SizedBox(height: 12),
-        _AsyncFriends(
-          value: ref.watch(suggestedFriendsProvider),
-          onRetry: () => ref.invalidate(suggestedFriendsProvider),
-          rowBuilder: (f) => _FriendRow(
-            friend: f,
-            onTap: () => _openProfile(f),
-            trailing: _AddButton(onTap: () => _add(f)),
-          ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickLink(
+                icon: Icons.redeem_rounded,
+                label: 'Gifts',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GiftsScreen())),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _QuickLink(
+                icon: Icons.forum_rounded,
+                label: 'Lobby chat',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LobbyChatScreen())),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _QuickLink(
+                icon: Icons.block_rounded,
+                label: 'Blocked',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BlockedPlayersScreen())),
+              ),
+            ),
+          ],
         ),
+        Consumer(builder: (context, ref, _) {
+          final suggested = ref.watch(suggestedFriendsProvider);
+          if (suggested.value?.isEmpty ?? false) return const SizedBox.shrink();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 18),
+              const SectionBar('Suggested'),
+              const SizedBox(height: 12),
+              _AsyncList<Friend>(
+                value: suggested,
+                onRetry: () => ref.invalidate(suggestedFriendsProvider),
+                rowBuilder: (f) {
+                  final rel = f.userId == null ? FriendRelation.none : ref.watch(friendRelationProvider(f.userId!));
+                  return _PlayerRow(
+                    name: f.name,
+                    online: false,
+                    status: f.status,
+                    color: f.color,
+                    onTap: f.userId == null ? null : () => _openProfile(f.userId!),
+                    trailing: switch (rel) {
+                      FriendRelation.sent => const _PillButton(label: 'Request sent'),
+                      FriendRelation.friend => const _PillButton(label: 'Friends'),
+                      FriendRelation.incoming => _PillButton(label: 'Accept', primary: true, onTap: () => _addSuggested(f)),
+                      _ => _PillButton(label: '+ Add', onTap: () => _addSuggested(f)),
+                    },
+                  );
+                },
+              ),
+            ],
+          );
+        }),
       ],
     );
   }
 }
 
-/// Maps a friends [AsyncValue] onto the shared skeleton / retry / list states.
-class _AsyncFriends extends StatelessWidget {
-  const _AsyncFriends({
-    required this.value,
-    required this.rowBuilder,
-    required this.onRetry,
-    this.emptyLabel,
-  });
+/// Maps an [AsyncValue] list onto the shared skeleton / retry / list states.
+class _AsyncList<T> extends StatelessWidget {
+  const _AsyncList({required this.value, required this.rowBuilder, required this.onRetry, this.emptyLabel});
 
-  final AsyncValue<List<Friend>> value;
-  final Widget Function(Friend) rowBuilder;
+  final AsyncValue<List<T>> value;
+  final Widget Function(T) rowBuilder;
   final VoidCallback onRetry;
   final String? emptyLabel;
 
   @override
   Widget build(BuildContext context) {
-    return value.when(
-      loading: () => Shimmer(
-        child: Column(
-          children: [
-            for (var i = 0; i < 4; i++) ...[
-              const _SkeletonFriendRow(),
-              const SizedBox(height: 9),
-            ],
+    if (value.hasValue) return _list(context, value.value!);
+    if (value.hasError) return _ErrorRetry(onRetry: onRetry);
+    return Shimmer(
+      child: Column(
+        children: [
+          for (var i = 0; i < 4; i++) ...[
+            const _SkeletonFriendRow(),
+            const SizedBox(height: 9),
           ],
-        ),
+        ],
       ),
-      error: (_, _) => _ErrorRetry(onRetry: onRetry),
-      data: (list) {
-        if (list.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 36),
-            child: Text(
-              emptyLabel ?? 'Nothing here yet',
-              textAlign: TextAlign.center,
-              style: AuraText.body.copyWith(color: AuraColors.textSecondary),
-            ),
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final f in list) ...[
-              rowBuilder(f),
-              const SizedBox(height: 9),
-            ],
-          ],
-        );
-      },
+    );
+  }
+
+  Widget _list(BuildContext context, List<T> list) {
+    if (list.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 36),
+        child: Text(
+          emptyLabel ?? 'Nothing here yet',
+          textAlign: TextAlign.center,
+          style: AuraText.body.copyWith(color: AuraColors.textSecondary),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final f in list) ...[
+          rowBuilder(f),
+          const SizedBox(height: 9),
+        ],
+      ],
     );
   }
 }
@@ -296,14 +423,28 @@ class _SkeletonFriendRow extends StatelessWidget {
   }
 }
 
-class _FriendRow extends StatelessWidget {
-  const _FriendRow({required this.friend, required this.trailing, this.onTap});
-  final Friend friend;
+/// A player row: avatar with a green dot when online, name, status line.
+class _PlayerRow extends StatelessWidget {
+  const _PlayerRow({
+    required this.name,
+    required this.online,
+    required this.status,
+    required this.trailing,
+    this.avatarUrl,
+    this.color,
+    this.onTap,
+  });
+  final String name;
+  final String? avatarUrl;
+  final Color? color;
+  final bool online;
+  final String status;
   final Widget trailing;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final glyph = name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
     return AuraCard(
       onTap: onTap,
       padding: const EdgeInsets.all(11),
@@ -315,8 +456,10 @@ class _FriendRow extends StatelessWidget {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                LetterAvatar(letter: friend.name[0], color: friend.color, size: 44),
-                if (friend.online)
+                color != null
+                    ? LetterAvatar(letter: glyph, color: color!, size: 44)
+                    : AvatarDisc(glyph: glyph, avatarUrl: avatarUrl, name: name, size: 44),
+                if (online)
                   Positioned(
                     right: -1,
                     bottom: -1,
@@ -338,37 +481,13 @@ class _FriendRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        friend.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AuraText.cardTitle.copyWith(fontSize: 14.5),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: AuraColors.accentGlow.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        'LV ${friend.level}',
-                        style: const TextStyle(color: AuraColors.accentGlow, fontSize: 10, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
-                ),
+                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AuraText.cardTitle.copyWith(fontSize: 14.5)),
                 const SizedBox(height: 2),
                 Text(
-                  friend.status,
-                  style: TextStyle(
-                    color: friend.online ? AuraColors.green : AuraColors.textSecondary,
-                    fontSize: 11.5,
-                  ),
+                  status,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: online ? AuraColors.green : AuraColors.textSecondary, fontSize: 11.5),
                 ),
               ],
             ),
@@ -381,48 +500,53 @@ class _FriendRow extends StatelessWidget {
   }
 }
 
-class _ChallengeButton extends StatelessWidget {
-  const _ChallengeButton({required this.onTap});
-  final VoidCallback onTap;
+class _PillButton extends StatelessWidget {
+  const _PillButton({required this.label, this.onTap, this.primary = false});
+  final String label;
+  final VoidCallback? onTap;
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onTap != null;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: AuraGradients.brand,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-        ),
-        child: const Text(
-          'Challenge',
-          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+        decoration: primary && enabled
+            ? BoxDecoration(
+                gradient: AuraGradients.brand,
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+              )
+            : AuraGlass.decoration(radius: 11, shadow: false),
+        child: Text(
+          label,
+          style: TextStyle(color: enabled ? Colors.white : AuraColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w700),
         ),
       ),
     );
   }
 }
 
-class _AddButton extends StatelessWidget {
-  const _AddButton({required this.onTap});
+class _QuickLink extends StatelessWidget {
+  const _QuickLink({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: AuraGlass.decoration(radius: 11, shadow: false),
-        child: const Text(
-          '+ Add',
-          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+  Widget build(BuildContext context) => AuraCard(
+        onTap: onTap,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Column(
+          children: [
+            Icon(icon, color: AuraColors.accentGlow, size: 20),
+            const SizedBox(height: 4),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
         ),
-      ),
-    );
-  }
+      );
 }
 
 class _RequestActions extends StatelessWidget {
@@ -435,27 +559,35 @@ class _RequestActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          onTap: onAccept,
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [AuraColors.green, Color(0xFF14B8A6)]),
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+        Semantics(
+          button: true,
+          label: 'Accept',
+          child: GestureDetector(
+            onTap: onAccept,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [AuraColors.green, Color(0xFF14B8A6)]),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+              ),
+              child: const Icon(Icons.check, color: Colors.white, size: 16),
             ),
-            child: const Icon(Icons.check, color: Colors.white, size: 16),
           ),
         ),
         const SizedBox(width: 6),
-        GestureDetector(
-          onTap: onDecline,
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: AuraGlass.decoration(radius: 11, shadow: false),
-            child: Icon(Icons.close, color: AuraColors.textSecondary, size: 15),
+        Semantics(
+          button: true,
+          label: 'Decline',
+          child: GestureDetector(
+            onTap: onDecline,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: AuraGlass.decoration(radius: 11, shadow: false),
+              child: Icon(Icons.close, color: AuraColors.textSecondary, size: 15),
+            ),
           ),
         ),
       ],

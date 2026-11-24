@@ -1,9 +1,9 @@
 import '../core/game_config.dart';
 import '../core/game_id.dart';
 
-/// Snakes & Ladders — snake-and-ladder-service on its own port (WS `/ws`
-/// verified reachable). Quick Play (vs computer) is built; online play waits
-/// for its socket protocol.
+/// Snakes & Ladders — snake-and-ladder-service on its own port
+/// (`ws://<host>:1292/ws`, docs/services/snake-and-ladder.md). Quick Play
+/// (vs computer) and online play (quick match, friends rooms) are built.
 const snakesLaddersConfig = GameConfig(
   id: GameId.snakesLadders,
   displayName: 'Snakes & Ladders',

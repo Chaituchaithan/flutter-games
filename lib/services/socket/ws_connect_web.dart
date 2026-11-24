@@ -1,4 +1,4 @@
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-/// Web: a browser WebSocket can't carry custom headers, so they're ignored.
-WebSocketChannel connectWs(Uri url, {Map<String, dynamic>? headers}) => WebSocketChannel.connect(url);
+/// Web: the browser answers the server's ping frames itself.
+WebSocketChannel connectWs(Uri url, {Duration? pingInterval}) => WebSocketChannel.connect(url);

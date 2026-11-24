@@ -6,17 +6,25 @@ import 'server_config.dart';
 
 enum AppEnvironment { dev, staging, prod }
 
-/// The dev backend (plain HTTP on a raw IP — see the Android cleartext rule).
-/// API gateway (login, register, profile, …) on 31294; each game service has
-/// its own port (31281–31292) for its REST API and socket — see games/.
-const devServer = ServerConfig(host: '169.58.184.121', gatewayPort: 31294);
+/// The dev backend on the LAN (plain HTTP — see the Android cleartext rule).
+/// API gateway (auth, profile, …) on 1280; each game service on its cloud port
+/// minus 30000 (Ludo 31285 → 1285). Auth contract: docs/services/01-auth.md.
+/// Override the host for one run with `--dart-define=SERVER_HOST=<ip>`.
+const devServer = ServerConfig(
+  host: BuildOverrides.serverHost == '' ? '192.168.0.235' : BuildOverrides.serverHost,
+  gatewayPort: 1280,
+  servicePortOffset: -30000,
+);
+
+/// The earlier cloud dev server (gateway 31294, games 31281–31292).
+const cloudDevServer = ServerConfig(host: '169.58.184.121', gatewayPort: 31294);
 
 extension AppEnvironmentServer on AppEnvironment {
-  /// Server per environment. Staging/prod hosts aren't known yet, so they use
-  /// the dev server until real values are added here.
+  /// Server per environment. Staging/prod hosts aren't known yet: staging uses
+  /// the cloud dev server and prod the LAN dev server until real values exist.
   ServerConfig get server => switch (this) {
         AppEnvironment.dev => devServer,
-        AppEnvironment.staging => devServer, // TODO: staging host
+        AppEnvironment.staging => cloudDevServer, // TODO: staging host
         AppEnvironment.prod => devServer, // TODO: production HTTPS host (secure: true)
       };
 }

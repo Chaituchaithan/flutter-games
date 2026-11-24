@@ -23,6 +23,8 @@ class User {
     this.dateOfBirth,
     this.preferredLanguage,
     this.createdAt,
+    this.guest = false,
+    this.emailVerifiedAt,
   });
 
   final String id;
@@ -53,8 +55,15 @@ class User {
   /// Account creation time ("Member since").
   final DateTime? createdAt;
 
-  /// Anonymous guest account (POST /guest/create).
-  bool get isGuest => role == 'guest' || username.toLowerCase().startsWith('guest');
+  /// A guest account (POST /guest/create): `/users/me` has `email: null`.
+  /// No email or password — logging out loses it (01-auth.md §7).
+  final bool guest;
+
+  /// When the email was verified; null = not yet ("Verify email" in Settings).
+  final DateTime? emailVerifiedAt;
+
+  bool get isGuest => guest || role == 'guest';
+  bool get emailVerified => emailVerifiedAt != null;
 
   /// Up to two uppercase initials from the display name.
   String get initials {
@@ -97,6 +106,8 @@ class User {
         dateOfBirth: dateOfBirth ?? this.dateOfBirth,
         preferredLanguage: preferredLanguage ?? this.preferredLanguage,
         createdAt: createdAt,
+        guest: guest,
+        emailVerifiedAt: emailVerifiedAt,
       );
 
   /// Builds the player from `GET /users/me` (account: id, username, email,
@@ -128,6 +139,9 @@ class User {
       dateOfBirth: p['date_of_birth'] as String?,
       preferredLanguage: p['preferred_language'] as String?,
       createdAt: DateTime.tryParse(me['created_at'] as String? ?? ''),
+      // Every full account has an email; a guest's is null.
+      guest: me.containsKey('email') ? me['email'] == null : username.startsWith('guest_'),
+      emailVerifiedAt: DateTime.tryParse(me['email_verified_at'] as String? ?? ''),
     );
   }
 
@@ -154,6 +168,37 @@ class User {
       dateOfBirth: profile['date_of_birth'] as String? ?? dateOfBirth,
       preferredLanguage: profile['preferred_language'] as String? ?? preferredLanguage,
       createdAt: createdAt,
+      guest: guest,
+      emailVerifiedAt: emailVerifiedAt,
+    );
+  }
+
+  /// Applies the `PATCH /users/me` reply (username, email, verification) on
+  /// top of this user, keeping the profile (02-profile-and-sessions.md §4).
+  User withAccount(Map<String, dynamic> account) {
+    final username = account['username'] is String ? account['username'] as String : null;
+    return User(
+      id: id,
+      displayName: displayName,
+      handle: username == null ? handle : '@$username',
+      bio: bio,
+      level: level,
+      tier: tier,
+      xp: xp,
+      xpMax: xpMax,
+      color: color,
+      email: account.containsKey('email') ? (account['email'] as String? ?? '') : email,
+      role: account['role'] as String? ?? role,
+      country: country,
+      avatarId: avatarId,
+      avatarUrl: avatarUrl,
+      dateOfBirth: dateOfBirth,
+      preferredLanguage: preferredLanguage,
+      createdAt: createdAt,
+      guest: account.containsKey('email') ? account['email'] == null : guest,
+      emailVerifiedAt: account.containsKey('email_verified_at')
+          ? DateTime.tryParse(account['email_verified_at'] as String? ?? '')
+          : emailVerifiedAt,
     );
   }
 
@@ -202,6 +247,8 @@ class User {
         'avatar_url': avatarUrl,
         'preferred_language': preferredLanguage,
         'created_at': createdAt?.toIso8601String(),
+        'guest': guest,
+        'email_verified': emailVerified,
       };
 
   /// Rebuilds the cached player; null when the cache is missing, from an
@@ -227,6 +274,9 @@ class User {
         avatarUrl: j['avatar_url'] as String?,
         preferredLanguage: j['preferred_language'] as String?,
         createdAt: DateTime.tryParse(j['created_at'] as String? ?? ''),
+        guest: j['guest'] as bool? ?? false,
+        // Only "is it verified" is cached; the server read replaces it.
+        emailVerifiedAt: j['email_verified'] == true ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true) : null,
       );
     } on Object catch (_) {
       return null;

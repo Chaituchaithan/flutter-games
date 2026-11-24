@@ -41,7 +41,11 @@ class _Tokens implements TokenStore {
   @override
   Future<String?> readRefresh() async => null;
   @override
-  Future<void> save({required String access, String? refresh}) async => this.access = access;
+  Future<void> save({required String access, String? refresh, DateTime? expiresAt}) async => this.access = access;
+  @override
+  Future<DateTime?> readExpiry() async => null;
+  @override
+  Future<String> deviceId() async => 'test-device';
   String? profile;
   @override
   Future<String?> readProfile() async => profile;

@@ -10,6 +10,9 @@ import '../../data/models/user.dart';
 import '../../services/session.dart';
 import '../../widgets/aura.dart';
 import '../../widgets/daily_bonus_status.dart';
+import '../../data/repositories/rewards_repository.dart';
+import '../../widgets/player_avatar.dart';
+import '../../services/progress_service.dart';
 
 /// Profile tab (v2). Returns a body only — MainShell provides the background,
 /// SafeArea and bottom nav. The app-bar gear opens Settings via Routes.settings.
@@ -42,7 +45,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: RefreshIndicator(
             color: AuraColors.accentGlow,
             backgroundColor: const Color(0xFF1A1330),
-            onRefresh: () => ref.read(sessionProvider.notifier).reloadProfile(),
+            onRefresh: () => Future.wait([
+              ref.read(sessionProvider.notifier).reloadProfile(),
+              ref.read(progressStoreProvider.notifier).refresh(force: true),
+            ]),
             child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(kPageGutter, 8, kPageGutter, 24),
@@ -53,21 +59,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 14),
               // 1) Top stat tiles (icon + corner glow, mockup colours).
-              Row(
-                children: [
-                  const Expanded(child: _ProfileStat(icon: Icons.grid_view_rounded, color: AuraColors.accentGlow, value: '248', label: 'Matches')),
-                  const SizedBox(width: 10),
-                  const Expanded(child: _ProfileStat(icon: Icons.emoji_events_outlined, color: AuraColors.green, value: '169', label: 'Wins')),
-                  const SizedBox(width: 10),
-                  const Expanded(child: _ProfileStat(icon: Icons.local_fire_department, color: AuraColors.brandOrange, value: '7', label: 'Streak')),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, Routes.leaderboard),
-                      child: const _ProfileStat(icon: Icons.leaderboard_outlined, color: AuraColors.gems, value: '#412', label: 'Rank'),
-                    ),
-                  ),
-                ],
+              // Live numbers for the active game (08-progress); "–" while loading.
+              Consumer(
+                builder: (context, ref, _) {
+                  final st = ref.watch(profileStatsProvider).value;
+                  String n(int? v) => st == null || v == null ? '–' : '$v';
+                  return Row(
+                    children: [
+                      Expanded(child: _ProfileStat(icon: Icons.grid_view_rounded, color: AuraColors.accentGlow, value: n(st?.matches), label: 'Matches')),
+                      const SizedBox(width: 10),
+                      Expanded(child: _ProfileStat(icon: Icons.emoji_events_outlined, color: AuraColors.green, value: n(st?.wins), label: 'Wins')),
+                      const SizedBox(width: 10),
+                      Expanded(child: _ProfileStat(icon: Icons.local_fire_department, color: AuraColors.brandOrange, value: n(st?.streak), label: 'Streak')),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, Routes.leaderboard),
+                          child: _ProfileStat(
+                            icon: Icons.leaderboard_outlined,
+                            color: AuraColors.gems,
+                            value: st?.rank == null ? '–' : '#${st!.rank}',
+                            label: 'Rank',
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 12),
               // 2) Win-rate ring + weekly bars.
@@ -82,19 +100,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              // 3) Game stats (per-mode coloured bars + Best streak/Tokens/Gold grid).
-              SectionBar(context.l10n.gameStats),
-              const SizedBox(height: 12),
-              const _GameStatsCard(),
-              const SizedBox(height: 20),
               // 4) Achievements — "See all" navigates to the full list.
               SectionBar(
                 context.l10n.achievements,
                 trailing: GestureDetector(
                   onTap: () => Navigator.pushNamed(context, Routes.achievements),
-                  child: const Text(
-                    'See all  4 / 12 ›',
-                    style: TextStyle(color: AuraColors.accentGlow, fontSize: 12, fontWeight: FontWeight.w600),
+                  // Live count + the rewards red dot (07-rewards.md §4).
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final list = ref.watch(myAchievementsProvider).value;
+                      final count = list == null ? '' : '${list.where((a) => a.completed).length} / ${list.length} ';
+                      final dot = ref.watch(rewardsBadgeProvider).achievements;
+                      return Text(
+                        'See all  $count›${dot ? ' •' : ''}',
+                        style: const TextStyle(color: AuraColors.accentGlow, fontSize: 12, fontWeight: FontWeight.w600),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -194,8 +215,6 @@ class _HeaderCard extends StatelessWidget {
   final User user;
   final VoidCallback onEdit;
 
-  static String _comma(int n) =>
-      n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
 
   @override
   Widget build(BuildContext context) {
@@ -250,7 +269,10 @@ class _HeaderCard extends StatelessWidget {
                               spacing: 8,
                               runSpacing: 4,
                               children: [
-                                _MiniBadge('LV ${user.level}', color: AuraColors.accentGlow),
+                                Consumer(
+                                  builder: (context, ref, _) =>
+                                      _MiniBadge('LV ${ref.watch(activeGameLevelProvider).level}', color: AuraColors.accentGlow),
+                                ),
                                 if (user.isGuest) const _MiniBadge('GUEST', color: AuraColors.gold),
                                 Text(user.displayName, style: AuraText.title.copyWith(fontSize: 20)),
                                 // Country flag beside the name (mockup), once set.
@@ -299,7 +321,7 @@ class _HeaderCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Rank bar: tier badge + XP progress + XP text.
+                  // Tier badge (level and XP progress live on Home's top bar).
                   Row(
                     children: [
                       Container(
@@ -326,18 +348,6 @@ class _HeaderCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 9),
-                      Expanded(flex: 3, child: _ProgressBar(fraction: user.xpFraction)),
-                      const SizedBox(width: 9),
-                      // Shrinks on narrow phones instead of overflowing.
-                      Flexible(
-                        flex: 2,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerRight,
-                          child: Text('${_comma(user.xp)} / ${_comma(user.xpMax)} XP', style: AuraText.cardSub.copyWith(fontSize: 11)),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -359,6 +369,10 @@ class _HeroAvatar extends StatelessWidget {
   final User user;
   final VoidCallback onEditAvatar;
 
+  /// The picked avatar's colour (its image isn't served yet: §3), else the
+  /// player's own.
+  Color get _color => user.avatarUrl == null ? user.color : avatarColor(url: user.avatarUrl, fallbackName: user.displayName);
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -367,7 +381,7 @@ class _HeroAvatar extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Conic ring (XP) with a glow.
+          // Glowing ring (decorative; XP progress is on Home).
           Container(
             width: 92,
             height: 92,
@@ -378,7 +392,7 @@ class _HeroAvatar extends StatelessWidget {
                 startAngle: -1.5708,
                 endAngle: 4.7124,
                 colors: [AuraColors.accentGlow, AuraColors.accentGlow, Colors.white.withValues(alpha: 0.14), Colors.white.withValues(alpha: 0.14)],
-                stops: [0.0, user.xpFraction, user.xpFraction, 1.0],
+                stops: const [0.0, 1.0, 1.0, 1.0],
               ),
             ),
           ),
@@ -400,7 +414,7 @@ class _HeroAvatar extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color.lerp(user.color, Colors.white, 0.1)!, Color.lerp(user.color, Colors.black, 0.2)!],
+                    colors: [Color.lerp(_color, Colors.white, 0.1)!, Color.lerp(_color, Colors.black, 0.2)!],
                   ),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                 ),
@@ -497,44 +511,20 @@ class _EditProfileButton extends StatelessWidget {
   }
 }
 
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.fraction});
-  final double fraction;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        height: 10,
-        color: AuraColors.chipDark,
-        child: FractionallySizedBox(
-          alignment: Alignment.centerLeft,
-          widthFactor: fraction,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: AuraGradients.brand,
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WinRateCard extends StatelessWidget {
+class _WinRateCard extends ConsumerWidget {
   const _WinRateCard();
 
-  // Win / Draw / Loss counts drive the tri-colour ring (mockup colours).
-  static const _wins = 169, _draws = 21, _losses = 58;
+  // Win / Draw / Loss (+ forfeits, counted as losses here) drive the ring.
   static const _green = Color(0xFF34D399);
   static const _yellow = Color(0xFFFBBF24);
   static const _red = Color(0xFFFB7185);
 
   @override
-  Widget build(BuildContext context) {
-    const total = _wins + _draws + _losses;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final st = ref.watch(profileStatsProvider).value ?? const ProfileStats();
+    final wins = st.wins, draws = st.draws, losses = st.losses + st.forfeits;
+    final total = wins + draws + losses;
+    final rate = st.matches == 0 ? '–' : '${(st.winRate * 100).round()}%';
     return AuraCard(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -543,17 +533,19 @@ class _WinRateCard extends StatelessWidget {
             width: 90,
             height: 90,
             child: CustomPaint(
-              painter: const _RingPainter(segments: [
-                (color: _green, fraction: _wins / total),
-                (color: _yellow, fraction: _draws / total),
-                (color: _red, fraction: _losses / total),
+              painter: _RingPainter(segments: [
+                if (total > 0) ...[
+                  (color: _green, fraction: wins / total),
+                  (color: _yellow, fraction: draws / total),
+                  (color: _red, fraction: losses / total),
+                ],
               ]),
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '68%',
+                      rate,
                       style: TextStyle(fontFamily: AuraText.displayFamily, color: Colors.white, fontSize: 23, fontWeight: FontWeight.w700),
                     ),
                     Text(context.l10n.winRate, style: TextStyle(color: Color(0x8CF4F1FB), fontSize: 9.5)),
@@ -568,12 +560,12 @@ class _WinRateCard extends StatelessWidget {
             fit: BoxFit.scaleDown,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                _LegendDot(color: _green, label: 'W $_wins'),
-                SizedBox(width: 9),
-                _LegendDot(color: _yellow, label: 'D $_draws'),
-                SizedBox(width: 9),
-                _LegendDot(color: _red, label: 'L $_losses'),
+              children: [
+                _LegendDot(color: _green, label: 'W $wins'),
+                const SizedBox(width: 9),
+                _LegendDot(color: _yellow, label: 'D $draws'),
+                const SizedBox(width: 9),
+                _LegendDot(color: _red, label: 'L $losses'),
               ],
             ),
           ),
@@ -718,148 +710,6 @@ class _WeeklyCard extends StatelessWidget {
   }
 }
 
-class _GameStatsCard extends StatelessWidget {
-  const _GameStatsCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return AuraCard(
-      child: Column(
-        children: [
-          const _GameStatRow(
-            label: 'Online 1v1', wins: '61W', losses: '21L', pct: '74%', fraction: 0.74,
-            colors: [Color(0xFF8B5CF6), Color(0xFFC084FC)], glow: Color(0xFFC084FC),
-          ),
-          const SizedBox(height: 16),
-          const _GameStatRow(
-            label: 'Online 4P', wins: '41W', losses: '30L', pct: '58%', fraction: 0.58,
-            colors: [Color(0xFFEC4899), Color(0xFFF472B6)], glow: Color(0xFFF472B6),
-          ),
-          const SizedBox(height: 16),
-          const _GameStatRow(
-            label: 'Quick Play', wins: '67W', losses: '28L', pct: '71%', fraction: 0.71,
-            colors: [Color(0xFF06B6D4), Color(0xFF67E8F9)], glow: Color(0xFF67E8F9),
-          ),
-          const SizedBox(height: 16),
-          Divider(height: 1, color: Colors.white.withValues(alpha: 0.14)),
-          SizedBox(height: 14),
-          // Summary grid (mockup): Best streak / Tokens won / Gold won.
-          Row(
-            children: [
-              Expanded(child: _MiniStat(value: '12', label: 'Best streak')),
-              Expanded(child: _MiniStat(value: '48.2k', label: context.l10n.tokensWon, valueColor: Color(0xFF67E8F9), dividers: true)),
-              Expanded(child: _MiniStat(value: '3.1k', label: context.l10n.goldWon, valueColor: Color(0xFFFBBF24))),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Centered value + label used in the Game-stats summary grid. [valueColor]
-/// tints the number (mockup: Tokens = cyan, Gold = gold) and [dividers] adds
-/// the left/right column separators (used on the middle cell).
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({required this.value, required this.label, this.valueColor = Colors.white, this.dividers = false});
-  final String value;
-  final String label;
-  final Color valueColor;
-  final bool dividers;
-
-  @override
-  Widget build(BuildContext context) {
-    const divider = BorderSide(color: Color(0x1FFFFFFF)); // white @ 0.12
-    return Container(
-      decoration: dividers ? const BoxDecoration(border: Border(left: divider, right: divider)) : null,
-      child: Column(
-        children: [
-          Text(value, style: TextStyle(fontFamily: AuraText.displayFamily, color: valueColor, fontSize: 17, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(color: Color(0x80F4F1FB), fontSize: 10)),
-        ],
-      ),
-    );
-  }
-}
-
-class _GameStatRow extends StatelessWidget {
-  const _GameStatRow({
-    required this.label,
-    required this.wins,
-    required this.losses,
-    required this.pct,
-    required this.fraction,
-    required this.colors,
-    required this.glow,
-  });
-
-  final String label;
-  final String wins;
-  final String losses;
-  final String pct;
-  final double fraction;
-
-  /// Per-mode bar gradient + glow colour (mockup).
-  final List<Color> colors;
-  final Color glow;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(fontFamily: AuraText.displayFamily, color: AuraColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-            ),
-            Text.rich(
-              TextSpan(
-                style: TextStyle(fontFamily: AuraText.displayFamily, color: AuraColors.textSecondary, fontSize: 13),
-                children: [
-                  TextSpan(text: '$wins · $losses · '),
-                  TextSpan(
-                    text: pct,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        // No IntrinsicHeight here — FractionallySizedBox is safe.
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: Container(
-            height: 9,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(99),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: fraction,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: colors),
-                  borderRadius: BorderRadius.circular(99),
-                  boxShadow: [BoxShadow(color: glow.withValues(alpha: 0.53), blurRadius: 12)],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _Achievement extends StatelessWidget {
   const _Achievement({
     required this.icon,
@@ -920,9 +770,24 @@ class _ManageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Edit profile, avatar and settings are already one tap away (header
     // button, avatar pencil, app-bar gear), so Manage holds the rest.
-    return Row(
+    return Column(
       children: [
-        Expanded(child: _ManageTile(icon: Icons.history_rounded, colors: const [Color(0xFF34D399), Color(0xFF14B8A6)], title: context.l10n.gameHistory, sub: '248 matches', onTap: () => Navigator.pushNamed(context, Routes.gameHistory))),
+        Row(
+      children: [
+        Expanded(
+          child: Consumer(
+            builder: (context, ref, _) {
+              final m = ref.watch(profileStatsProvider).value?.matches;
+              return _ManageTile(
+                icon: Icons.history_rounded,
+                colors: const [Color(0xFF34D399), Color(0xFF14B8A6)],
+                title: context.l10n.gameHistory,
+                sub: m == null ? '' : '$m ${m == 1 ? 'match' : 'matches'}',
+                onTap: () => Navigator.pushNamed(context, Routes.gameHistory),
+              );
+            },
+          ),
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: DailyBonusStatusBuilder(
@@ -935,6 +800,50 @@ class _ManageCard extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, Routes.dailyRewards),
             ),
           ),
+        ),
+      ],
+        ),
+        const SizedBox(height: 10),
+        // Rewards (07-rewards.md): quests with a red dot when one can be
+        // claimed, and the prize games; the welcome gift while it's open.
+        Consumer(
+          builder: (context, ref, _) {
+            final badge = ref.watch(rewardsBadgeProvider);
+            final welcome = ref.watch(welcomeBonusProvider).value;
+            return Row(
+              children: [
+                Expanded(
+                  child: _ManageTile(
+                    icon: Icons.flag_rounded,
+                    colors: const [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                    title: 'Quests',
+                    sub: badge.quests ? 'Reward ready' : 'Daily & weekly goals',
+                    dot: badge.quests,
+                    onTap: () => Navigator.pushNamed(context, Routes.quests),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: welcome != null && welcome.claimable
+                      ? _ManageTile(
+                          icon: Icons.card_giftcard_rounded,
+                          colors: const [Color(0xFFEC4899), Color(0xFF8B5CF6)],
+                          title: 'Welcome gift',
+                          sub: 'Ready to claim',
+                          dot: true,
+                          onTap: () => Navigator.pushNamed(context, Routes.welcomeBonus),
+                        )
+                      : _ManageTile(
+                          icon: Icons.casino_rounded,
+                          colors: const [Color(0xFF22D3EE), Color(0xFF3B82F6)],
+                          title: 'Prize games',
+                          sub: 'Scratch & win',
+                          onTap: () => Navigator.pushNamed(context, Routes.bonusGames),
+                        ),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );

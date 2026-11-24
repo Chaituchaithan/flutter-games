@@ -68,10 +68,12 @@ void main() {
     }
   });
 
-  testWidgets('Leaderboard: switch scopes', (tester) async {
+  testWidgets('Leaderboard: switch metrics', (tester) async {
     await pumpScreen(tester, const LeaderboardScreen());
     await settle(tester, 'Leaderboard load');
-    for (final t in ['Friends', 'Weekly', 'Global']) {
+    // Demo board: the top player, and "You" highlighted in the list.
+    expect(find.text('KaiStorm'), findsOneWidget);
+    for (final t in ['Rating', 'Tokens', 'Wins']) {
       await tapText(tester, t, 'Leaderboard');
     }
   });
@@ -79,37 +81,31 @@ void main() {
   testWidgets('Store: switch all four tabs', (tester) async {
     await pumpScreen(tester, const StoreScreen(), tabHost: true);
     await settle(tester, 'Store load');
-    for (final t in ['Gold', 'Boosts', 'VIP', 'Tokens']) {
+    for (final t in ['Boosts', 'Avatars', 'VIP', 'Coins']) {
       await tapText(tester, t, 'Store');
     }
   });
 
-  testWidgets('Game history: All/Wins/Losses filter', (tester) async {
+  testWidgets('Game history: rows, load more, open a match', (tester) async {
     await pumpScreen(tester, const GameHistoryScreen());
     await settle(tester, 'History load');
-    // Static data: ZeroCool = win, NeonViper = loss, PixelGhost = draw.
-    expect(find.text('ZeroCool'), findsOneWidget);
-    expect(find.text('NeonViper'), findsOneWidget);
-    expect(find.text('PixelGhost'), findsOneWidget);
-
-    await tapText(tester, 'Wins', 'GameHistory');
-    expect(find.text('ZeroCool'), findsOneWidget);
-    expect(find.text('NeonViper'), findsNothing);
-    expect(find.text('PixelGhost'), findsNothing);
-
-    await tapText(tester, 'Losses', 'GameHistory');
-    expect(find.text('ZeroCool'), findsNothing);
-    expect(find.text('NeonViper'), findsOneWidget);
-    expect(find.text('PixelGhost'), findsNothing);
-
-    await tapText(tester, 'All', 'GameHistory');
-    expect(find.text('PixelGhost'), findsOneWidget);
+    // Demo history: 26 matches, 20 per page.
+    expect(find.text('26 matches'), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Load more'), 300, scrollable: find.byType(Scrollable).first);
+    await tapText(tester, 'Load more', 'GameHistory');
+    expect(find.text('Load more'), findsNothing);
+    await tester.scrollUntilVisible(find.text('Today'), -300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('Ludo Royale').first);
+    await settle(tester, 'Match detail');
+    expect(find.text('Players'), findsOneWidget);
+    expect(find.text('You'), findsOneWidget);
   });
 
-  testWidgets('Tournaments: Live/Upcoming/Ended', (tester) async {
+  testWidgets('Tournaments: Upcoming/Running/Finished', (tester) async {
     await pumpScreen(tester, const TournamentsScreen());
     await settle(tester, 'Tournaments load');
-    for (final t in ['Upcoming', 'Ended', 'Live']) {
+    for (final t in ['Running', 'Finished', 'Upcoming']) {
       await tapText(tester, t, 'Tournaments');
     }
   });

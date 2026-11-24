@@ -5,6 +5,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'build_overrides.dart';
+import 'games/core/game_id.dart';
 
 /// MASTER SWITCH for the realtime socket ("turn on/off socket").
 ///
@@ -14,6 +15,16 @@ import 'build_overrides.dart';
 ///           Play opens the offline practice board.
 /// Override one run with `--dart-define=SOCKET_ENABLED=true|false`.
 const bool socketEnabledByDefault = true;
+
+/// Game servers that are running and documented (00-conventions.md
+/// "Servers": Ludo on `ws://<host>:1285/ws`; snake-and-ladder.md: Snake &
+/// Ladder on `ws://<host>:1292/ws`). Add a game when its hand-off file gives
+/// its server.
+const Set<GameId> liveSocketGames = {GameId.ludo, GameId.snakesLadders};
+
+/// The game server the app signs in to right after login when the active
+/// game has no live server yet.
+const GameId signInSocketGame = GameId.ludo;
 
 const bool kSocketEnabled =
     BuildOverrides.socketEnabled == '' ? socketEnabledByDefault : BuildOverrides.socketEnabled == 'true';
@@ -25,4 +36,8 @@ final useRemoteSourcesProvider = Provider<bool>((ref) => false);
 
 /// Auth + profile use the live API (login/register/refresh/logout,
 /// /users/me, /users/{id}/profile). Override to `false` for an offline demo.
-final useRemoteAuthProvider = Provider<bool>((ref) => true);
+///
+/// `--dart-define=DEMO=true`: an offline demo build (no server needed; the
+/// demo player signs in and Quick Play works).
+const bool kDemoBuild = bool.fromEnvironment('DEMO');
+final useRemoteAuthProvider = Provider<bool>((ref) => !kDemoBuild);

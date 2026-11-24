@@ -69,5 +69,12 @@
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<!-- Plain http to LAN dev servers (e.g. 192.168.0.235:1280) only;
+		     every other host keeps ATS (https). Remove once dev is https. -->
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsLocalNetworking</key>
+			<true/>
+		</dict>
 	</dict>
 </plist>

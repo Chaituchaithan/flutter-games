@@ -141,15 +141,19 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
         const frame = GameBoardFrame.padding * 2 + 5; // bezel + borders
         // Room for the turn banner above the frame.
         final bannerSpace = widget.banner != null ? _bannerRow : 0.0;
-        final outerW = math.min(c.maxWidth, (c.maxHeight - bannerSpace - frame) / 1.12 + frame);
+        final layout = widget.game.layout;
+        // Width : height of the squares (10 columns, [SnakesLayout.rows] rows).
+        final aspect = layout.rows / 10;
+        final outerW = math.min(c.maxWidth, (c.maxHeight - bannerSpace - frame) / (aspect + 0.12) + frame);
         final side = outerW - frame;
         final cell = side / 10;
         final padH = side * 0.12;
-        final geo = _Geometry(cell: cell, padTop: side, padH: padH, players: widget.game.players);
+        final boardH = cell * layout.rows;
+        final geo = _Geometry(cell: cell, padTop: boardH, padH: padH, players: widget.game.players, layout: layout);
 
         final board = SizedBox(
           width: side,
-          height: side + padH,
+          height: boardH + padH,
           child: AnimatedBuilder(
             animation: Listenable.merge([_move, _pulse]),
             builder: (_, _) => Stack(
@@ -158,7 +162,7 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
                 Positioned.fill(
                   child: RepaintBoundary(
                     child: CustomPaint(
-                      painter: _BoardPainter(cell: cell, padH: padH),
+                      painter: _BoardPainter(cell: cell, padH: padH, layout: layout),
                     ),
                   ),
                 ),
@@ -171,7 +175,7 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
         return Center(
           child: SizedBox(
             width: outerW,
-            height: side + padH + frame + bannerSpace,
+            height: boardH + padH + frame + bannerSpace,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -283,21 +287,22 @@ class _SnakesBoardViewState extends State<SnakesBoardView> with TickerProviderSt
       return (Offset.lerp(landed, end, e)!, (math.sin(e * math.pi * 8)).abs() * g.cell * 0.08);
     }
     // Slide down the snake's body from head to tail.
-    final curve = _SnakeCurve.between(landed, end, SnakesRules.snakes.keys.toList().indexOf(m.steps.last), g.cell);
+    final curve = _SnakeCurve.between(landed, end, g.layout.snakes.keys.toList().indexOf(m.steps.last), g.cell);
     return (curve.at(Curves.easeIn.transform(u)), 0);
   }
 }
 
 /// Board coordinates.
 class _Geometry {
-  _Geometry({required this.cell, required this.padTop, required this.padH, required this.players});
+  _Geometry({required this.cell, required this.padTop, required this.padH, required this.players, required this.layout});
   final double cell, padTop, padH;
   final int players;
+  final SnakesLayout layout;
 
-  /// Centre of square 1..100; square 0 = the START pad.
+  /// Centre of square 1..size; square 0 = the START pad.
   Offset center(int square) {
     if (square <= 0) return Offset(cell * 1.2, padTop + padH * 0.62);
-    final (c, r) = SnakesRules.cellOf(square);
+    final (c, r) = layout.cellOf(square.clamp(1, layout.size));
     return Offset((c + 0.5) * cell, (r + 0.5) * cell);
   }
 
@@ -360,8 +365,9 @@ class _SnakeCurve {
 }
 
 class _BoardPainter extends CustomPainter {
-  _BoardPainter({required this.cell, required this.padH});
+  _BoardPainter({required this.cell, required this.padH, required this.layout});
   final double cell, padH;
+  final SnakesLayout layout;
 
   static const _rowColors = [
     Color(0xFF7C3AED),
@@ -385,7 +391,7 @@ class _BoardPainter extends CustomPainter {
   ];
 
   Offset _center(int square) {
-    final (c, r) = SnakesRules.cellOf(square);
+    final (c, r) = layout.cellOf(square);
     return Offset((c + 0.5) * cell, (r + 0.5) * cell);
   }
 
@@ -404,10 +410,10 @@ class _BoardPainter extends CustomPainter {
     );
 
     // Squares: row-tinted checkerboard with a soft top light.
-    for (var sq = 1; sq <= 100; sq++) {
-      final (c, r) = SnakesRules.cellOf(sq);
+    for (var sq = 1; sq <= layout.size; sq++) {
+      final (c, r) = layout.cellOf(sq);
       final rect = Rect.fromLTWH(c * cell, r * cell, cell, cell);
-      final base = _rowColors[(sq - 1) ~/ 10];
+      final base = _rowColors[((sq - 1) ~/ 10) % _rowColors.length];
       final light = (c + r).isEven;
       final col = light ? Color.lerp(base, Colors.white, 0.18)! : Color.lerp(base, Colors.black, 0.18)!;
       canvas.drawRect(
@@ -420,14 +426,15 @@ class _BoardPainter extends CustomPainter {
           ).createShader(rect),
       );
       // Special squares.
-      if (SnakesRules.ladders.containsKey(sq)) {
+      if (layout.ladders.containsKey(sq)) {
         canvas.drawRect(rect.deflate(cell * 0.06), Paint()..color = const Color(0x5534D399));
-      } else if (SnakesRules.snakes.containsKey(sq)) {
+      } else if (layout.snakes.containsKey(sq)) {
         canvas.drawRect(rect.deflate(cell * 0.06), Paint()..color = const Color(0x55000000));
       }
+      if (layout.venom.contains(sq)) _venom(canvas, rect);
     }
     // Finish square: a gold crown glow.
-    final fin = _center(100);
+    final fin = _center(layout.size);
     canvas.drawCircle(
       fin,
       cell * 0.42,
@@ -439,18 +446,23 @@ class _BoardPainter extends CustomPainter {
 
     // Ladders under snakes.
     var i = 0;
-    for (final e in SnakesRules.ladders.entries) {
+    for (final e in layout.ladders.entries) {
       _ladder(canvas, _center(e.key), _center(e.value), i++);
+      final x = layout.multipliers[e.key];
+      if (x != null && x > 1) {
+        _text(canvas, '×$x', _center(e.key) + Offset(-cell * 0.18, cell * 0.12), cell * 0.24, const Color(0xFFFDE68A), bold: true);
+      }
     }
     i = 0;
-    for (final e in SnakesRules.snakes.entries) {
+    for (final e in layout.snakes.entries) {
       _snake(canvas, _center(e.key), _center(e.value), i, _snakeColors[i % _snakeColors.length]);
       i++;
     }
     // START pad.
     final side = cell * 10;
+    final top = cell * layout.rows;
     final pad = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, side + padH * 0.22, side, padH * 0.74),
+      Rect.fromLTWH(0, top + padH * 0.22, side, padH * 0.74),
       Radius.circular(padH * 0.3),
     );
     canvas.drawRRect(pad, Paint()..color = Colors.white.withValues(alpha: 0.07));
@@ -464,14 +476,14 @@ class _BoardPainter extends CustomPainter {
     _text(
       canvas,
       'START',
-      Offset(cell * 0.3, side + padH * 0.42),
+      Offset(cell * 0.3, top + padH * 0.42),
       cell * 0.26,
       Colors.white.withValues(alpha: 0.7),
       bold: true,
     );
     // Square numbers last, over the snakes and ladders, so they always read.
-    for (var sq = 1; sq <= 100; sq++) {
-      final (c, r) = SnakesRules.cellOf(sq);
+    for (var sq = 1; sq <= layout.size; sq++) {
+      final (c, r) = layout.cellOf(sq);
       _number(canvas, '$sq', Offset(c * cell + cell * 0.08, r * cell + cell * 0.06));
     }
   }
@@ -611,6 +623,26 @@ class _BoardPainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// A venom square: a purple glow and a drop.
+  void _venom(Canvas canvas, Rect rect) {
+    canvas.drawRect(
+      rect.deflate(cell * 0.04),
+      Paint()
+        ..shader = const RadialGradient(colors: [Color(0xCC84CC16), Color(0x337C3AED)]).createShader(rect),
+    );
+    final c = rect.center + Offset(0, cell * 0.08);
+    final r = cell * 0.16;
+    canvas.drawPath(
+      Path()
+        ..moveTo(c.dx, c.dy - r * 1.6)
+        ..quadraticBezierTo(c.dx + r, c.dy - r * 0.2, c.dx + r, c.dy + r * 0.2)
+        ..arcToPoint(Offset(c.dx - r, c.dy + r * 0.2), radius: Radius.circular(r))
+        ..quadraticBezierTo(c.dx - r, c.dy - r * 0.2, c.dx, c.dy - r * 1.6)
+        ..close(),
+      Paint()..color = const Color(0xFF4D7C0F),
+    );
+  }
+
   void _star(Canvas canvas, Offset c, double r, Color color) {
     final path = Path();
     for (var k = 0; k < 10; k++) {
@@ -639,5 +671,5 @@ class _BoardPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BoardPainter o) => o.cell != cell || o.padH != padH;
+  bool shouldRepaint(_BoardPainter o) => o.cell != cell || o.padH != padH || o.layout != layout;
 }

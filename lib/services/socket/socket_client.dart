@@ -4,18 +4,13 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../configs/network_config.dart';
+import '../server_clock.dart';
 import 'socket_events.dart';
 import 'ws_connect.dart';
 
-/// Temporary capture switch: when true, raw turn/clock frames are printed to
-/// the console (browser DevTools on web) with a `[CLOCK-CAPTURE]` prefix so the
-/// server's per-move clock payload can be inspected. Set false to silence.
-const bool kLogClockFrames = true;
-
-/// Temporary: logs the socket handshake (WS open, connection.established, the
-/// auth.login we send with the token masked, and auth/connection results) to
-/// the console with a `[SOCKET]` prefix, so a failing connection can be
-/// pinpointed. Set false to silence.
+/// Logs the socket lifecycle with a `[SOCKET]` prefix: event names, error
+/// codes and close codes only — never tokens, URLs with secrets, or frame
+/// bodies (00-conventions.md "Security").
 const bool kLogSocket = true;
 void _slog(String msg) {
   if (kLogSocket) {
@@ -24,11 +19,8 @@ void _slog(String msg) {
   }
 }
 
-/// Masks a token for logging: keeps the first/last few chars only.
-String _mask(String t) => t.length <= 10 ? '***' : '${t.substring(0, 6)}…${t.substring(t.length - 4)}';
-
-/// A parsed envelope: `{ id?, event, data, error? }` (SOCKET_HOOKS.md §Message
-/// Envelope). Broadcasts have no `id`; direct responses echo the request `id`.
+/// A parsed envelope: `{ id?, event, data, error? }` (00-conventions.md "The
+/// envelope"). Broadcasts have no `id`; replies echo the request's `id`.
 class SocketMessage {
   const SocketMessage({this.id, required this.event, required this.data, this.error});
   final String? id;
@@ -39,82 +31,107 @@ class SocketMessage {
   bool get isError => error != null;
 
   factory SocketMessage.fromJson(Map<String, dynamic> json) => SocketMessage(
-    id: json['id'] as String?,
+    id: json['id']?.toString(),
     event: json['event'] as String? ?? '',
     data: (json['data'] as Map?)?.cast<String, dynamic>() ?? const {},
     error: json['error'] is Map ? SocketError.fromJson((json['error'] as Map).cast<String, dynamic>()) : null,
   );
 }
 
+/// A refused socket request. [code] is snake_case (`invalid_state`,
+/// `duplicate`, `kill_switch_engaged`, …); [message] is developer text, except
+/// for `kill_switch_engaged`, where it is the operator's text for players.
 class SocketError implements Exception {
   const SocketError(this.code, this.message);
   final String code;
   final String message;
   factory SocketError.fromJson(Map<String, dynamic> j) =>
       SocketError(j['code'] as String? ?? 'unknown', j['message'] as String? ?? '');
+
+  bool get isKillSwitch => code == 'kill_switch_engaged';
+
   @override
-  String toString() => 'SocketError($code): $message';
+  String toString() => 'SocketError($code)';
+}
+
+/// Player-facing text for a socket failure: the operator's message on a kill
+/// switch, otherwise [fallback] (error messages are developer text).
+String socketErrorText(Object e, {required String fallback}) {
+  if (e is SocketError) {
+    if (e.isKillSwitch) return e.message.isNotEmpty ? e.message : 'New games are paused for a moment. Try again soon.';
+    if (e.code == 'duplicate') return 'You are already signed in on another device.';
+    if (e.code == 'rate_limited') return 'Too many actions. Slow down a little.';
+  }
+  return fallback;
+}
+
+/// The error a `*_error` / `*.error` frame carries: `error {code, message}`,
+/// or `data {code | error, message}` (e.g. `game.start_error`).
+SocketError errorFromData(SocketMessage msg) {
+  if (msg.error != null) return msg.error!;
+  final code = msg.data['code'] ?? msg.data['error'];
+  return SocketError(code is String ? code : msg.event, msg.data['message'] as String? ?? '');
 }
 
 enum SocketStatus { disconnected, connecting, connected, authenticated, reconnecting }
 
-/// Factory so tests can inject a fake channel.
+/// Factory so tests can inject a fake connection.
 typedef ChannelFactory = WebSocketChannel Function(Uri url);
 
-/// Single-connection WebSocket client implementing the envelope protocol:
-/// correlation-id request/response, broadcast stream, keepalive ping/pong,
-/// and exponential-backoff reconnection with session resume.
+/// One game-server WebSocket (00-conventions.md "Game sockets"):
+///
+/// 1. open `ws://<host>:<port>/ws` (no token in the URL) and wait for
+///    `connection.established` (its `timestamp` sets [serverClockOffset]);
+/// 2. `auth.login {token}`; until `auth.login_success` only `auth.login` and
+///    `connection.ping` are accepted;
+/// 3. requests carry an `id`, matched to the reply with the same `id`;
+///    everything else goes to [broadcasts];
+/// 4. before the token's `expires_at`, a fresh token is sent with
+///    `auth.refresh` (the socket keeps its room and game);
+/// 5. on a drop: reconnect after 0.5 s, 1 s, 2 s, then every 3 s, and sign in
+///    again — the server restores the game within [reconnectWindow].
 class SocketClient {
   SocketClient({
     required Uri url,
     ChannelFactory? channelFactory,
     this.pingInterval = NetworkConfig.socketPingInterval,
     this.requestTimeout = const Duration(seconds: 15),
-    this.maxBackoff = NetworkConfig.socketMaxBackoff,
-    Map<String, dynamic>? headers,
     this.reauth,
-    this.urlForToken,
-    this.headersForToken,
   }) // Named params can't be private initializing formals.
     // ignore: prefer_initializing_formals
     : _url = url,
-       // ignore: prefer_initializing_formals
-       _headers = headers,
        _customFactory = channelFactory;
 
-  /// Current endpoint (rebuilt with a fresh token before a reconnect).
   Uri get url => _url;
-  Uri _url;
-  Map<String, dynamic>? _headers;
+  final Uri _url;
   final ChannelFactory? _customFactory;
-  WebSocketChannel _channelFactory(Uri u) => (_customFactory ?? (x) => connectWs(x, headers: _headers))(u);
+  WebSocketChannel _channelFactory(Uri u) =>
+      (_customFactory ?? (x) => connectWs(x, pingInterval: pingInterval))(u);
 
-  /// Called before every automatic reconnect for a currently valid access
-  /// token (refreshing an expired one). Null result = keep the current one.
-  /// Without it a reconnect after the 15-min expiry would reuse a dead token.
+  /// A currently valid access token (refreshed at the gateway when it is
+  /// about to expire). Used for `auth.refresh` and for signing in again after
+  /// a reconnect. Null result = keep the current token.
   final Future<String?> Function()? reauth;
-
-  /// Rebuild the endpoint / upgrade headers for a fresh token (the token can
-  /// ride in the URL via the dev proxy, or as a Bearer header).
-  final Uri Function(String token)? urlForToken;
-  final Map<String, dynamic> Function(String token)? headersForToken;
   final Duration pingInterval;
   final Duration requestTimeout;
-  final Duration maxBackoff;
+
+  /// How long the server keeps a dropped player's seat (then: a forfeit).
+  static const reconnectWindow = Duration(seconds: 30);
+
+  /// Reconnect delays: 0.5 s, 1 s, 2 s, then every 3 s.
+  static const backoff = [Duration(milliseconds: 500), Duration(seconds: 1), Duration(seconds: 2)];
+  static const backoffSteady = Duration(seconds: 3);
 
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
   Timer? _pingTimer;
   Timer? _reconnectTimer;
+  Timer? _refreshTimer;
   int _reconnectAttempt = 0;
   bool _manuallyClosed = false;
 
-  /// The token used to resume the session on reconnect (set after login).
+  /// The token used to sign in again after a reconnect (set by [login]).
   String? _sessionToken;
-
-  /// Optional display/debug identity sent alongside the token on auth.login
-  /// (the Chess API accepts a bare `username` as a throwaway identity).
-  String? _username;
 
   int _idCounter = 0;
   final Map<String, Completer<SocketMessage>> _pending = {};
@@ -123,12 +140,24 @@ class SocketClient {
   final _status = StreamController<SocketStatus>.broadcast();
   SocketStatus _currentStatus = SocketStatus.disconnected;
 
-  /// Server-initiated messages (no correlation id): room/game/chat pushes, etc.
+  /// Server-initiated messages (no matching `id`): room/game/chat pushes, etc.
   Stream<SocketMessage> get broadcasts => _broadcasts.stream;
 
   /// Connection status changes.
   Stream<SocketStatus> get statusStream => _status.stream;
   SocketStatus get status => _currentStatus;
+
+  /// `serverTimestamp - deviceNow` from `connection.established`. Draw
+  /// countdowns from `deadline - serverNow()`: the phone's clock can be wrong.
+  Duration serverClockOffset = Duration.zero;
+
+  /// Now on the server's clock.
+  DateTime serverNow() => DateTime.now().add(serverClockOffset);
+
+  /// While reconnecting: when the server gives up the player's seat (drop +
+  /// 30 s). Show "Reconnecting…" with a countdown to it. Null when connected.
+  DateTime? get reconnectDeadline => _droppedAt?.add(reconnectWindow);
+  DateTime? _droppedAt;
 
   void _setStatus(SocketStatus s) {
     _currentStatus = s;
@@ -143,7 +172,7 @@ class SocketClient {
 
   Future<void> _open() async {
     _setStatus(_reconnectAttempt == 0 ? SocketStatus.connecting : SocketStatus.reconnecting);
-    _slog('opening WS → $url');
+    _slog('opening ${url.scheme}://${url.host}:${url.port}${url.path}');
     final established = Completer<void>();
     _pendingEstablished = established;
     _lastError = null;
@@ -154,41 +183,35 @@ class SocketClient {
         (raw) => _onMessage(raw, established),
         onDone: _onDone,
         onError: (e) {
-          _slog('WS stream error (upgrade/transport): $e');
+          _slog('stream error: ${e.runtimeType}');
           _lastError = e;
           _onDone();
         },
         cancelOnError: false,
       );
     } catch (e) {
-      _slog('WS open threw: $e');
+      _slog('open failed: ${e.runtimeType}');
       _lastError = e;
       if (_sessionToken != null) _scheduleReconnect();
       if (!established.isCompleted) established.completeError(SocketError('connect_failed', '$e'));
     }
-    // `connection.established` resolves this. A failed upgrade (401/404) or a
-    // server that never sends the handshake must surface as an error here —
-    // otherwise the caller goes on to send auth.login on a dead channel and
-    // only sees a misleading "Not connected"/timeout.
+    // A refused upgrade or a server that never sends the handshake surfaces
+    // here, not later as a misleading "Not connected".
     try {
       await established.future.timeout(requestTimeout);
     } on TimeoutException {
       throw SocketError(
         'connect_timeout',
         _lastError != null
-            ? 'WebSocket to $url failed: $_lastError'
-            : 'No connection.established from $url within ${requestTimeout.inSeconds}s',
+            ? 'WebSocket to ${url.host}:${url.port} failed: $_lastError'
+            : 'No connection.established within ${requestTimeout.inSeconds}s',
       );
     } finally {
       _pendingEstablished = null;
     }
   }
 
-  /// The handshake being awaited by [_open], so a transport failure can fail
-  /// it immediately instead of waiting for the timeout.
   Completer<void>? _pendingEstablished;
-
-  /// Last transport/upgrade error, kept for a useful connect() failure message.
   Object? _lastError;
 
   void _onMessage(dynamic raw, [Completer<void>? established]) {
@@ -200,84 +223,100 @@ class SocketClient {
     }
     final msg = SocketMessage.fromJson(json);
 
-    // ── Clock-protocol capture ──
-    // Dumps the RAW server payload for turn/clock frames so we can see the
-    // backend's authoritative per-move clock shape (game.turn_start /
-    // game.turn_timeout) and wire the UI timer to it. Temporary: remove once
-    // the server clock is wired in. Online only — Quick Play is local and never
-    // opens a socket.
-    if (kLogClockFrames &&
-        (msg.event.contains('turn') ||
-            msg.event.contains('timeout') ||
-            msg.event == SocketEvent.gameStarted ||
-            msg.event == SocketEvent.gameStateUpdate)) {
-      // ignore: avoid_print
-      print('[CLOCK-CAPTURE] ${msg.event} :: $raw');
-    }
-
-    // Handshake / auth visibility.
     if (msg.event == SocketEvent.established ||
         msg.event.startsWith('auth.') ||
         msg.event == SocketEvent.connectionError ||
         msg.event == SocketEvent.kicked) {
-      _slog('recv ${msg.event}${msg.isError ? ' ERROR ${msg.error}' : ' ${msg.data}'}');
+      _slog('recv ${msg.event}${msg.isError ? ' error ${msg.error!.code}' : ''}');
     }
 
-    // Keepalive.
     if (msg.event == SocketEvent.established) {
-      _setStatus(SocketStatus.connected);
-      _reconnectAttempt = 0;
-      _startPing();
-      // Resume session if we have a token (reconnect path).
-      if (_sessionToken != null) {
-        send(SocketEvent.login, _loginData(_sessionToken!));
+      final ts = msg.data['timestamp'];
+      if (ts is num) {
+        serverClockOffset = Duration(milliseconds: ts.toInt() - DateTime.now().millisecondsSinceEpoch);
+        ServerClock.fromSocket(ts.toInt());
       }
+      _setStatus(SocketStatus.connected);
+      _startPing();
+      // Reconnect: sign in again; the server puts the player back in the game.
+      if (_sessionToken != null) send(SocketEvent.login, {'token': _sessionToken});
       if (established != null && !established.isCompleted) established.complete();
       return;
     }
-    if (msg.event == SocketEvent.pong) return;
-    if (msg.event == SocketEvent.ping) {
-      send(SocketEvent.pong, const {});
-      return;
-    }
-
-    // Correlated response → complete the pending request.
+    // A reply to one of our requests → complete it (success or error). Checked
+    // first: a requested ping's pong carries its id.
     final id = msg.id;
     if (id != null && _pending.containsKey(id)) {
       final c = _pending.remove(id)!;
       if (msg.isError) {
         c.completeError(msg.error!);
       } else if (msg.event.endsWith('_error') || msg.event.endsWith('.error')) {
-        // Some handlers put {code, message} in `data` instead of `error`
-        // (SOCKET_HOOKS.md tables) — still a failure, not a success.
-        c.completeError(SocketError(msg.data['code'] as String? ?? msg.event, msg.data['message'] as String? ?? ''));
+        // Some handlers put {code, message} (or {error, message}) in `data`.
+        c.completeError(errorFromData(msg));
       } else {
         c.complete(msg);
       }
       return;
     }
-
-    // Track auth state from broadcasts/responses.
-    if (msg.event == SocketEvent.loginSuccess || msg.event == SocketEvent.registerSuccess) {
-      _sessionToken = msg.data['token'] as String? ?? _sessionToken;
-      _setStatus(SocketStatus.authenticated);
-    } else if (msg.event == SocketEvent.tokenRefreshed) {
-      _sessionToken = msg.data['token'] as String? ?? _sessionToken;
+    if (msg.event == SocketEvent.pong) return; // our keep-alive pings
+    if (msg.event == SocketEvent.ping) {
+      send(SocketEvent.pong, const {});
+      return;
     }
 
-    // Everything else is a server push.
+    switch (msg.event) {
+      case SocketEvent.loginSuccess:
+        // A sign-in after a reconnect (sent without an id).
+        _onSignedIn(msg.data);
+      case SocketEvent.loginError:
+        // A sign-in after a reconnect was refused.
+        _onReloginError(msg);
+      case SocketEvent.tokenRefreshed:
+        _scheduleTokenRefresh(msg.data['expires_at']);
+      case SocketEvent.kicked:
+        // `slow_consumer`: the app read too slowly → reconnect.
+        final reason = msg.data['reason'] ?? msg.data['code'] ?? msg.error?.code;
+        if (reason == 'slow_consumer') _channel?.sink.close();
+    }
+
     if (!_broadcasts.isClosed) _broadcasts.add(msg);
   }
 
-  /// Fire-and-forget send (no response awaited). Adds no `id`.
-  void send(String event, Map<String, dynamic> data) {
-    final channel = _channel;
-    if (channel == null) return;
-    channel.sink.add(jsonEncode({'event': event, 'data': data}));
+  bool _reloginRetried = false;
+
+  /// `auth.login_error` after a reconnect: an expired token → get a fresh one
+  /// and try once more; anything else (revoked, duplicate, banned) → stop.
+  /// The frame is still broadcast so the app can sign out or tell the player.
+  Future<void> _onReloginError(SocketMessage msg) async {
+    final code = (msg.error ?? errorFromData(msg)).code;
+    _slog('re-login refused: $code');
+    if (code == 'invalid_credentials' && !_reloginRetried && reauth != null) {
+      _reloginRetried = true;
+      await _refreshCredentials();
+      if (_channel != null && _sessionToken != null) send(SocketEvent.login, {'token': _sessionToken});
+      return;
+    }
+    _sessionToken = null;
+    await close();
   }
 
-  /// Send a request and await the correlated response. Throws [SocketError]
-  /// on an error envelope, or [TimeoutException] if no reply arrives.
+  void _onSignedIn(Map<String, dynamic> data) {
+    _reloginRetried = false;
+    _setStatus(SocketStatus.authenticated);
+    _reconnectAttempt = 0;
+    _droppedAt = null;
+    _scheduleTokenRefresh(data['expires_at']);
+  }
+
+  /// Fire-and-forget send (no reply awaited, no `id`).
+  void send(String event, [Map<String, dynamic>? data]) {
+    final channel = _channel;
+    if (channel == null) return;
+    channel.sink.add(jsonEncode({'event': event, 'data': ?data}));
+  }
+
+  /// Send a request and await the reply with the same `id`. Throws
+  /// [SocketError] on an error reply, or [TimeoutException] without a reply.
   Future<SocketMessage> request(String event, [Map<String, dynamic> data = const {}]) {
     final channel = _channel;
     if (channel == null) {
@@ -296,98 +335,110 @@ class SocketClient {
     );
   }
 
-  /// Authenticate with a token (first message after connect; also used on
-  /// reconnect to resume). Stores the token + username for session resume.
-  /// [username] is an optional identity the Chess API accepts alongside (or
-  /// instead of) the JWT; see `auth.login` in Chess API.pdf.
-  Future<SocketMessage> login({required String token, String? username}) async {
-    if (username != null && username.isNotEmpty) _username = username;
-    _slog('send auth.login { token: ${_mask(token)}, username: ${_username ?? "(none)"} }');
-    final res = await request(SocketEvent.login, _loginData(token));
-    _sessionToken = res.data['token'] as String? ?? token;
-    _setStatus(SocketStatus.authenticated);
+  /// `auth.login {token}` — the first request after [connect]. The token is
+  /// kept to sign in again after a reconnect.
+  Future<SocketMessage> login({required String token}) async {
+    final res = await request(SocketEvent.login, {'token': token});
+    _sessionToken = token;
+    _onSignedIn(res.data);
     return res;
   }
 
-  /// Builds the `auth.login` payload: always the token, plus the username when
-  /// one has been set.
-  Map<String, dynamic> _loginData(String token) => {
-    'token': token,
-    if (_username != null && _username!.isNotEmpty) 'username': _username,
-  };
+  /// Before the token expires (`expires_at`, epoch seconds): refresh it at the
+  /// gateway ([reauth]) and send `auth.refresh {token}`.
+  void _scheduleTokenRefresh(Object? expiresAt) {
+    _refreshTimer?.cancel();
+    if (expiresAt is! num || reauth == null) return;
+    final at = DateTime.fromMillisecondsSinceEpoch(expiresAt.toInt() * 1000);
+    // Server-clock time → device time, then a minute early.
+    var wait = at.difference(serverNow()) - NetworkConfig.refreshAhead;
+    if (wait < const Duration(seconds: 5)) wait = const Duration(seconds: 5);
+    _refreshTimer = Timer(wait, refreshToken);
+  }
+
+  /// Send a fresh token on the open socket (`auth.refresh`). Failures are
+  /// left to the server: an expired socket gets `auth.session_expired`, closes,
+  /// and the reconnect signs in with a fresh token.
+  Future<void> refreshToken() async {
+    final get = reauth;
+    if (get == null || _currentStatus != SocketStatus.authenticated) return;
+    try {
+      final token = await get();
+      if (token == null || token.isEmpty) return;
+      final res = await request(SocketEvent.refresh, {'token': token});
+      _sessionToken = token;
+      _scheduleTokenRefresh(res.data['expires_at']);
+    } on Object catch (e) {
+      _slog('auth.refresh failed: ${e is SocketError ? e.code : e.runtimeType}');
+    }
+  }
 
   void _startPing() {
     _pingTimer?.cancel();
-    _pingTimer = Timer.periodic(pingInterval, (_) => send(SocketEvent.ping, const {}));
+    _pingTimer = Timer.periodic(pingInterval, (_) => send(SocketEvent.ping));
   }
 
   void _onDone() {
-    _slog('WS closed (code ${_channel?.closeCode}, reason ${_channel?.closeReason})');
+    _slog('closed (code ${_channel?.closeCode})');
     final hs = _pendingEstablished;
     if (hs != null && !hs.isCompleted) {
       hs.completeError(
         SocketError(
           'connect_failed',
-          'WebSocket to $url closed before connection.established'
+          'WebSocket to ${url.host}:${url.port} closed before connection.established'
               '${_lastError != null ? ': $_lastError' : ' (upgrade rejected or wrong path?)'}',
         ),
       );
     }
     _pingTimer?.cancel();
+    _refreshTimer?.cancel();
     _sub?.cancel();
     _sub = null;
     _channel = null;
-    // Fail any in-flight requests.
     for (final c in _pending.values) {
       if (!c.isCompleted) c.completeError(const SocketError('disconnected', 'Connection closed'));
     }
     _pending.clear();
     if (_manuallyClosed || hs != null && _sessionToken == null) {
       // Manual close, or the very first handshake failed: report it to the
-      // caller instead of silently retrying forever in the background.
+      // caller instead of silently retrying in the background.
       _setStatus(SocketStatus.disconnected);
     } else {
+      _droppedAt ??= DateTime.now();
       _scheduleReconnect();
     }
   }
 
   void _scheduleReconnect() {
     _setStatus(SocketStatus.reconnecting);
+    final delay = _reconnectAttempt < backoff.length ? backoff[_reconnectAttempt] : backoffSteady;
     _reconnectAttempt++;
-    // Exponential backoff with a cap (1s, 2s, 4s … maxBackoff).
-    final ms = (1000 * (1 << (_reconnectAttempt - 1))).clamp(1000, maxBackoff.inMilliseconds);
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(Duration(milliseconds: ms), () async {
+    _reconnectTimer = Timer(delay, () async {
       if (_manuallyClosed) return;
       await _refreshCredentials();
-      if (!_manuallyClosed) _open().catchError((Object e) => _slog('reconnect failed: $e'));
+      if (!_manuallyClosed) _open().catchError((Object e) => _slog('reconnect failed'));
     });
   }
 
-  /// Before a reconnect: swap in a valid token for the upgrade (URL/headers)
-  /// and the resumed `auth.login`. Failures keep the current credentials.
+  /// Before a reconnect: a valid token for the new `auth.login`.
   Future<void> _refreshCredentials() async {
     final get = reauth;
     if (get == null) return;
-    String? token;
     try {
-      token = await get();
-    } on Object catch (e) {
-      _slog('reauth failed: $e');
+      final token = await get();
+      if (token != null && token.isNotEmpty) _sessionToken = token;
+    } on Object catch (_) {
+      _slog('reauth failed');
     }
-    if (token == null || token.isEmpty) return;
-    if (token != _sessionToken) _slog('reconnect with refreshed token ${_mask(token)}');
-    _sessionToken = token;
-    final u = urlForToken;
-    if (u != null) _url = u(token);
-    final h = headersForToken;
-    if (h != null) _headers = h(token);
   }
 
   Future<void> close() async {
     _manuallyClosed = true;
     _pingTimer?.cancel();
     _reconnectTimer?.cancel();
+    _refreshTimer?.cancel();
+    _droppedAt = null;
     await _sub?.cancel();
     await _channel?.sink.close();
     _channel = null;

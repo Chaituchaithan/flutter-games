@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG builds only (overrides src/main/res/xml/network_security_config.xml).
+  The dev servers are plain HTTP, and Android 9+ blocks cleartext by default.
+  Cleartext is allowed ONLY for these hosts:
+    192.168.0.235  LAN dev server (gateway :1280, games :1281-1292)
+    169.58.184.121 cloud dev server
+    10.0.2.2       the host machine, seen from the Android emulator (dev proxy)
+    localhost      the dev proxy (tools/cors_proxy.dart)
+  Using another LAN IP (SERVER_HOST)? Add it here. Production is https.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.0.235</domain>
+        <domain includeSubdomains="false">169.58.184.121</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

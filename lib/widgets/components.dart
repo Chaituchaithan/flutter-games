@@ -867,10 +867,13 @@ class AuraCard extends StatelessWidget {
 /// (10.5px); the active tab is white with a 5px pink dot under it, the others
 /// 42% white. Tabs: Home · Wheel · Store · Profile.
 class AuraBottomNav extends StatelessWidget {
-  const AuraBottomNav({super.key, required this.index, required this.onChanged});
+  const AuraBottomNav({super.key, required this.index, required this.onChanged, this.dots = const {}});
 
   final int index;
   final ValueChanged<int> onChanged;
+
+  /// Tabs that show a red "something to collect" dot on their icon.
+  final Set<int> dots;
 
   static const _items = [
     (_NavIcon.home, 'Home'),
@@ -919,7 +922,26 @@ class AuraBottomNav extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CustomPaint(size: const Size(23, 23), painter: _NavIconPainter(icon, color)),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        CustomPaint(size: const Size(23, 23), painter: _NavIconPainter(icon, color)),
+                        if (dots.contains(i))
+                          Positioned(
+                            right: -3,
+                            top: -2,
+                            child: Container(
+                              width: 9,
+                              height: 9,
+                              decoration: BoxDecoration(
+                                color: AuraColors.danger,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: const Color(0xFF14101F), width: 1.5),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 3),
                     Text(
                       label,

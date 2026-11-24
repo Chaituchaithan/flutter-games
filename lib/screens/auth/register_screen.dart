@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../app/game_socket_login.dart';
 import '../../app/routes.dart';
 import '../../services/app_exception.dart';
 import '../../services/session.dart';
@@ -11,7 +12,15 @@ import '../../widgets/aura.dart';
 /// Register — "Create account". Creates the account via the session/AuthService.
 /// See docs/DESIGN_SPEC.md.
 class RegisterScreen extends ConsumerStatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.saveProgress = false, this.referralCode});
+
+  /// A friend's code from an invite link (09-social.md §5a): pre-fills the
+  /// field and signs up with `entry_source: "invite"`.
+  final String? referralCode;
+
+  /// "Save your progress": turn the signed-in guest into a full account
+  /// (POST /guest/convert, same id) instead of creating a new one.
+  final bool saveProgress;
 
   @override
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
@@ -24,15 +33,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _username = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _referral = TextEditingController();
   String? _usernameError;
   String? _emailError;
   String? _passwordError;
+
+  @override
+  void initState() {
+    super.initState();
+    final code = widget.referralCode?.trim().toUpperCase();
+    if (code != null && code.isNotEmpty) _referral.text = code;
+  }
 
   @override
   void dispose() {
     _username.dispose();
     _email.dispose();
     _password.dispose();
+    _referral.dispose();
     super.dispose();
   }
 
@@ -59,29 +77,74 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _busy = true);
     try {
-      // Create the account (no auto-sign-in), then send the user to Login to
-      // sign in with their new credentials.
-      await ref
-          .read(sessionProvider.notifier)
-          .registerAccount(name: _username.text.trim(), email: _email.text.trim(), password: _password.text);
+      if (widget.saveProgress) {
+        // Same id, so wallet, history and progress are kept.
+        await ref
+            .read(sessionProvider.notifier)
+            .convertGuest(username: _username.text.trim(), email: _email.text.trim(), password: _password.text);
+        if (!mounted) return;
+        showAuraToast(context, 'Progress saved. Log in with this email from now on.', kind: AuraToastKind.success);
+        Navigator.of(context).maybePop();
+        return;
+      }
+      // Sign up signs the user in (tokens stored, then GET /users/me), then the
+      // realtime socket like Login, then Home.
+      final user = await ref.read(sessionProvider.notifier).register(
+            name: _username.text.trim(),
+            email: _email.text.trim(),
+            password: _password.text,
+            // Codes are case-sensitive and a wrong one is dropped silently:
+            // send it trimmed and upper-cased (09-social.md §5b).
+            referralCode: _referral.text.trim().isEmpty ? null : _referral.text.trim().toUpperCase(),
+            entrySource: (widget.referralCode?.trim().isNotEmpty ?? false) ? 'invite' : null,
+          );
+      if (!mounted) return;
+      showAuraToast(context, context.l10n.accountCreated, kind: AuraToastKind.success);
+      try {
+        await ref.read(gameSocketLoginProvider).connect(username: user.username);
+      } on Object catch (e) {
+        // Signed in, but the game server refused: Login can retry the socket.
+        if (mounted) showAuraToast(context, GameSocketLogin.errorText(e), kind: AuraToastKind.error);
+        if (mounted && ModalRoute.of(context)?.isCurrent != false) _toLogin();
+        return;
+      }
       // Navigate only while Register is still the screen on top.
       if (mounted && ModalRoute.of(context)?.isCurrent != false) {
-        showAuraToast(context, context.l10n.accountCreated, kind: AuraToastKind.success);
-        _toLogin();
+        Navigator.pushNamedAndRemoveUntil(context, Routes.home, (r) => false, arguments: {'dailyBonusPrompt': true});
       }
     } on AppException catch (e) {
-      if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
+      if (!mounted) return;
+      if (e.isValidation) {
+        // Server-side rule broken: show it under that field.
+        setState(() {
+          switch (e.field) {
+            case 'username':
+              _usernameError = e.message;
+            case 'email':
+              _emailError = e.message;
+            case 'password':
+              _passwordError = e.message;
+            default:
+              showAuraToast(context, e.message, kind: AuraToastKind.error);
+          }
+        });
+      } else if (widget.saveProgress && e.code == ApiErrorCode.badRequest) {
+        // Already a full account: hide "Save your progress" and re-read the user.
+        await ref.read(sessionProvider.notifier).reloadProfile();
+        if (!mounted) return;
+        showAuraToast(context, 'This account is already saved.', kind: AuraToastKind.info);
+        Navigator.of(context).maybePop();
+      } else {
+        // 409 CONFLICT → "That username or email is already registered." (the
+        // client's text), with Log in / Forgot password below the form.
+        showAuraToast(context, e.message, kind: AuraToastKind.error);
+      }
     } on Object catch (_) {
       if (mounted) showAuraToast(context, "Couldn't create account. Try again.", kind: AuraToastKind.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
-
-  // Real OAuth is stubbed server-side (503). Placeholder: continue into the app
-  // (demo session) so the Apple/Google buttons land on Home. Swap for a real
-  // OAuth sign-up when the backend supports it.
-  void _oauthContinue() => Navigator.pushReplacementNamed(context, Routes.home);
 
   /// Back to the Login screen underneath (Register is opened from it) —
   /// never a second Login on top.
@@ -109,36 +172,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 18),
             // No back button: "Sign in" below (and the system back gesture)
             // return to Login.
-            Text(context.l10n.createAccount, style: AuraText.headline.copyWith(fontSize: 32)),
+            Text(widget.saveProgress ? 'Save your progress' : context.l10n.createAccount,
+                style: AuraText.headline.copyWith(fontSize: 32)),
             const SizedBox(height: 8),
             Text(
-              context.l10n.registerSubtitle,
+              widget.saveProgress
+                  ? 'Add an email and password to keep your coins, history and progress. You keep the same account.'
+                  : context.l10n.registerSubtitle,
               style: AuraText.body.copyWith(color: AuraColors.textSecondary),
             ),
             const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: LightButton(
-                    label: 'Apple',
-                    leading: const Icon(Icons.apple, size: 20, color: Colors.black),
-                    onPressed: _oauthContinue,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: LightButton(
-                    label: 'Google',
-                    dark: true,
-                    leading: const _GoogleG(size: 18),
-                    onPressed: _oauthContinue,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _OrDivider(label: context.l10n.orSignUpWithEmail),
-            const SizedBox(height: 20),
             AuraTextField(
               hint: context.l10n.usernameHint,
               icon: Icons.alternate_email,
@@ -173,7 +216,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               onChanged: (_) {
                 if (_passwordError != null) setState(() => _passwordError = null);
               },
-              onSubmitted: (_) => _create(),
+              onSubmitted: (_) => widget.saveProgress ? _create() : null,
               trailing: IconButton(
                 splashRadius: 20,
                 icon: Icon(
@@ -184,11 +227,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
+            if (!widget.saveProgress) ...[
+              const SizedBox(height: 14),
+              // Optional friend's code; a wrong one never fails the sign-up.
+              AuraTextField(
+                hint: 'Referral code (optional)',
+                icon: Icons.card_giftcard_outlined,
+                controller: _referral,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _create(),
+              ),
+            ],
             const SizedBox(height: 18),
             _TermsRow(checked: _agreed, onToggle: () => setState(() => _agreed = !_agreed)),
             const SizedBox(height: 18),
-            GradientButton(label: context.l10n.createAccountButton, onPressed: _create, loading: _busy),
+            GradientButton(
+                label: widget.saveProgress ? 'Save progress' : context.l10n.createAccountButton,
+                onPressed: _create,
+                loading: _busy),
             const SizedBox(height: 24),
+            if (!widget.saveProgress)
             Center(
               child: Text.rich(
                 TextSpan(
@@ -265,51 +323,6 @@ class _TermsRow extends StatelessWidget {
             ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-/// A simple multicolour "G" mark stand-in for the Google logo.
-class _GoogleG extends StatelessWidget {
-  const _GoogleG({required this.size});
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: SweepGradient(
-          colors: [Color(0xFF4285F4), Color(0xFF34A853), Color(0xFFFBBC05), Color(0xFFEA4335), Color(0xFF4285F4)],
-        ),
-      ),
-      child: Text(
-        'G',
-        style: TextStyle(color: Colors.white, fontSize: size * 0.62, fontWeight: FontWeight.w800, height: 1),
-      ),
-    );
-  }
-}
-
-/// Centered label flanked by thin hairlines.
-class _OrDivider extends StatelessWidget {
-  const _OrDivider({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider(color: AuraColors.cardBorder, thickness: 1)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(label, style: const TextStyle(color: AuraColors.skip, fontSize: 12.5)),
-        ),
-        const Expanded(child: Divider(color: AuraColors.cardBorder, thickness: 1)),
       ],
     );
   }

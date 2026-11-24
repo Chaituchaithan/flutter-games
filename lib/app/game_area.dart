@@ -23,6 +23,12 @@ abstract final class GameArea {
   /// Online "Choose your side" options for the game (empty = no side step).
   static List<OnlineSide> onlineSides(GameId id) => module(id)?.onlineSides ?? const [];
 
+  static List<int> onlinePlayerCounts(GameId id) => module(id)?.onlinePlayerCounts ?? const [2];
+  static List<int> friendsPlayerCounts(GameId id) => module(id)?.friendsPlayerCounts ?? const [2];
+  static bool onlineFreePlay(GameId id) => module(id)?.onlineFreePlay ?? false;
+  static OnlineStakeTiers? onlineStakeTiers(GameId id) => module(id)?.onlineStakeTiers;
+  static int roomCodeLength(GameId id) => module(id)?.roomCodeLength ?? 6;
+
   /// Whose socket service the app signs in to at login: the active game's
   /// when it has online play, else the first game in this app that does
   /// (null = no online game in this app → no socket step).

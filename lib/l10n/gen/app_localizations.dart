@@ -647,7 +647,7 @@ abstract class AppLocalizations {
   /// No description provided for @currentPasswordWrong.
   ///
   /// In en, this message translates to:
-  /// **'Current password is incorrect'**
+  /// **'Your current password is incorrect.'**
   String get currentPasswordWrong;
 
   /// No description provided for @tooManyAttempts.
@@ -929,7 +929,7 @@ abstract class AppLocalizations {
   /// No description provided for @powerUpCount.
   ///
   /// In en, this message translates to:
-  /// **'{count}× power-up'**
+  /// **'{count}× boost'**
   String powerUpCount(int count);
 
   /// No description provided for @unlocksIn.
@@ -949,6 +949,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'DAY {day} / 7'**
   String dayOfSeven(int day);
+
+  /// No description provided for @dayOfCycle.
+  ///
+  /// In en, this message translates to:
+  /// **'DAY {day} / {total}'**
+  String dayOfCycle(int day, int total);
+
+  /// No description provided for @claimedOfBlock.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}/{total} claimed'**
+  String claimedOfBlock(int count, int total);
 
   /// No description provided for @currencyGold.
   ///
@@ -2767,6 +2779,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invite friends'**
   String get inviteFriendsTitle;
+
+  /// No description provided for @referralHaveCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Have a friend\'s code?'**
+  String get referralHaveCode;
+
+  /// No description provided for @referralCodeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Friend\'s code'**
+  String get referralCodeHint;
+
+  /// No description provided for @referralApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get referralApply;
+
+  /// No description provided for @referralApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Code applied. You both get a reward after your first purchase.'**
+  String get referralApplied;
 
   /// No description provided for @yourTurnTapDice.
   ///

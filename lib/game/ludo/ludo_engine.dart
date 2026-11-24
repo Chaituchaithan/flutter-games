@@ -106,6 +106,58 @@ class LudoRules {
   }
 }
 
+/// How progress values map to board cells. A token's progress is −1 in base,
+/// then counts squares from its colour's start square.
+///
+/// * [classic] (Quick Play): 51 track squares (0..50), a 5-square home column
+///   (51..55), home 56.
+/// * [server] (online, ludo.md "The board"): every colour walks all 52 track
+///   squares (0..51; red's last is 51), then a 6-square home stretch (52..57,
+///   the 6th on the centre's edge, as the server's debug board draws it),
+///   home 58.
+@immutable
+class LudoLayout {
+  const LudoLayout._({required this.trackSquares, required this.stretch});
+
+  static const classic = LudoLayout._(trackSquares: 51, stretch: 5);
+  static const server = LudoLayout._(trackSquares: 52, stretch: 6);
+
+  /// Squares walked on the shared track, then in the colour's home lane.
+  final int trackSquares;
+  final int stretch;
+
+  int get lastTrack => trackSquares - 1;
+  int get home => trackSquares + stretch;
+
+  /// The lane has a 6th square on the centre's edge (server layout): the
+  /// board draws it as a real square, and home is the middle cell.
+  bool get innerLaneCell => stretch > 5;
+
+  /// Each colour's 6th lane square (server layout).
+  static (int, int) innerCell(LudoColor c) => _innerStretch[c]!;
+
+  /// The lane mouth: the track square a pawn turns in from on the printed
+  /// board. On the server layout the 52nd square lies just past it, so the
+  /// step into the lane bends around this square instead of cutting across.
+  (int, int) laneMouth(LudoColor c) => LudoRules.track[(LudoRules.startIndex(c) + 50) % 52];
+
+  /// The 6th home-stretch cell (server layout), next to the centre.
+  static const Map<LudoColor, (int, int)> _innerStretch = {
+    LudoColor.red: (6, 7),
+    LudoColor.green: (7, 6),
+    LudoColor.yellow: (8, 7),
+    LudoColor.blue: (7, 8),
+  };
+
+  /// Board cell (column, row) at [progress]; null in base or home.
+  (int, int)? cellOf(LudoColor c, int progress) {
+    if (progress < 0 || progress >= home) return null;
+    if (progress <= lastTrack) return LudoRules.track[(LudoRules.startIndex(c) + progress) % 52];
+    final k = progress - trackSquares;
+    return k < 5 ? LudoRules.homeColumn[c]![k] : _innerStretch[c];
+  }
+}
+
 /// A token move the board animates: [path] = the cells' progress values in
 /// order (from+1 .. to), [captured] = opponent tokens sent home.
 @immutable
@@ -116,6 +168,7 @@ class LudoMove {
     required this.from,
     required this.to,
     this.captured = const [],
+    this.capturedFrom = const {},
   });
 
   final LudoColor color;
@@ -123,6 +176,9 @@ class LudoMove {
   final int from;
   final int to;
   final List<(LudoColor, int)> captured;
+
+  /// Where a capture's victims stood (online: they may already be back in base).
+  final Map<(LudoColor, int), int> capturedFrom;
 
   bool get leavesBase => from == LudoRules.base;
   bool get reachesHome => to == LudoRules.home;
@@ -137,13 +193,19 @@ class LudoMove {
 /// [passIfStuck]) → [move] returns a [LudoMove] for the board to animate →
 /// [finishMove] commits it and keeps or passes the turn.
 class LudoGame extends ChangeNotifier {
-  LudoGame({required this.colors, math.Random? rng})
+  LudoGame({required this.colors, math.Random? rng, this.layout = LudoLayout.classic})
     : assert(colors.length >= 2 && colors.length <= 4),
       _rng = rng ?? math.Random(),
       tokens = {for (final c in colors) c: List.filled(4, LudoRules.base)};
 
   /// Colours in play, in turn order.
   final List<LudoColor> colors;
+
+  /// Progress → cell mapping ([LudoLayout.server] for online games).
+  final LudoLayout layout;
+
+  /// Online: the moveable tokens the server sent (replaces the local rules).
+  List<int>? serverMovable;
   final math.Random _rng;
 
   /// Progress of each colour's 4 tokens (−1 base · 0..55 board · 56 home).
@@ -173,6 +235,8 @@ class LudoGame extends ChangeNotifier {
 
   /// Tokens of the current player that can move with [rolled].
   List<int> get movable {
+    final server = serverMovable;
+    if (server != null) return server;
     final r = rolled;
     if (r == null) return const [];
     final list = tokens[current]!;
@@ -264,6 +328,47 @@ class LudoGame extends ChangeNotifier {
     } else {
       _nextPlayer();
     }
+    notifyListeners();
+  }
+
+  // ── Online (the server is the referee) ──
+
+  /// Replace the whole position with the server's [state] — never a local
+  /// guess (ludo.md §4). [pending] animates first, then [clearPending].
+  void applyServer({
+    required Map<LudoColor, List<int>> positions,
+    required LudoColor? current,
+    int? rolled,
+    List<int>? movable,
+    LudoMove? pending,
+    LudoColor? winner,
+    String? text,
+  }) {
+    for (final e in positions.entries) {
+      tokens[e.key] = List.of(e.value);
+    }
+    if (current != null && colors.contains(current)) _turn = colors.indexOf(current);
+    this.rolled = rolled;
+    if (rolled != null && rolled != lastRoll) {
+      lastRoll = rolled;
+    }
+    serverMovable = movable ?? const [];
+    this.winner = winner;
+    if (text != null) lastText = text;
+    this.pending = pending;
+    notifyListeners();
+  }
+
+  /// A dice roll to show (bumps [rollId] so the dice animates).
+  void showRoll(int value) {
+    lastRoll = value;
+    rollId++;
+    notifyListeners();
+  }
+
+  /// The board finished animating [pending].
+  void clearPending() {
+    pending = null;
     notifyListeners();
   }
 

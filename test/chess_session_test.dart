@@ -210,7 +210,8 @@ void main() {
     fake.serverSend({'event': 'game.start_error', 'error': {'code': 'invalid_state', 'message': 'stake debit failed'}});
     await Future<void>.delayed(Duration.zero);
     expect(session.phase, ChessPhase.error);
-    expect(session.lastError, 'stake debit failed');
+    // The server's message is developer text: the player sees the app's own.
+    expect(session.lastError, 'The match couldn’t start. Please try again.');
   });
 
   test('room.create sends the backend currency value ("token")', () async {

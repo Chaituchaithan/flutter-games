@@ -23,32 +23,19 @@ class GameEndpoints {
   /// Whether this game's socket goes through the local dev proxy.
   bool get viaProxy => !_hasOverride && ProxyConfig.enabled;
 
-  /// The socket URL to dial (without auth).
+  /// The socket URL to dial. Never carries the token: the socket signs in
+  /// with its `auth.login` frame.
   String get socketUrl {
     if (_hasOverride) return game.wsUrlOverride;
-    if (ProxyConfig.enabled) return '${ProxyConfig.wsBase}/svc/${game.port}${game.socketPath}';
+    if (ProxyConfig.enabled) return '${ProxyConfig.wsBase}/svc/${AppConfig.server.servicePort(game.port)}${game.socketPath}';
     return AppConfig.server.socketUrl(game.port, game.socketPath);
   }
-
-  /// The socket URL with the token as `?token=` — only through the proxy,
-  /// because a browser can't set WS headers (the proxy lifts it into a Bearer
-  /// header upstream). Direct connections send the token as a header instead
-  /// ([socketHeaders]). It also goes in the `auth.login` first frame either way.
-  String socketUrlWithToken(String token) {
-    if (token.isEmpty || !viaProxy) return socketUrl;
-    final sep = socketUrl.contains('?') ? '&' : '?';
-    return '$socketUrl${sep}token=${Uri.encodeQueryComponent(token)}';
-  }
-
-  /// Upgrade headers for native: `Authorization: Bearer <token>` (web ignores them).
-  Map<String, dynamic> socketHeaders(String token) =>
-      token.isEmpty ? const {} : {'Authorization': 'Bearer $token'};
 
   // ── REST (same port as the socket) ──
 
   /// `http://<host>:<port>` (or `<proxy>/svc/<port>` when the proxy is ON).
   String get apiBase => ProxyConfig.enabled
-      ? '${ProxyConfig.httpBase}/svc/${game.port}'
+      ? '${ProxyConfig.httpBase}/svc/${AppConfig.server.servicePort(game.port)}'
       : AppConfig.server.serviceBase(game.port);
 
   /// A path on the game's REST API, e.g. `api('/health/deep')`.

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/game_socket_login.dart';
 import '../../app/routes.dart';
+import '../../app/session_guard.dart';
 import '../../services/app_exception.dart';
 import '../../services/session.dart';
 import '../../utils/validators.dart';
@@ -15,7 +16,10 @@ import '../../widgets/aura.dart';
 /// Login — "Welcome back". Standalone screen (uses AuraScaffold).
 /// Signs in via the session/AuthService. See docs/DESIGN_SPEC.md.
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.initialEmail});
+
+  /// Pre-filled email (e.g. after a password reset).
+  final String? initialEmail;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -28,7 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   /// locked (BusyGuard) and that button shows the spinner.
   _SignInKind? _pending;
   bool get _busy => _pending != null;
-  final _email = TextEditingController();
+  late final _email = TextEditingController(text: widget.initialEmail);
   final _password = TextEditingController();
   String? _emailError;
   String? _passwordError;
@@ -65,6 +69,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // (fetched via /users/me) instead of a hardcoded one.
       await _connectSocketThenHome(username: ref.read(sessionProvider)?.username);
     } on AppException catch (e) {
+      // A ban or region refusal gets its full screen (12-safety.md).
+      if (handleSignInBlock(e)) return;
       if (mounted) showAuraToast(context, e.message, kind: AuraToastKind.error);
     } on Object catch (_) {
       if (mounted) showAuraToast(context, "Couldn't sign in. Try again.", kind: AuraToastKind.error);
@@ -104,14 +110,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _guest() => _auth(_SignInKind.guest, () => ref.read(sessionProvider.notifier).loginGuest());
 
-  // Real OAuth is stubbed server-side (503). Placeholder: the Apple/Google
-  // buttons continue into the app signed out. Swap for a real OAuth sign-in
-  // when the backend supports it.
-  Future<void> _oauthContinue(_SignInKind kind) async {
+  /// "Email me a code": a password-free login (01-auth.md §8). Sends the code
+  /// to the email typed above, then the code screen signs in.
+  Future<void> _emailCode() async {
     if (_busy) return;
-    setState(() => _pending = kind);
+    final emailError = Validators.email(_email.text);
+    setState(() {
+      _emailError = emailError;
+      _passwordError = null;
+    });
+    if (emailError != null) return;
+    FocusScope.of(context).unfocus();
+    final email = _email.text.trim();
+    setState(() => _pending = _SignInKind.code);
     try {
-      await _connectSocketThenHome();
+      final life = await ref.read(sessionProvider.notifier).sendLoginCode(email);
+      if (!mounted) return;
+      setState(() => _pending = null);
+      final signedIn = await Navigator.pushNamed(context, Routes.otp,
+          arguments: {'mode': 'login', 'email': email, 'minutes': life.inMinutes});
+      if (signedIn == true && mounted) {
+        setState(() => _pending = _SignInKind.code);
+        await _connectSocketThenHome(username: ref.read(sessionProvider)?.username);
+      }
+    } on AppException catch (e) {
+      if (!mounted) return;
+      final text = (e.statusCode == 503) ? "Code login isn't available yet. Use your password." : e.message;
+      showAuraToast(context, text, kind: AuraToastKind.error);
+    } on Object catch (_) {
+      if (mounted) showAuraToast(context, 'Something went wrong. Try again.', kind: AuraToastKind.error);
     } finally {
       if (mounted) setState(() => _pending = null);
     }
@@ -159,23 +186,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               style: AuraText.body.copyWith(color: AuraColors.textSecondary),
             ),
             const SizedBox(height: 24),
-            LightButton(
-              label: context.l10n.continueWithApple,
-              leading: const Icon(Icons.apple, size: 22, color: Colors.black),
-              loading: _pending == _SignInKind.apple,
-              onPressed: () => _oauthContinue(_SignInKind.apple),
-            ),
-            const SizedBox(height: 12),
-            LightButton(
-              label: context.l10n.continueWithGoogle,
-              dark: true,
-              leading: const _GoogleG(size: 20),
-              loading: _pending == _SignInKind.google,
-              onPressed: () => _oauthContinue(_SignInKind.google),
-            ),
-            const SizedBox(height: 20),
-            _OrDivider(label: context.l10n.orLogInWithEmail),
-            const SizedBox(height: 20),
             AuraTextField(
               hint: context.l10n.emailHint,
               icon: Icons.mail_outline,
@@ -227,6 +237,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             const SizedBox(height: 14),
             GradientButton(label: context.l10n.logIn, onPressed: _signIn, loading: _pending == _SignInKind.email),
+            const SizedBox(height: 12),
+            // No social sign-in: the gateway doesn't offer it yet (01-auth.md §10).
+            SecondaryButton(label: 'Email me a code', onPressed: _emailCode, loading: _pending == _SignInKind.code),
             const SizedBox(height: 12),
             SecondaryButton(label: context.l10n.continueAsGuest, onPressed: _guest, loading: _pending == _SignInKind.guest),
             const SizedBox(height: 24),
@@ -297,49 +310,4 @@ class _AuraLogoPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// A simple multicolour "G" mark stand-in for the Google logo.
-class _GoogleG extends StatelessWidget {
-  const _GoogleG({required this.size});
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: SweepGradient(
-          colors: [Color(0xFF4285F4), Color(0xFF34A853), Color(0xFFFBBC05), Color(0xFFEA4335), Color(0xFF4285F4)],
-        ),
-      ),
-      child: Text(
-        'G',
-        style: TextStyle(color: Colors.white, fontSize: size * 0.62, fontWeight: FontWeight.w800, height: 1),
-      ),
-    );
-  }
-}
-
-/// Centered label flanked by thin hairlines.
-class _OrDivider extends StatelessWidget {
-  const _OrDivider({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider(color: AuraColors.cardBorder, thickness: 1)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(label, style: const TextStyle(color: AuraColors.skip, fontSize: 12.5)),
-        ),
-        const Expanded(child: Divider(color: AuraColors.cardBorder, thickness: 1)),
-      ],
-    );
-  }
-}
-
-enum _SignInKind { email, guest, apple, google }
+enum _SignInKind { email, code, guest }

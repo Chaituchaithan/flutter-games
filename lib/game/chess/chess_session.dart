@@ -126,11 +126,11 @@ class ChessSession extends ChangeNotifier implements GameSession {
     _setPhase(ChessPhase.connecting);
     try {
       await socket.connect();
-      await socket.login(token: token, username: username);
+      await socket.login(token: token);
       _sub = socket.broadcasts.listen(_onBroadcast);
       _setPhase(ChessPhase.authenticated);
     } on Object catch (e) {
-      lastError = '$e';
+      lastError = socketErrorText(e, fallback: "Couldn't reach the game server. Check your connection and try again.");
       _setPhase(ChessPhase.error);
     }
   }
@@ -176,7 +176,7 @@ class ChessSession extends ChangeNotifier implements GameSession {
       'full' => 'That room is already full.',
       'already_in_room' => 'You’re still in another room. Go back and try again.',
       'insufficient_balance' => 'Not enough balance for this stake. Top up in the Store and try again.',
-      _ => message.isNotEmpty ? message : 'Couldn’t open the room. Please try again.',
+      _ => socketErrorText(SocketError(code, message), fallback: 'Couldn’t open the room. Please try again.'),
     };
     _setPhase(ChessPhase.error);
   }
@@ -228,7 +228,7 @@ class ChessSession extends ChangeNotifier implements GameSession {
     startFailed = true;
     lastError = code == 'insufficient_balance' || message.toLowerCase().contains('balance')
         ? 'Not enough balance for this stake. Top up in the Store and try again.'
-        : (message.isNotEmpty ? message : 'The match couldn’t start. Please try again.');
+        : socketErrorText(SocketError(code, message), fallback: 'The match couldn’t start. Please try again.');
     _setPhase(ChessPhase.error);
   }
   @override
@@ -255,7 +255,7 @@ class ChessSession extends ChangeNotifier implements GameSession {
     final data = <String, dynamic>{'action_type': 'move', 'from': squareName(m.from), 'to': squareName(m.to)};
     if (m.promotion != null) data['promotion'] = _promoChar(m.promotion!);
     socket.request(SocketEvent.gameAction, data).catchError((Object e) {
-      lastError = '$e';
+      lastError = socketErrorText(e, fallback: 'That move was not accepted.');
       notifyListeners();
       // A rejected move (rare — same FIDE engine both sides) could be resynced
       // from a full state snapshot here in a later revision.

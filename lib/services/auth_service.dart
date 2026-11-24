@@ -1,30 +1,107 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../configs/configs.dart';
 import '../data/models/user.dart';
+import 'account_store.dart';
 import 'api_client.dart';
+import 'app_exception.dart';
 
 /// Result of a successful auth call: the player + their token pair.
-/// The API issues an HS256 JWT access token (15 min) plus an opaque refresh
-/// token (7 days, rotated via /auth/refresh). See docs/SERVICES_AND_REALTIME.md.
+/// The API issues an access token (15 min) plus an opaque, single-use refresh
+/// token (7 days, rotated via /auth/refresh). Both are opaque to the app — it
+/// never decodes them. Contract: docs/services/01-auth.md.
 class AuthResult {
-  const AuthResult(this.user, {this.accessToken = '', this.refreshToken});
+  const AuthResult(this.user, {this.accessToken = '', this.refreshToken, this.expiresIn});
   final User user;
   final String accessToken;
   final String? refreshToken;
+
+  /// `expires_in` of the access token; the expiry is `now + expiresIn`.
+  final Duration? expiresIn;
+}
+
+/// Optional welcome fields for sign-up and guest create (01-auth.md §1, §7a).
+/// Null fields are left out of the body.
+class SignUpExtras {
+  const SignUpExtras({this.referralCode, this.entryGame, this.entrySource = 'direct', this.deviceId});
+
+  /// A friend's code; a wrong or used-up code never fails the sign-up.
+  final String? referralCode;
+
+  /// The game code the player came in through (`ludo`, `snake-and-ladder`).
+  final String? entryGame;
+
+  /// `direct` · `deeplink` · `store` · `invite` · `ad` (anything else is a 400).
+  final String entrySource;
+
+  /// This install's stable id ([TokenStore.deviceId]).
+  final String? deviceId;
+
+  static const sources = {'direct', 'deeplink', 'store', 'invite', 'ad'};
+
+  Map<String, dynamic> toJson({bool includeReferral = true}) => {
+        if (includeReferral && referralCode != null && referralCode!.trim().isNotEmpty) 'referral_code': referralCode!.trim(),
+        'entry_game': ?entryGame,
+        'entry_source': sources.contains(entrySource) ? entrySource : 'direct',
+        'device_id': ?deviceId,
+      };
+}
+
+/// Forgot password step 1 reply (`202`).
+class PasswordResetRequest {
+  const PasswordResetRequest({required this.expiresIn, this.debugCode});
+
+  /// How long the emailed code is valid (10 min).
+  final Duration expiresIn;
+
+  /// Development servers only (no email provider yet): the code itself. May
+  /// pre-fill the code field in debug builds; never relied on.
+  final String? debugCode;
 }
 
 /// Auth endpoints (mockapi phase → real API). Paths per the Portal Gateway API
 /// doc: /api/v1/auth/{login,register,refresh,logout}, current user at /users/me.
 abstract class AuthService {
   Future<AuthResult> login({required String email, required String password});
-  Future<AuthResult> register({required String name, required String email, required String password});
-  Future<AuthResult> loginGuest();
-  Future<AuthResult> refresh(String refreshToken);
-  Future<AuthResult> verifyOtp({required String code});
-  Future<void> resetPassword({required String email, required String code, required String newPassword});
+  Future<AuthResult> register({required String name, required String email, required String password, SignUpExtras extras});
+
+  /// POST /guest/create — a real account with no email or password.
+  Future<AuthResult> loginGuest({SignUpExtras extras});
+
+  /// POST /guest/convert (the guest's token) — same id, now with email +
+  /// password; returns a new token pair.
+  Future<AuthResult> convertGuest({required String username, required String email, required String password});
+  ///
+  /// [current]: the signed-in player. If the profile read after the token
+  /// rotation fails, the new pair is still returned with [current], because
+  /// the old refresh token is already dead.
+  Future<AuthResult> refresh(String refreshToken, {User? current});
+
+  /// Log in with an email code 1: POST /otp/login/send. Same reply for an
+  /// unknown email. Returns how long the code is valid.
+  Future<Duration> sendLoginCode({required String email});
+
+  /// Log in with an email code 2: POST /otp/login/verify → token reply.
+  Future<AuthResult> verifyLoginCode({required String email, required String code});
+
+  /// Verify email 1 (signed in): POST /otp/send {purpose: email_verify}.
+  Future<Duration> sendEmailVerifyCode();
+
+  /// Verify email 2: POST /otp/verify — true when verified. A wrong code is a
+  /// `200 {"verified": false}`, so this returns false rather than throwing.
+  Future<bool> verifyEmail({required String code});
+
+  /// Forgot password 1: POST /auth/forgot-password — emails a 6-digit code.
+  /// The reply is the same whether or not the email has an account.
+  Future<PasswordResetRequest> requestPasswordReset({required String email});
+
+  /// Forgot password 2: POST /auth/forgot-password/verify — returns the reset
+  /// token (10 min, single use). Keep it in memory only.
+  Future<String> verifyResetCode({required String email, required String code});
+
+  /// Forgot password 3: POST /auth/reset-password. Every session of the
+  /// account, on every device, is signed out.
+  Future<void> resetPassword({required String resetToken, required String newPassword});
 
   /// POST /auth/change-password. The server then revokes every session.
   Future<void> changePassword({required String currentPassword, required String newPassword});
@@ -46,23 +123,45 @@ class StaticAuthService implements AuthService {
       const AuthResult(User.demo, accessToken: 'demo-access', refreshToken: 'demo-refresh');
 
   @override
-  Future<AuthResult> register({required String name, required String email, required String password}) async =>
+  Future<AuthResult> register({required String name, required String email, required String password, SignUpExtras extras = const SignUpExtras()}) async =>
       AuthResult(User.demo.copyWith(displayName: name.isEmpty ? 'Player' : name),
           accessToken: 'demo-access', refreshToken: 'demo-refresh');
 
   @override
-  Future<AuthResult> loginGuest() async =>
+  Future<AuthResult> loginGuest({SignUpExtras extras = const SignUpExtras()}) async =>
       AuthResult(User.demo.copyWith(displayName: 'Guest'), accessToken: 'demo-access', refreshToken: 'demo-refresh');
 
   @override
-  Future<AuthResult> refresh(String refreshToken) async =>
+  Future<AuthResult> convertGuest({required String username, required String email, required String password}) async =>
+      AuthResult(User.demo.copyWith(displayName: username), accessToken: 'demo-access', refreshToken: 'demo-refresh');
+
+  @override
+  Future<Duration> sendLoginCode({required String email}) async => const Duration(minutes: 10);
+
+  @override
+  Future<AuthResult> verifyLoginCode({required String email, required String code}) async =>
       const AuthResult(User.demo, accessToken: 'demo-access', refreshToken: 'demo-refresh');
 
   @override
-  Future<AuthResult> verifyOtp({required String code}) async => const AuthResult(User.demo);
+  Future<Duration> sendEmailVerifyCode() async => const Duration(minutes: 10);
 
   @override
-  Future<void> resetPassword({required String email, required String code, required String newPassword}) async {}
+  Future<bool> verifyEmail({required String code}) async => true;
+
+  @override
+  Future<AuthResult> refresh(String refreshToken, {User? current}) async =>
+      const AuthResult(User.demo, accessToken: 'demo-access', refreshToken: 'demo-refresh');
+
+
+  @override
+  Future<PasswordResetRequest> requestPasswordReset({required String email}) async =>
+      const PasswordResetRequest(expiresIn: Duration(minutes: 10), debugCode: '123456');
+
+  @override
+  Future<String> verifyResetCode({required String email, required String code}) async => 'demo-reset';
+
+  @override
+  Future<void> resetPassword({required String resetToken, required String newPassword}) async {}
 
   @override
   Future<void> changePassword({required String currentPassword, required String newPassword}) async {}
@@ -84,8 +183,12 @@ class StaticAuthService implements AuthService {
 }
 
 class RemoteAuthService implements AuthService {
-  const RemoteAuthService(this._api);
+  const RemoteAuthService(this._api, {this.onMe});
   final ApiClient _api;
+
+  /// Gets every raw `GET /users/me` this service reads, so the account store
+  /// (02-profile-and-sessions.md) is filled without a second read.
+  final void Function(Map<String, dynamic> me)? onMe;
 
   /// First non-empty string among [keys], checking a `data` envelope too.
   String? _str(Map m, List<String> keys) {
@@ -102,50 +205,39 @@ class RemoteAuthService implements AuthService {
     return (body as Map).cast<String, dynamic>();
   }
 
-  /// From an auth response, extract the token pair and the user. Now that the
-  /// backend serves it, fetch the authoritative profile from `/users/me`
-  /// (so the real username is available for the socket identity). Falls back to
-  /// an embedded user, then to JWT claims, if that call is unavailable.
-  Future<AuthResult> _finish(dynamic body) async {
+  /// From a token reply (`access_token`, `refresh_token`, `expires_in`), set
+  /// the token and read the player from `GET /users/me` — the only source of
+  /// who the user is (the JWT is opaque). If that read fails, the previous
+  /// token is put back and the error is rethrown.
+  Future<AuthResult> _finish(dynamic body, {User? fallback}) async {
     final resp = (body as Map).cast<String, dynamic>();
-    final access = _str(resp, ['access_token', 'accessToken', 'token', 'jwt']) ?? '';
+    final access = _str(resp, ['access_token', 'accessToken', 'token']) ?? '';
     final refresh = _str(resp, ['refresh_token', 'refreshToken']);
-    if (access.isNotEmpty) _api.authToken = access;
+    final rawExpires = resp['expires_in'] ?? (resp['data'] is Map ? (resp['data'] as Map)['expires_in'] : null);
+    final expiresIn = rawExpires is num ? Duration(seconds: rawExpires.toInt()) : null;
+    final previous = _api.authToken;
+    final previousExpiry = _api.accessExpiry;
+    if (access.isNotEmpty) {
+      _api.authToken = access;
+      _api.accessExpiry = expiresIn == null ? null : DateTime.now().add(expiresIn);
+    }
     User user;
     try {
       user = await fetchMe();
     } on Object {
       final embedded = resp['user'] ?? (resp['data'] is Map ? (resp['data'] as Map)['user'] : null);
-      user = embedded is Map ? User.fromJson(embedded.cast<String, dynamic>()) : _userFromJwt(access);
-    }
-    return AuthResult(user, accessToken: access, refreshToken: refresh);
-  }
-
-  /// Minimal [User] derived from the access-token JWT claims, used when
-  /// /users/me is unavailable. `sub` is the user id; username/email seed a name.
-  User _userFromJwt(String jwt) {
-    final sub = _jwtClaim(jwt, 'sub') ?? '';
-    final username = _jwtClaim(jwt, 'username');
-    final name = username ?? _jwtClaim(jwt, 'email') ?? 'Player';
-    // Carry the real account username through as the handle — it's the socket
-    // `auth.login` identity, so it must not be a guess derived from the email.
-    return User.fromJson({'id': sub, 'display_name': name.split('@').first, 'username': ?username});
-  }
-
-  /// Reads a single claim from a JWT payload (base64url middle segment).
-  String? _jwtClaim(String jwt, String key) {
-    try {
-      final parts = jwt.split('.');
-      if (parts.length < 2) return null;
-      var payload = parts[1].replaceAll('-', '+').replaceAll('_', '/');
-      while (payload.length % 4 != 0) {
-        payload += '=';
+      if (embedded is! Map && fallback != null && access.isNotEmpty) {
+        // Refresh: the tokens rotated, so keep the new pair and the player.
+        return AuthResult(fallback, accessToken: access, refreshToken: refresh, expiresIn: expiresIn);
       }
-      final map = (jsonDecode(utf8.decode(base64.decode(payload))) as Map).cast<String, dynamic>();
-      return map[key]?.toString();
-    } catch (_) {
-      return null;
+      if (embedded is! Map) {
+        _api.authToken = previous;
+        _api.accessExpiry = previousExpiry;
+        rethrow;
+      }
+      user = User.fromJson(embedded.cast<String, dynamic>());
     }
+    return AuthResult(user, accessToken: access, refreshToken: refresh, expiresIn: expiresIn);
   }
 
   @override
@@ -153,29 +245,68 @@ class RemoteAuthService implements AuthService {
       _finish(await _api.post(ApiEndpoints.authLogin, body: {'email': email, 'password': password}));
 
   @override
-  Future<AuthResult> register({required String name, required String email, required String password}) async =>
-      _finish(await _api.post(ApiEndpoints.authRegister, body: {'username': name, 'email': email, 'password': password}));
+  Future<AuthResult> register({required String name, required String email, required String password, SignUpExtras extras = const SignUpExtras()}) async =>
+      _finish(await _api.post(ApiEndpoints.authRegister,
+          body: {'username': name, 'email': email, 'password': password, ...extras.toJson()}));
 
   @override
-  Future<AuthResult> loginGuest() async => _finish(await _api.post(ApiEndpoints.guestCreate));
+  Future<AuthResult> loginGuest({SignUpExtras extras = const SignUpExtras()}) async =>
+      _finish(await _api.post(ApiEndpoints.guestCreate, body: extras.toJson(includeReferral: false)));
 
   @override
-  Future<AuthResult> refresh(String refreshToken) async =>
-      _finish(await _api.post(ApiEndpoints.authRefresh, body: {'refresh_token': refreshToken}));
+  Future<AuthResult> convertGuest({required String username, required String email, required String password}) async =>
+      _finish(await _api.post(ApiEndpoints.guestConvert, body: {'username': username, 'email': email, 'password': password}));
 
-  @override
-  Future<AuthResult> verifyOtp({required String code}) async {
-    // OTP is bearer-scoped (post-auth) and stubbed (503 outside debug); verifying
-    // just re-reads the current account. No token change.
-    await _api.post(ApiEndpoints.otpVerify, body: {'code': code, 'purpose': 'email_verification'});
-    return AuthResult(await fetchMe());
+  Duration _expires(dynamic res) {
+    final secs = res is Map ? res['expires_in'] : null;
+    return Duration(seconds: secs is num ? secs.toInt() : 600);
   }
 
   @override
-  Future<void> resetPassword({required String email, required String code, required String newPassword}) async {
-    // Note: the API exposes bearer /auth/change-password (needs the current
-    // password); there is no public forgot-password endpoint. Left as a no-op
-    // until that flow exists server-side.
+  Future<Duration> sendLoginCode({required String email}) async =>
+      _expires(await _api.post(ApiEndpoints.otpLoginSend, body: {'email': email}));
+
+  @override
+  Future<AuthResult> verifyLoginCode({required String email, required String code}) async =>
+      _finish(await _api.post(ApiEndpoints.otpLoginVerify, body: {'email': email, 'code': code}));
+
+  @override
+  Future<Duration> sendEmailVerifyCode() async =>
+      _expires(await _api.post(ApiEndpoints.otpSend, body: {'purpose': 'email_verify'}));
+
+  @override
+  Future<bool> verifyEmail({required String code}) async {
+    final res = await _api.post(ApiEndpoints.otpVerify, body: {'purpose': 'email_verify', 'code': code});
+    return res is Map && res['verified'] == true;
+  }
+
+  @override
+  Future<AuthResult> refresh(String refreshToken, {User? current}) async =>
+      _finish(await _api.post(ApiEndpoints.authRefresh, body: {'refresh_token': refreshToken}), fallback: current);
+
+  @override
+  Future<PasswordResetRequest> requestPasswordReset({required String email}) async {
+    final res = await _api.post(ApiEndpoints.authForgotPassword, body: {'email': email});
+    final m = res is Map ? res : const {};
+    final secs = m['expires_in'];
+    final debug = m['debug_code'];
+    return PasswordResetRequest(
+      expiresIn: Duration(seconds: secs is num ? secs.toInt() : 600),
+      debugCode: debug is String && debug.isNotEmpty ? debug : null,
+    );
+  }
+
+  @override
+  Future<String> verifyResetCode({required String email, required String code}) async {
+    final res = await _api.post(ApiEndpoints.authForgotPasswordVerify, body: {'email': email, 'code': code});
+    final token = res is Map ? _str(res, ['reset_token']) : null;
+    if (token == null) throw const AppException('Something went wrong. Try again.');
+    return token;
+  }
+
+  @override
+  Future<void> resetPassword({required String resetToken, required String newPassword}) async {
+    await _api.post(ApiEndpoints.authResetPassword, body: {'reset_token': resetToken, 'new_password': newPassword});
   }
 
   @override
@@ -195,6 +326,9 @@ class RemoteAuthService implements AuthService {
   @override
   Future<User> fetchMe() async {
     final me = _unwrap(await _api.get(ApiEndpoints.usersMe));
+    onMe?.call(me);
+    // /users/me embeds the profile; older servers need the separate read.
+    if (me['profile'] is Map) return User.fromApi(me, (me['profile'] as Map).cast<String, dynamic>());
     Map<String, dynamic>? profile;
     final id = me['id']?.toString();
     if (id != null && id.isNotEmpty) {
@@ -231,5 +365,7 @@ class RemoteAuthService implements AuthService {
 final authServiceProvider = Provider<AuthService>((ref) {
   final remote = ref.watch(useRemoteAuthProvider);
   final api = ref.watch(apiClientProvider);
-  return remote ? RemoteAuthService(api) : const StaticAuthService();
+  return remote
+      ? RemoteAuthService(api, onMe: (me) => ref.read(accountStoreProvider.notifier).seed(me))
+      : const StaticAuthService();
 });

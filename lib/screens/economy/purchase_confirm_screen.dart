@@ -1,90 +1,156 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/routes.dart';
+import '../../data/models/store.dart';
+import '../../data/models/wallet.dart';
+import '../../services/app_exception.dart';
+import '../../services/iap_bridge.dart';
+import '../../services/store_service.dart';
+import '../../services/wallet_store.dart';
 import '../../widgets/aura.dart';
 
-/// Present the purchase confirmation as a modal bottom sheet (mockup `purchaseOpen`).
-Future<void> showPurchaseSheet(
-  BuildContext context, {
-  String? name,
-  String? amount,
-  String? price,
-  Currency kind = Currency.gold,
-  String? bonus,
-  String? balanceAfter,
-}) {
-  return showModalBottomSheet<void>(
+/// What the buy sheet sells (11-store.md "Buy sheet"): the item, the price in
+/// force, and the action that buys it through [StoreController].
+class BuyRequest {
+  const BuyRequest({
+    required this.name,
+    required this.buy,
+    this.detail,
+    this.currency,
+    this.price,
+    this.struckPrice,
+    this.usdCents,
+    this.icon = Icons.shopping_bag_outlined,
+    this.successText,
+  });
+
+  /// A shop item: a wallet purchase, or a real-money pack (sandbox / store).
+  factory BuyRequest.shopItem(ShopItem item, {String? detail}) {
+    final pack = item.payment == ShopPayment.realMoney;
+    return BuyRequest(
+      name: item.name,
+      detail: detail ?? item.description,
+      currency: item.walletCurrency,
+      price: pack ? null : item.chargedPrice,
+      struckPrice: item.struckPrice,
+      usdCents: pack ? item.priceUsdCents : null,
+      icon: switch (item.category) {
+        ShopCategory.adFree => Icons.block,
+        ShopCategory.avatar => Icons.face_retouching_natural,
+        ShopCategory.powerUpPack => Icons.bolt,
+        _ => Icons.toll,
+      },
+      successText: pack ? null : '${item.name} is yours!',
+      buy: (c) => pack ? c.buyPack(item) : c.buyItem(item),
+    );
+  }
+
+  final String name;
+  final String? detail;
+
+  /// Wallet price (tokens / gold); null for real money.
+  final WalletCurrency? currency;
+  final int? price;
+  final int? struckPrice;
+
+  /// Real-money price in US cents (coin packs).
+  final int? usdCents;
+  final IconData icon;
+
+  /// The toast on success (null = the caller shows its own result).
+  final String? successText;
+
+  /// Runs the purchase; its value is what the sheet pops with.
+  final Future<Object?> Function(StoreController c) buy;
+
+  bool get realMoney => usdCents != null;
+}
+
+/// The buy sheet. Pops with the purchase's result, or null when closed /
+/// failed. Errors are shown in the sheet as toasts with the store's text.
+Future<Object?> showBuySheet(BuildContext context, BuyRequest request) {
+  return showModalBottomSheet<Object?>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0xBD05040C), // rgba(5,4,12,0.74)
     builder: (_) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: PurchaseSheet(
-        name: name,
-        amount: amount,
-        price: price,
-        kind: kind,
-        bonus: bonus,
-        balanceAfter: balanceAfter,
-      ),
+      child: PurchaseSheet(request: request),
     ),
   );
 }
 
-/// A selectable payment method.
-typedef _Method = (String label, IconData icon);
+/// Item, price, the wallet balance in that currency and Confirm. Confirm is
+/// greyed out when the balance is short, with "Get more gold / tokens".
+/// Real-money packs: debug builds buy through the sandbox route (no payment);
+/// release builds show "Coming soon" and start no payment.
+class PurchaseSheet extends ConsumerStatefulWidget {
+  const PurchaseSheet({super.key, required this.request, this.onGetMore});
 
-const _methods = <_Method>[
-  ('Apple Pay', Icons.apple),
-  ('Google Pay', Icons.account_balance_wallet),
-  ('Card •••• 4242', Icons.credit_card),
-];
+  final BuyRequest request;
 
-/// Purchase confirmation panel — used both as a modal sheet ([showPurchaseSheet])
-/// and by the routed [PurchaseConfirmScreen] fallback.
-class PurchaseSheet extends StatefulWidget {
-  const PurchaseSheet({
-    super.key,
-    this.name,
-    this.amount,
-    this.price,
-    this.kind = Currency.gold,
-    this.bonus,
-    this.balanceAfter,
-  });
+  /// "Get more gold / tokens" (defaults to closing the sheet with
+  /// [PurchaseSheet.getMore]).
+  final VoidCallback? onGetMore;
 
-  final String? name;
-  final String? amount;
-  final String? price;
-  final Currency kind;
-  final String? bonus;
-  final String? balanceAfter;
+  /// Popped when the player taps "Get more …": open the coin packs.
+  static const getMore = #getMore;
 
   @override
-  State<PurchaseSheet> createState() => _PurchaseSheetState();
+  ConsumerState<PurchaseSheet> createState() => _PurchaseSheetState();
 }
 
-class _PurchaseSheetState extends State<PurchaseSheet> {
-  _Method _method = _methods.first;
+class _PurchaseSheetState extends ConsumerState<PurchaseSheet> {
+  bool _busy = false;
 
-  Future<void> _pickMethod() async {
-    final picked = await showModalBottomSheet<_Method>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _MethodPicker(selected: _method),
-    );
-    if (picked != null && mounted) setState(() => _method = picked);
+  BuyRequest get r => widget.request;
+
+  Future<void> _confirm() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final result = await r.buy(ref.read(storeControllerProvider));
+      if (!mounted) return;
+      if (r.successText != null) showAuraToast(context, r.successText!, kind: AuraToastKind.success);
+      Navigator.of(context).pop(result ?? true);
+    } on AppException catch (e) {
+      if (!mounted) return;
+      showAuraToast(context, e.message.isEmpty ? 'Something went wrong. Try again.' : e.message,
+          kind: e.code == ApiErrorCode.unavailable ? AuraToastKind.info : AuraToastKind.error);
+      // Owned already / the store paused: nothing more to do here.
+      if (e.code == ApiErrorCode.conflict || e.code == ApiErrorCode.killSwitch) Navigator.of(context).maybePop();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isGold = widget.kind == Currency.gold;
-    final unit = isGold ? 'Gold' : 'Tokens';
-    final n = widget.name ?? 'Stack';
-    final amt = widget.amount ?? '1,200';
-    final p = widget.price ?? '\$4.99';
-    final balAfter = widget.balanceAfter ?? amt;
+    final currency = r.currency;
+    final isGold = currency == WalletCurrency.gold;
+    final paused = ref.watch(storePausedProvider);
+    final balance = currency == null ? null : ref.watch(walletProvider).value?.of(currency.currency);
+    final short = currency != null && balance != null && r.price != null && balance < r.price!;
+    final mode = ref.watch(packPurchaseModeProvider);
+
+    final String label;
+    var enabled = paused == null && !short;
+    if (r.realMoney) {
+      final p = formatUsdCents(r.usdCents!);
+      switch (mode) {
+        case PackPurchaseMode.sandbox:
+          label = 'Buy $p · test, no payment';
+        case PackPurchaseMode.store:
+          label = 'Pay $p';
+        case PackPurchaseMode.comingSoon:
+          label = 'Coming soon';
+          enabled = false;
+      }
+    } else {
+      label = short ? 'Not enough ${currency.noun}' : 'Confirm';
+    }
+
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -120,7 +186,6 @@ class _PurchaseSheetState extends State<PurchaseSheet> {
               Row(
                 children: [
                   Expanded(child: Text('Confirm purchase', style: AuraText.title.copyWith(fontSize: 22))),
-                  // Circular close button (mockup: 32px, white@8% fill, white@20% ring).
                   Material(
                     color: Colors.white.withValues(alpha: 0.08),
                     shape: const CircleBorder(),
@@ -142,8 +207,6 @@ class _PurchaseSheetState extends State<PurchaseSheet> {
                 ],
               ),
               const SizedBox(height: 16),
-              // Product summary card (mockup: 60px icon tile · tiny label · big
-              // amount+unit · price on the right · green bonus line).
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: AuraGlass.decoration(radius: 20, shadow: false),
@@ -158,129 +221,81 @@ class _PurchaseSheetState extends State<PurchaseSheet> {
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                       ),
-                      child: CurrencyGlyph(kind: widget.kind, size: 34),
+                      child: Icon(r.icon, color: Colors.white, size: 30),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            n.toUpperCase(),
-                            style: TextStyle(
-                              fontFamily: AuraText.displayFamily,
-                              color: AuraColors.textSecondary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(text: amt),
-                                TextSpan(
-                                  text: ' $unit',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: AuraColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            style: TextStyle(
-                              fontFamily: AuraText.displayFamily,
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (widget.bonus != null && widget.bonus!.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              '${widget.bonus} included',
-                              style: const TextStyle(
-                                color: AuraColors.green,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                          Text(r.name, style: AuraText.cardTitle.copyWith(fontSize: 17)),
+                          if (r.detail != null && r.detail!.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Text(r.detail!, style: AuraText.cardSub),
                           ],
                         ],
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      p,
-                      style: TextStyle(
-                        fontFamily: AuraText.displayFamily,
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    _Price(request: r),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
-              // Key/value rows sit below the card (mockup), not inside it.
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Column(
-                  children: [
-                    _KvRow(
-                      label: 'Balance after',
-                      child: Text(
-                        '$balAfter $unit',
-                        style: TextStyle(
-                          fontFamily: AuraText.displayFamily,
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+              if (currency != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: _KvRow(
+                    label: 'Your ${currency.noun}',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CurrencyGlyph(kind: currency.currency, size: 15),
+                        const SizedBox(width: 5),
+                        Text(
+                          balance == null ? '…' : Wallet.formatAmount(balance),
+                          style: TextStyle(
+                            fontFamily: AuraText.displayFamily,
+                            color: short ? AuraColors.dangerText : Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 9),
-                    _KvRow(
-                      label: 'Payment',
-                      child: InkWell(
-                        onTap: _pickMethod,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(_method.$2, color: Colors.white, size: 16),
-                            const SizedBox(width: 6),
-                            Text(_method.$1,
-                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 2),
-                            const Icon(Icons.chevron_right, color: AuraColors.textSecondary, size: 18),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              if (r.realMoney && mode == PackPurchaseMode.sandbox)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text('Development server: credited without payment.', style: AuraText.caption),
+                ),
+              if (r.realMoney && mode == PackPurchaseMode.comingSoon)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text('Buying with real money is coming soon.', style: AuraText.caption),
+                ),
+              if (paused != null) ...[
+                const SizedBox(height: 8),
+                Text(paused, style: const TextStyle(color: AuraColors.dangerText, fontSize: 13)),
+              ],
               const SizedBox(height: 16),
               _PayButton(
-                label: 'Pay $p',
+                label: _busy ? 'Please wait…' : label,
                 gold: isGold,
-                onPressed: () {
-                  // UI-only flow: hand off to the Purchase Complete screen,
-                  // carrying the credited amount + currency for display.
-                  Navigator.of(context).pushReplacementNamed(
-                    Routes.purchaseComplete,
-                    arguments: {'amount': amt, 'unit': unit, 'gold': isGold},
-                  );
-                },
+                onPressed: enabled && !_busy ? _confirm : null,
               ),
+              if (short) ...[
+                const SizedBox(height: 10),
+                SecondaryButton(
+                  label: 'Get more ${currency.noun}',
+                  onPressed: widget.onGetMore ?? () => Navigator.of(context).pop(PurchaseSheet.getMore),
+                ),
+              ],
               const SizedBox(height: 12),
               Center(
                 child: Text(
-                  'Secure checkout · Restore purchases in Settings',
+                  'Restore purchases in Settings',
                   style: TextStyle(
                     fontFamily: AuraText.bodyFamily,
                     color: Colors.white.withValues(alpha: 0.4),
@@ -298,18 +313,68 @@ class _PurchaseSheetState extends State<PurchaseSheet> {
   }
 }
 
-/// Routed fallback (kept for deep-links / tests). Anchors the sheet at the bottom.
+class _Price extends StatelessWidget {
+  const _Price({required this.request});
+  final BuyRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontFamily: AuraText.displayFamily,
+      color: Colors.white,
+      fontSize: 20,
+      fontWeight: FontWeight.w700,
+    );
+    final r = request;
+    if (r.realMoney) return Text(formatUsdCents(r.usdCents!), style: style);
+    final c = r.currency;
+    final p = r.price;
+    if (c == null || p == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CurrencyGlyph(kind: c.currency, size: 18),
+            const SizedBox(width: 5),
+            Text(Wallet.formatAmount(p), style: style),
+          ],
+        ),
+        if (r.struckPrice != null)
+          Text(
+            Wallet.formatAmount(r.struckPrice!),
+            style: const TextStyle(
+              color: AuraColors.textSecondary,
+              fontSize: 12,
+              decoration: TextDecoration.lineThrough,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Routed fallback (kept for deep-links / tests): the buy sheet for the
+/// `item` passed as route argument, or a sample pack.
 class PurchaseConfirmScreen extends StatelessWidget {
-  const PurchaseConfirmScreen({super.key});
+  const PurchaseConfirmScreen({super.key, this.item});
+  final ShopItem? item;
+
+  static const _sample = ShopItem(
+    id: 2, code: 'tokens_550', name: 'Pouch of Tokens', category: ShopCategory.tokenPack,
+    description: '500 tokens + 50 bonus.', tokenAmount: 500, bonusTokenAmount: 50, priceUnit: 'usd', priceUsdCents: 499,
+  );
 
   @override
   Widget build(BuildContext context) {
     return AuraScaffold(
       padding: EdgeInsets.zero,
       body: Column(
-        children: const [
-          Spacer(),
-          PurchaseSheet(),
+        children: [
+          const Spacer(),
+          PurchaseSheet(request: BuyRequest.shopItem(item ?? _sample)),
         ],
       ),
     );
@@ -317,127 +382,58 @@ class PurchaseConfirmScreen extends StatelessWidget {
 }
 
 /// Currency-tinted confirm CTA (mockup `confirmPurchaseBtn`): gold gradient with
-/// dark ink for Gold, cyan→blue with white ink for Tokens.
+/// dark ink for Gold, cyan→blue with white ink for Tokens. Dimmed when off.
 class _PayButton extends StatelessWidget {
   const _PayButton({required this.label, required this.gold, required this.onPressed});
   final String label;
   final bool gold;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final glow = gold ? AuraColors.gold : AuraColors.gems;
-    return SizedBox(
-      height: 56,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(17),
-        child: InkWell(
+    final on = onPressed != null;
+    return Opacity(
+      opacity: on ? 1 : 0.5,
+      child: SizedBox(
+        height: 56,
+        child: Material(
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(17),
-          onTap: onPressed,
-          child: Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: gold
-                  ? AuraGradients.goldCoin
-                  : const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)]),
-              borderRadius: BorderRadius.circular(17),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-              boxShadow: [
-                BoxShadow(
-                  color: glow.withValues(alpha: 0.45),
-                  blurRadius: 30,
-                  spreadRadius: -10,
-                  offset: const Offset(0, 14),
-                ),
-              ],
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontFamily: AuraText.displayFamily,
-                color: gold ? const Color(0xFF1A1206) : Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Bottom sheet listing payment methods; pops the chosen [_Method].
-class _MethodPicker extends StatelessWidget {
-  const _MethodPicker({required this.selected});
-  final _Method selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 20 + MediaQuery.of(context).padding.bottom),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF17112C), Color(0xFF0B0916)],
-        ),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(top: BorderSide(color: Color(0x33FFFFFF))),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(17),
+            onTap: onPressed,
             child: Container(
-              width: 42,
-              height: 5,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(3),
+                gradient: gold
+                    ? AuraGradients.goldCoin
+                    : const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)]),
+                borderRadius: BorderRadius.circular(17),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                boxShadow: on
+                    ? [
+                        BoxShadow(
+                          color: glow.withValues(alpha: 0.45),
+                          blurRadius: 30,
+                          spreadRadius: -10,
+                          offset: const Offset(0, 14),
+                        ),
+                      ]
+                    : null,
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text('Payment method', style: AuraText.title.copyWith(fontSize: 18)),
-          const SizedBox(height: 14),
-          for (final m in _methods) ...[
-            Material(
-              color: AuraColors.card,
-              borderRadius: BorderRadius.circular(14),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => Navigator.of(context).pop(m),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: m.$1 == selected.$1
-                          ? AuraColors.accentGlow.withValues(alpha: 0.6)
-                          : AuraColors.cardBorder,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(m.$2, color: Colors.white, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(m.$1,
-                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                      ),
-                      if (m.$1 == selected.$1)
-                        const Icon(Icons.check_circle, color: AuraColors.accentGlow, size: 20),
-                    ],
-                  ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AuraText.displayFamily,
+                  color: gold ? const Color(0xFF1A1206) : Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }

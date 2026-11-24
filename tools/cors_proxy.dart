@@ -25,7 +25,10 @@ final _upstreamPort = currentEnvironment.server.gatewayPort;
 const _listenPort = 8899; // keep in sync with proxyPort in lib/configs/proxy_config.dart
 
 Future<void> main() async {
-  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, _listenPort);
+  // PROXY_BIND_ALL=1: listen on the network too, so another computer's
+  // browser can use this proxy (pair with --dart-define=PROXY_HOST=<lan-ip>:8899).
+  final bindAll = Platform.environment['PROXY_BIND_ALL'] == '1';
+  final server = await HttpServer.bind(bindAll ? InternetAddress.anyIPv4 : InternetAddress.loopbackIPv4, _listenPort);
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
   stdout.writeln('CORS proxy: http://localhost:$_listenPort  ->  http://$_upstreamHost:$_upstreamPort');
   await for (final req in server) {

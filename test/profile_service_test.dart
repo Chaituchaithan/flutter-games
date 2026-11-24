@@ -134,7 +134,7 @@ void main() {
     var signedOut = false;
     final api = _client(a)
       ..authToken = 'tok'
-      ..onUnauthorized = () => signedOut = true;
+      ..onUnauthorized = (_) => signedOut = true;
     await expectLater(
       RemoteAuthService(api).changePassword(currentPassword: 'bad', newPassword: 'New12345'),
       throwsA(isA<AppException>().having((e) => e.statusCode, 'status', 401)),
@@ -147,7 +147,7 @@ void main() {
     var token = 'old';
     final a = _FakeAdapter({
       'PATCH /api/v1/users/me/profile': (r) =>
-          r.auth == 'Bearer new' ? (200, _profile(bio: 'after refresh')) : (401, {'error': 'TOKEN_EXPIRED', 'message': 'token expired'}),
+          r.auth == 'Bearer new' ? (200, _profile(bio: 'after refresh')) : (401, {'error': 'UNAUTHORIZED', 'message': 'invalid token: expired'}),
     });
     final api = _client(a)..authToken = token;
     var refreshed = 0;
@@ -158,7 +158,7 @@ void main() {
       api.authToken = token;
       return true;
     };
-    api.onUnauthorized = () => signedOut = true;
+    api.onUnauthorized = (_) => signedOut = true;
 
     final u = await RemoteAuthService(api).updateProfile(User.fromApi(_me, _profile()), bio: 'after refresh');
     expect(refreshed, 1);
@@ -174,10 +174,12 @@ void main() {
     });
     final api = _client(a)..authToken = 'tok';
     var signedOut = false;
-    api.onUnauthorized = () => signedOut = true;
+    api.onUnauthorized = (_) => signedOut = true;
     await expectLater(
       RemoteAuthService(api).updateProfile(User.fromApi(_me, _profile()), bio: 'x'),
-      throwsA(isA<Exception>().having((e) => e.toString(), 'message', contains('guests cannot edit profiles'))),
+      throwsA(isA<AppException>()
+          .having((e) => e.code, 'code', 'FORBIDDEN')
+          .having((e) => e.message, 'message', isNot(contains('guests cannot edit profiles')))),
     );
     await Future<void>.delayed(Duration.zero);
     expect(signedOut, isFalse);

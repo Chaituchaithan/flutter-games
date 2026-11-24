@@ -13,8 +13,13 @@ import 'package:snakeladder/main.dart' show allGamesApp;
 void main() {
   group('ServerConfig', () {
     test('builds REST and socket URLs from one host', () {
-      expect(devServer.apiBaseUrl, 'http://169.58.184.121:31294/api/v1');
-      expect(devServer.socketUrl(30083, '/ws'), 'ws://169.58.184.121:30083/ws');
+      expect(devServer.apiBaseUrl, 'http://192.168.0.235:1280/api/v1');
+      expect(devServer.withHost('10.0.2.2').apiBaseUrl, 'http://10.0.2.2:1280/api/v1');
+      expect(devServer.withHost('10.0.2.2').socketUrl(31285, '/ws'), 'ws://10.0.2.2:1285/ws');
+      // LAN server: game services on their configured port - 30000.
+      expect(devServer.socketUrl(31285, '/ws'), 'ws://192.168.0.235:1285/ws');
+      expect(cloudDevServer.apiBaseUrl, 'http://169.58.184.121:31294/api/v1');
+      expect(cloudDevServer.socketUrl(30083, '/ws'), 'ws://169.58.184.121:30083/ws');
       const prod = ServerConfig(host: 'api.example.com', gatewayPort: 443, secure: true);
       expect(prod.apiBaseUrl, 'https://api.example.com:443/api/v1');
       expect(prod.socketUrl(443, '/ws'), 'wss://api.example.com:443/ws');
@@ -22,17 +27,15 @@ void main() {
   });
 
   group('GameEndpoints', () {
-    test('proxy ON (dev default): socket goes through the proxy, token as query', () {
-      expect(ProxyConfig.enabled, isTrue);
+    test('native debug: direct to the server (the proxy is for web only); no token in the URL', () {
+      expect(ProxyConfig.enabled, isFalse);
       const e = GameEndpoints(chessConfig);
-      expect(e.socketUrl, '${ProxyConfig.wsBase}/svc/31283/ws');
-      expect(e.socketUrlWithToken('abc'), '${ProxyConfig.wsBase}/svc/31283/ws?token=abc');
-      expect(e.socketHeaders('abc'), {'Authorization': 'Bearer abc'});
+      expect(e.socketUrl, 'ws://192.168.0.235:1283/ws');
+      expect(const GameEndpoints(ludoConfig).socketUrl, 'ws://192.168.0.235:1285/ws');
     });
 
     test('each game service has its own port (31281–31292), all on /ws', () {
-      expect(const GameEndpoints(ludoConfig).socketUrl, '${ProxyConfig.wsBase}/svc/31285/ws');
-      expect(devServer.socketUrl(chessConfig.port, chessConfig.socketPath), 'ws://169.58.184.121:31283/ws');
+      expect(devServer.socketUrl(chessConfig.port, chessConfig.socketPath), 'ws://192.168.0.235:1283/ws');
       // Games with a service (port 0 = no service yet: Uno, Carrom, Snooker).
       final ports = {for (final g in GameRegistry.all) if (g.port > 0) g.id: g.port};
       expect(ports, {
@@ -45,10 +48,10 @@ void main() {
 
     test('a game\'s REST API is on the same port as its socket', () {
       const e = GameEndpoints(chessConfig);
-      expect(e.apiBase, '${ProxyConfig.httpBase}/svc/31283'); // proxy ON in dev
-      expect(e.health, '${ProxyConfig.httpBase}/svc/31283/health');
-      expect(e.metrics, '${ProxyConfig.httpBase}/svc/31283/metrics');
-      expect(devServer.serviceBase(31283), 'http://169.58.184.121:31283');
+      expect(e.apiBase, 'http://192.168.0.235:1283');
+      expect(e.health, 'http://192.168.0.235:1283/health');
+      expect(e.metrics, 'http://192.168.0.235:1283/metrics');
+      expect(devServer.serviceBase(31283), 'http://192.168.0.235:1283');
     });
   });
 
@@ -92,15 +95,22 @@ void main() {
       expect(c.read(activeGameProvider), GameId.ludo);
     });
 
-    test('game areas: chess online + Quick Play; Ludo and Snakes Quick Play only', () {
+    test('game areas: chess, Ludo and Snakes online + Quick Play', () {
       expect(GameArea.practiceRoute(GameId.chess), ChessRoutes.setup);
       expect(GameArea.onlineRoute(GameId.chess), ChessRoutes.online);
       expect(GameArea.practiceRoute(GameId.ludo), LudoRoutes.setup);
       expect(GameArea.practiceRoute(GameId.snakesLadders), SnakesRoutes.setup);
-      expect(GameArea.onlineRoute(GameId.ludo), isNull);
-      // No online Ludo yet → login keeps the chess socket.
-      expect(GameArea.socketGame(GameId.ludo), GameId.chess);
-      expect(GameArea.socketGame(GameId.chess), GameId.chess);
+      expect(GameArea.onlineRoute(GameId.ludo), LudoRoutes.online);
+      expect(GameArea.onlineRoute(GameId.snakesLadders), SnakesRoutes.online);
+      // Snake & Ladder: 2–4 seats, free games, 8-char codes.
+      expect(GameArea.onlinePlayerCounts(GameId.snakesLadders), [2, 3, 4]);
+      expect(GameArea.roomCodeLength(GameId.snakesLadders), 8);
+      // Ludo: 2 or 4 in quick match, 2–4 with friends, free games, 8-char codes.
+      expect(GameArea.onlinePlayerCounts(GameId.ludo), [2, 4]);
+      expect(GameArea.friendsPlayerCounts(GameId.ludo), [2, 3, 4]);
+      expect(GameArea.onlineFreePlay(GameId.ludo), isTrue);
+      expect(GameArea.roomCodeLength(GameId.ludo), 8);
+      expect(GameArea.roomCodeLength(GameId.chess), 6);
     });
   });
 

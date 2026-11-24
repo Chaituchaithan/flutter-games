@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../configs/endpoints/api_endpoints.dart';
 import '../../services/api_client.dart';
 import '../../services/app_exception.dart';
@@ -8,8 +10,13 @@ abstract class SubscriptionSource {
   Future<List<SubscriptionPlan>> plans();
   Future<MySubscription> my();
 
-  /// Throws [AppException] (503 until store billing is integrated).
+  /// `POST /subscriptions/subscribe`. Takes no receipt: works on the
+  /// development sandbox only; production answers `503 UNAVAILABLE`. No
+  /// `Idempotency-Key` (a double tap gets a harmless `409`). Throws
+  /// [AppException]; map it with `storeErrorText(e, StoreOp.subscribe)`.
   Future<void> subscribe(int planId, {bool autoRenew = true});
+
+  /// `POST /subscriptions/cancel`: ends the plan **at once** (no refund).
   Future<void> cancel();
 }
 
@@ -22,8 +29,10 @@ class StaticSubscriptionSource implements SubscriptionSource {
     SubscriptionPlan(id: 1, name: 'Free Monthly', tier: 'free', interval: 'monthly', priceCents: 0),
     SubscriptionPlan(id: 2, name: 'Silver Monthly', tier: 'silver', interval: 'monthly', priceCents: 499),
     SubscriptionPlan(id: 4, name: 'Gold Monthly', tier: 'gold', interval: 'monthly', priceCents: 999),
+    SubscriptionPlan(id: 6, name: 'Royal Monthly', tier: 'royal', interval: 'monthly', priceCents: 1999),
     SubscriptionPlan(id: 3, name: 'Silver Yearly', tier: 'silver', interval: 'yearly', priceCents: 4999, durationDays: 365),
     SubscriptionPlan(id: 5, name: 'Gold Yearly', tier: 'gold', interval: 'yearly', priceCents: 9999, durationDays: 365),
+    SubscriptionPlan(id: 7, name: 'Royal Yearly', tier: 'royal', interval: 'yearly', priceCents: 15999, durationDays: 365),
   ];
 
   @override
@@ -70,9 +79,13 @@ class RemoteSubscriptionSource implements SubscriptionSource {
     }
   }
 
+  /// The sandbox records which store "sold" the plan (development only;
+  /// ignored in production).
+  static String get _sandboxStore => defaultTargetPlatform == TargetPlatform.iOS ? 'apple' : 'google';
+
   @override
-  Future<void> subscribe(int planId, {bool autoRenew = true}) async =>
-      _api.post(ApiEndpoints.subscriptionSubscribe, body: {'plan_id': planId, 'auto_renew': autoRenew});
+  Future<void> subscribe(int planId, {bool autoRenew = true}) async => _api.post(ApiEndpoints.subscriptionSubscribe,
+      body: {'plan_id': planId, 'auto_renew': autoRenew, 'sandbox_store': _sandboxStore});
 
   @override
   Future<void> cancel() async => _api.post(ApiEndpoints.subscriptionCancel);

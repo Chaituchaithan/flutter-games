@@ -113,6 +113,15 @@ void main() {
     expect(msg.data['status'], 'in_progress');
   });
 
+  test('a requested connection.ping completes with the pong that carries its id', () async {
+    final fut = client.connect();
+    fake.serverSend({'event': SocketEvent.established, 'data': {}});
+    await fut;
+    final ping = client.request(SocketEvent.ping);
+    fake.serverSend({'id': fake.sent.last['id'], 'event': SocketEvent.pong, 'data': {}});
+    expect((await ping).event, SocketEvent.pong);
+  });
+
   test('server ping is answered with a pong', () async {
     final fut = client.connect();
     fake.serverSend({'event': SocketEvent.established, 'data': {}});
@@ -136,25 +145,73 @@ void main() {
     expect(client.status, SocketStatus.authenticated);
   });
 
-  test('login sends both token and username in the auth.login payload', () async {
+  test('auth.login sends only the token', () async {
     final fut = client.connect();
     fake.serverSend({'event': SocketEvent.established, 'data': {}});
     await fut;
 
-    final loginFut = client.login(token: 'jwt-abc', username: 'test_12345');
+    final loginFut = client.login(token: 'jwt-abc');
     final sent = fake.sent.last;
     expect(sent['event'], SocketEvent.login);
-    expect(sent['data']['token'], 'jwt-abc');
-    expect(sent['data']['username'], 'test_12345');
+    expect(sent['data'], {'token': 'jwt-abc'});
     fake.serverSend({'id': sent['id'], 'event': SocketEvent.loginSuccess, 'data': {'user_id': 'u1'}});
     await loginFut;
   });
 
-  test('reconnect after a drop signs in with a fresh token (not the expired one)', () async {
+  test('connection.established timestamp sets the server clock offset', () async {
+    final fut = client.connect();
+    final serverMs = DateTime.now().millisecondsSinceEpoch + 60000; // server 1 min ahead
+    fake.serverSend({'event': SocketEvent.established, 'data': {'timestamp': serverMs}});
+    await fut;
+    expect(client.serverClockOffset.inSeconds, inInclusiveRange(59, 60));
+    expect(client.serverNow().difference(DateTime.now()).inSeconds, inInclusiveRange(59, 60));
+  });
+
+  test('an error reply with the request id rejects it; connection.error carries the code', () async {
+    final fut = client.connect();
+    fake.serverSend({'event': SocketEvent.established, 'data': {}});
+    await fut;
+    final req = client.request('room.dance');
+    final id = fake.sent.last['id'];
+    fake.serverSend({'id': id, 'event': SocketEvent.connectionError, 'error': {'code': 'unknown_event', 'message': "unknown event 'room.dance'"}});
+    await expectLater(req, throwsA(isA<SocketError>().having((e) => e.code, 'code', 'unknown_event')));
+  });
+
+  test('kill switch: the operator message is player text; other messages are not', () {
+    expect(socketErrorText(const SocketError('kill_switch_engaged', 'Back at 6 pm'), fallback: 'x'), 'Back at 6 pm');
+    expect(socketErrorText(const SocketError('invalid_state', 'dev text'), fallback: 'x'), 'x');
+  });
+
+  test('auth.refresh: a fresh token is sent on the open socket before expires_at', () async {
+    final ch = _FakeChannel();
+    final c = SocketClient(url: Uri.parse('ws://test/ws'), channelFactory: (_) => ch, reauth: () async => 'NEW');
+    final opened = c.connect();
+    ch.serverSend({'event': SocketEvent.established, 'data': {}});
+    await opened;
+    final login = c.login(token: 'OLD');
+    await Future<void>.delayed(Duration.zero);
+    // The refresh timer is set from expires_at; call it directly here.
+    ch.serverSend({
+      'id': ch.sent.last['id'],
+      'event': SocketEvent.loginSuccess,
+      'data': {'user_id': 'u1', 'expires_at': DateTime.now().millisecondsSinceEpoch ~/ 1000 + 900},
+    });
+    await login;
+    final refreshed = c.refreshToken();
+    await Future<void>.delayed(Duration.zero);
+    final frame = ch.sent.last;
+    expect(frame['event'], SocketEvent.refresh);
+    expect(frame['data'], {'token': 'NEW'});
+    ch.serverSend({'id': frame['id'], 'event': SocketEvent.tokenRefreshed, 'data': {'expires_at': 0}});
+    await refreshed;
+    await c.close();
+  });
+
+  test('reconnect after a drop: 0.5 s backoff, a 30 s deadline, then auth.login with a fresh token', () async {
     final channels = <_FakeChannel>[];
     final urls = <Uri>[];
     final c = SocketClient(
-      url: Uri.parse('ws://test/ws?token=OLD'),
+      url: Uri.parse('ws://test/ws'),
       channelFactory: (u) {
         urls.add(u);
         final ch = _FakeChannel();
@@ -162,25 +219,73 @@ void main() {
         return ch;
       },
       reauth: () async => 'NEW',
-      urlForToken: (t) => Uri.parse('ws://test/ws?token=$t'),
     );
     final opened = c.connect();
     channels.last.serverSend({'event': SocketEvent.established, 'data': {}});
     await opened;
-    final login = c.login(token: 'OLD', username: 'u1');
+    final login = c.login(token: 'OLD');
     await Future<void>.delayed(Duration.zero);
     final id = channels.last.sent.last['id'];
     channels.last.serverSend({'id': id, 'event': SocketEvent.loginSuccess, 'data': {'user_id': 'u1'}});
     await login;
 
-    // Server drops the connection (e.g. token expired) → backoff → reconnect.
     await channels.last.sink.close();
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
-    expect(urls.last.queryParameters['token'], 'NEW');
+    await Future<void>.delayed(Duration.zero);
+    expect(c.status, SocketStatus.reconnecting);
+    final left = c.reconnectDeadline!.difference(DateTime.now());
+    expect(left.inSeconds, inInclusiveRange(29, 30));
+
+    // First retry after 0.5 s (not the old 1 s+): wait for it, with slack for a busy CI.
+    final dropped = DateTime.now();
+    while (channels.length < 2 && DateTime.now().difference(dropped) < const Duration(seconds: 5)) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    expect(channels, hasLength(2));
+    expect(DateTime.now().difference(dropped), greaterThanOrEqualTo(const Duration(milliseconds: 450)));
+    expect(urls.every((u) => !u.hasQuery), isTrue, reason: 'never a token in the URL');
     channels.last.serverSend({'event': SocketEvent.established, 'data': {}});
     await Future<void>.delayed(Duration.zero);
     final resumed = channels.last.sent.lastWhere((m) => m['event'] == SocketEvent.login);
-    expect(resumed['data']['token'], 'NEW');
+    expect(resumed['data'], {'token': 'NEW'});
+    channels.last.serverSend({'event': SocketEvent.loginSuccess, 'data': {'user_id': 'u1'}});
+    await Future<void>.delayed(Duration.zero);
+    expect(c.status, SocketStatus.authenticated);
+    expect(c.reconnectDeadline, isNull);
     await c.close();
+  });
+
+  test('a refused sign-in after a reconnect: retries once with a fresh token, then stops', () async {
+    final channels = <_FakeChannel>[];
+    var reauths = 0;
+    final c = SocketClient(
+      url: Uri.parse('ws://test/ws'),
+      channelFactory: (_) => (channels..add(_FakeChannel())).last,
+      reauth: () async => 'T${++reauths}',
+    );
+    final opened = c.connect();
+    channels.last.serverSend({'event': SocketEvent.established, 'data': {}});
+    await opened;
+    final login = c.login(token: 'OLD');
+    await Future<void>.delayed(Duration.zero);
+    channels.last.serverSend({'id': channels.last.sent.last['id'], 'event': SocketEvent.loginSuccess, 'data': {}});
+    await login;
+
+    await channels.last.sink.close();
+    while (channels.length < 2) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    channels.last.serverSend({'event': SocketEvent.established, 'data': {}});
+    await Future<void>.delayed(Duration.zero);
+    channels.last.serverSend({'event': SocketEvent.loginError, 'data': {'code': 'invalid_credentials'}});
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    final logins = channels.last.sent.where((m) => m['event'] == SocketEvent.login).toList();
+    expect(logins, hasLength(2), reason: 'one retry with a fresh token');
+    expect(logins.last['data'], {'token': 'T2'});
+
+    channels.last.serverSend({'event': SocketEvent.loginError, 'data': {'code': 'token_revoked'}});
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(c.status, SocketStatus.disconnected, reason: 'stops instead of looking connected');
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    expect(channels, hasLength(2), reason: 'no reconnect loop after a refusal');
   });
 }
